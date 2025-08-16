@@ -5,10 +5,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node test-reviews.js",
-    "test:reviews": "node test-reviews.js",
-    "dev": "vercel dev",
-    "install": "npm install"
+    "dev": "vercel dev"
   },
   "keywords": [],
   "author": "",

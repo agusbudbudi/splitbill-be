@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Split Bill Dashboard</title>
+
+    <link rel="icon" href="SplitBill-icon.png" type="image/png" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unicons.iconscout.com/release/v4.0.8/css/line.css"
+    />
+    <link rel="stylesheet" href="css/dashboard.css" />
+  </head>
+  <body>
+    <div class="container">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <img src="img/logoSummary.png" alt="Logo" class="splitbill-logo" />
+        </div>
+        <nav class="sidebar-nav">
+          <a
+            href="#"
+            class="nav-item active"
+            onclick="switchTab('accounts', this)"
+          >
+            <i class="uil uil-users-alt"></i>
+            <span>Accounts</span>
+          </a>
+          <a href="#" class="nav-item" onclick="switchTab('reviews', this)">
+            <i class="uil uil-star"></i>
+            <span>Reviews</span>
+          </a>
+        </nav>
+      </aside>
+
+      <main class="main-content">
+        <header class="header">
+          <h1>Dashboard</h1>
+          <p>Kelola data aplikasi Split Bill anda</p>
+        </header>
+
+        <div class="content">
+          <div id="accounts" class="tab-content active">
+            <h2 class="section-title">Daftar Akun Pengguna</h2>
+
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-label">Total Pengguna</div>
+                <div class="stat-number" id="totalUsers">0</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Pengguna Aktif</div>
+                <div class="stat-number" id="activeUsers">0</div>
+              </div>
+            </div>
+
+            <div class="search-container">
+              <i class="fas fa-search"></i>
+              <input
+                type="text"
+                class="search-box"
+                placeholder="Cari pengguna..."
+                id="userSearch"
+                onkeyup="searchUsers()"
+              />
+            </div>
+
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>User ID</th>
+                    <th>Nama Lengkap</th>
+                    <th>Email</th>
+                    <th>Tanggal Registrasi</th>
+                  </tr>
+                </thead>
+                <tbody id="usersTableBody">
+                  <!-- Data akan diisi oleh JavaScript -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div id="reviews" class="tab-content">
+            <h2 class="section-title">Daftar Review</h2>
+
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-label">Total Review</div>
+                <div class="stat-number" id="totalReviews">0</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Rating Rata-rata</div>
+                <div class="stat-number" id="avgRating">0.0</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Bersedia Dihubungi</div>
+                <div class="stat-number" id="contactableUsers">0</div>
+              </div>
+            </div>
+
+            <div class="search-container">
+              <i class="fas fa-search"></i>
+              <input
+                type="text"
+                class="search-box"
+                placeholder="Cari review..."
+                id="reviewSearch"
+                onkeyup="searchReviews()"
+              />
+            </div>
+
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Nama</th>
+                    <th>Review</th>
+                    <th>Rating</th>
+                    <th>Bersedia Dihubungi</th>
+                  </tr>
+                </thead>
+                <tbody id="reviewsTableBody">
+                  <!-- Data akan diisi oleh JavaScript -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script src="js/dashboard.js"></script>
+  </body>
+</html>

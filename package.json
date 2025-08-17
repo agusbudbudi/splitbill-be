@@ -4,9 +4,7 @@
   "type": "module",
   "description": "",
   "main": "index.js",
-  "scripts": {
-    "dev": "vercel dev"
-  },
+  "scripts": {},
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -18,5 +16,8 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.16.1",
     "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "vercel": "^46.0.1"
   }
 }

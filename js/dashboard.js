@@ -146,4 +146,32 @@ function searchReviews() {
 document.addEventListener("DOMContentLoaded", function () {
   fetchUsers();
   fetchReviews();
+
+  const menuBtn = document.querySelector(".menu-btn");
+  const closeBtn = document.querySelector(".close-btn");
+  const sidebar = document.querySelector(".sidebar");
+  const overlay = document.querySelector(".overlay");
+  const navItems = document.querySelectorAll(".nav-item");
+
+  function openSidebar() {
+    sidebar.classList.add("active");
+    overlay.classList.add("active");
+  }
+
+  function closeSidebar() {
+    sidebar.classList.remove("active");
+    overlay.classList.remove("active");
+  }
+
+  menuBtn.addEventListener("click", openSidebar);
+  closeBtn.addEventListener("click", closeSidebar);
+  overlay.addEventListener("click", closeSidebar);
+
+  navItems.forEach((item) => {
+    item.addEventListener("click", () => {
+      if (window.innerWidth <= 768) {
+        closeSidebar();
+      }
+    });
+  });
 });

@@ -4,7 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Split Bill Dashboard</title>
-
     <link rel="icon" href="SplitBill-icon.png" type="image/png" />
     <link
       href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap"
@@ -24,7 +23,13 @@
     <div class="container">
       <aside class="sidebar">
         <div class="sidebar-header">
-          <img src="img/logoSummary.png" alt="Logo" class="splitbill-logo" />
+          <img
+            src="img/logoSummary.png"
+            alt="Logo"
+            class="splitbill-logo sidebar-logo"
+          />
+          <h2 class="sidebar-title">All Menu</h2>
+          <button class="close-btn"><i class="uil uil-times"></i></button>
         </div>
         <nav class="sidebar-nav">
           <a
@@ -43,7 +48,18 @@
       </aside>
 
       <main class="main-content">
+        <div class="overlay"></div>
         <header class="header">
+          <div class="mobile-header">
+            <button class="menu-btn">
+              <i class="uil uil-bars"></i> All Menu
+            </button>
+            <img
+              src="img/logoSummary.png"
+              alt="Logo"
+              class="splitbill-logo header-logo"
+            />
+          </div>
           <h1>Dashboard</h1>
           <p>Kelola data aplikasi Split Bill anda</p>
         </header>
@@ -54,11 +70,15 @@
 
             <div class="stats-grid">
               <div class="stat-card">
-                <div class="stat-label">Total Pengguna</div>
+                <div class="stat-label">
+                  <i class="uil uil-user"></i> Total Pengguna
+                </div>
                 <div class="stat-number" id="totalUsers">0</div>
               </div>
               <div class="stat-card">
-                <div class="stat-label">Pengguna Aktif</div>
+                <div class="stat-label">
+                  <i class="uil uil-user-check"></i> Pengguna Aktif
+                </div>
                 <div class="stat-number" id="activeUsers">0</div>
               </div>
             </div>
@@ -96,15 +116,21 @@
 
             <div class="stats-grid">
               <div class="stat-card">
-                <div class="stat-label">Total Review</div>
+                <div class="stat-label">
+                  <i class="uil uil-star"></i> Total Review
+                </div>
                 <div class="stat-number" id="totalReviews">0</div>
               </div>
               <div class="stat-card">
-                <div class="stat-label">Rating Rata-rata</div>
+                <div class="stat-label">
+                  <i class="uil uil-star"></i> Rating Rata-rata
+                </div>
                 <div class="stat-number" id="avgRating">0.0</div>
               </div>
               <div class="stat-card">
-                <div class="stat-label">Bersedia Dihubungi</div>
+                <div class="stat-label">
+                  <i class="uil uil-phone"></i> Bersedia Dihubungi
+                </div>
                 <div class="stat-number" id="contactableUsers">0</div>
               </div>
             </div>

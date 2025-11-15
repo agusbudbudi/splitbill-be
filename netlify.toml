@@ -8,5 +8,9 @@
 
 [functions]
   node_bundler = "esbuild"
-  # Externalize these so Netlify includes them from node_modules in the function bundle
   external_node_modules = ["mongoose", "mongodb", "bson"]
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200

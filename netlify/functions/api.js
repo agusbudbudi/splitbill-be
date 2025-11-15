@@ -127,8 +127,20 @@ export async function handler(event, context) {
           route: "root",
           requestPath,
           normalizedPath,
+          url: typeof event?.url === "string" ? event.url : null,
+          method: event?.method || event?.httpMethod || null,
           rawUrl: event?.rawUrl || null,
           path: event?.path || null,
+          eventType: Object.prototype.toString.call(event),
+          eventCtor: event?.constructor?.name || null,
+          eventKeys: (() => {
+            try {
+              return Object.getOwnPropertyNames(event || {});
+            } catch {
+              return [];
+            }
+          })(),
+          hasHeadersGet: typeof event?.headers?.get === "function",
           headers: {
             host: event?.headers?.host || event?.headers?.Host || null,
             "x-forwarded-uri":

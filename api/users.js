@@ -20,8 +20,9 @@ export async function handleUsers(event) {
   }
 
   try {
-    if (event.httpMethod !== "GET") {
-      throw new HttpError(405, `Method ${event.httpMethod} not allowed`);
+    const method = event?.httpMethod || event?.method || "GET";
+    if (method !== "GET") {
+      throw new HttpError(405, `Method ${method} not allowed`);
     }
 
     await connectDatabase();

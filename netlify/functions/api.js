@@ -31,7 +31,6 @@ function normalizePath(path) {
 
   return path
     .replace(/^\/\.netlify\/functions\/api/, "")
-    .replace(/^\/api\b/, "")
     .replace(/^\/+/, "/")
     .replace(/\/+$/, "") || "/";
 }

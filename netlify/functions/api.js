@@ -31,6 +31,21 @@ function getRequestPath(event) {
     // ignore header parsing errors
   }
 
+  // If rawUrl contains '/api/' or '/.netlify/functions/api', extract from there
+  try {
+    const raw = String(event?.rawUrl || "");
+    const apiIdx = raw.indexOf("/api/");
+    if (apiIdx >= 0) {
+      return raw.substring(apiIdx);
+    }
+    const fnIdx = raw.indexOf("/.netlify/functions/api/");
+    if (fnIdx >= 0) {
+      return raw.substring(fnIdx);
+    }
+  } catch (_) {
+    // ignore parsing errors
+  }
+
   if (event?.rawUrl) {
     try {
       const url = new URL(event.rawUrl);

@@ -9,8 +9,22 @@ dotenv.config();
 
 const BEARER_PREFIX = "Bearer ";
 
-function extractToken(headers = {}) {
-  const authorization = headers.authorization || headers.Authorization;
+function extractToken(headersArg = {}) {
+  let authorization = null;
+  try {
+    if (headersArg && typeof headersArg.get === "function") {
+      authorization =
+        headersArg.get("authorization") ||
+        headersArg.get("Authorization") ||
+        null;
+    } else {
+      authorization =
+        headersArg.authorization || headersArg.Authorization || null;
+    }
+  } catch (_) {
+    authorization = null;
+  }
+
   if (authorization && authorization.startsWith(BEARER_PREFIX)) {
     return authorization.slice(BEARER_PREFIX.length).trim();
   }

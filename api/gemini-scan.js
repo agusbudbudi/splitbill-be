@@ -1,8 +1,15 @@
-import { createCorsHeaders, errorResponse, jsonResponse, noContentResponse } from "../lib/http.js";
+import {
+  createCorsHeaders,
+  errorResponse,
+  jsonResponse,
+  noContentResponse,
+} from "../lib/http.js";
 import { parseJsonBody } from "../lib/parsers.js";
 import { HttpError, toHttpError } from "../lib/errors.js";
 
-const GOOGLE_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+// Use latest stable Gemini 1.5 Flash endpoint compatible with v1beta generateContent
+const GOOGLE_API_URL =
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent";
 
 const PROMPT = `
 Analyze this bill/receipt image and extract the following information in JSON format:
@@ -31,14 +38,15 @@ Please extract as much information as possible. Respond with ONLY the JSON.
 
 export async function handleGeminiScan(event) {
   const headers = createCorsHeaders(event);
+  const method = event?.httpMethod || event?.method || "GET";
 
-  if (event.httpMethod === "OPTIONS") {
+  if (method === "OPTIONS") {
     return noContentResponse(headers);
   }
 
   try {
-    if (event.httpMethod !== "POST") {
-      throw new HttpError(405, "Method not allowed");
+    if (method !== "POST") {
+      throw new HttpError(405, `Method ${method} not allowed`);
     }
 
     const apiKey = process.env.GEMINI_API_KEY;
@@ -47,10 +55,13 @@ export async function handleGeminiScan(event) {
       throw new HttpError(500, "Missing Gemini API Key");
     }
 
-    const { mime_type, base64Image } = parseJsonBody(event);
+    const { mime_type, base64Image } = await parseJsonBody(event);
 
     if (!mime_type || !base64Image) {
-      throw new HttpError(400, "Missing required fields: mime_type and base64Image");
+      throw new HttpError(
+        400,
+        "Missing required fields: mime_type and base64Image"
+      );
     }
 
     const payload = {
@@ -77,7 +88,11 @@ export async function handleGeminiScan(event) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new HttpError(response.status, "Gemini API request failed", errorText);
+      throw new HttpError(
+        response.status,
+        "Gemini API request failed",
+        errorText
+      );
     }
 
     const data = await response.json();

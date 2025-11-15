@@ -67,7 +67,7 @@ vercel --prod
 ### Base URL
 
 ```
-https://splitbill-backend.netlify.app
+https://splitbillbe.netlify.app
 ```
 
 ### Authentication Endpoints
@@ -221,7 +221,7 @@ Semua error menggunakan format yang konsisten:
 #### Register:
 
 ```bash
-curl -X POST https://splitbill-backend.netlify.app/api/auth/register \
+curl -X POST https://splitbillbe.netlify.app/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{"name":"Test User","email":"test@example.com","password":"password123"}'
 ```
@@ -229,7 +229,7 @@ curl -X POST https://splitbill-backend.netlify.app/api/auth/register \
 #### Login:
 
 ```bash
-curl -X POST https://splitbill-backend.netlify.app/api/auth/login \
+curl -X POST https://splitbillbe.netlify.app/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"test@example.com","password":"password123"}'
 ```
@@ -237,7 +237,7 @@ curl -X POST https://splitbill-backend.netlify.app/api/auth/login \
 #### Get Current User:
 
 ```bash
-curl -X GET https://splitbill-backend.netlify.app/api/auth/me \
+curl -X GET https://splitbillbe.netlify.app/api/auth/me \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
@@ -245,7 +245,7 @@ curl -X GET https://splitbill-backend.netlify.app/api/auth/me \
 
 Frontend sudah dikonfigurasi untuk menggunakan backend ini:
 
-- Base URL: `https://splitbill-backend.netlify.app`
+- Base URL: `https://splitbillbe.netlify.app`
 - Authentication service sudah siap di `js/login.js`
 - Token management dengan localStorage
 

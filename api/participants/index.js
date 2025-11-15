@@ -1,7 +1,12 @@
 import Participant from "../models/Participant.js";
 import { requireUser } from "../middleware/auth.js";
 import { connectDatabase } from "../../lib/db.js";
-import { createCorsHeaders, errorResponse, jsonResponse, noContentResponse } from "../../lib/http.js";
+import {
+  createCorsHeaders,
+  errorResponse,
+  jsonResponse,
+  noContentResponse,
+} from "../../lib/http.js";
 import { parseJsonBody } from "../../lib/parsers.js";
 import { HttpError, toHttpError } from "../../lib/errors.js";
 
@@ -14,8 +19,9 @@ const mapParticipant = (participant) => ({
 
 export async function handleParticipants(event) {
   const headers = createCorsHeaders(event);
+  const method = event?.httpMethod || event?.method || "GET";
 
-  if (event.httpMethod === "OPTIONS") {
+  if (method === "OPTIONS") {
     return noContentResponse(headers);
   }
 
@@ -23,7 +29,7 @@ export async function handleParticipants(event) {
     await connectDatabase();
     const user = await requireUser(event);
 
-    if (event.httpMethod === "GET") {
+    if (method === "GET") {
       const participants = await Participant.find({ user: user._id })
         .collation({ locale: "en", strength: 2 })
         .sort({ createdAt: 1 });
@@ -38,8 +44,8 @@ export async function handleParticipants(event) {
       );
     }
 
-    if (event.httpMethod === "POST") {
-      const { name } = parseJsonBody(event);
+    if (method === "POST") {
+      const { name } = await parseJsonBody(event);
       const trimmedName = typeof name === "string" ? name.trim() : "";
 
       if (!trimmedName) {
@@ -70,7 +76,7 @@ export async function handleParticipants(event) {
       );
     }
 
-    throw new HttpError(405, `Method ${event.httpMethod} not allowed`);
+    throw new HttpError(405, `Method ${method} not allowed`);
   } catch (error) {
     console.error("Participants handler error:", error);
     return errorResponse(toHttpError(error), headers);

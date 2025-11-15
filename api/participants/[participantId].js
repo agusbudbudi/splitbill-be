@@ -3,13 +3,19 @@ import mongoose from "mongoose";
 import Participant from "../models/Participant.js";
 import { requireUser } from "../middleware/auth.js";
 import { connectDatabase } from "../../lib/db.js";
-import { createCorsHeaders, errorResponse, jsonResponse, noContentResponse } from "../../lib/http.js";
+import {
+  createCorsHeaders,
+  errorResponse,
+  jsonResponse,
+  noContentResponse,
+} from "../../lib/http.js";
 import { HttpError, toHttpError } from "../../lib/errors.js";
 
 export async function handleParticipantById(event, participantId) {
   const headers = createCorsHeaders(event);
+  const method = event?.httpMethod || event?.method || "GET";
 
-  if (event.httpMethod === "OPTIONS") {
+  if (method === "OPTIONS") {
     return noContentResponse(headers);
   }
 
@@ -17,8 +23,8 @@ export async function handleParticipantById(event, participantId) {
     await connectDatabase();
     const user = await requireUser(event);
 
-    if (event.httpMethod !== "DELETE") {
-      throw new HttpError(405, `Method ${event.httpMethod} not allowed`);
+    if (method !== "DELETE") {
+      throw new HttpError(405, `Method ${method} not allowed`);
     }
 
     if (!mongoose.Types.ObjectId.isValid(participantId)) {

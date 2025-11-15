@@ -12,6 +12,25 @@ import handleGeminiScan from "../../api/gemini-scan.js";
 import { createCorsHeaders, jsonResponse } from "../../lib/http.js";
 
 function getRequestPath(event) {
+  // Try common proxy headers first (Netlify/AWS) to get the original URI
+  try {
+    const headers = event?.headers || {};
+    const headerPath =
+      headers["x-forwarded-uri"] ||
+      headers["X-Forwarded-Uri"] ||
+      headers["x-original-uri"] ||
+      headers["X-Original-Uri"] ||
+      headers["x-rewrite-url"] ||
+      headers["X-Rewrite-Url"] ||
+      headers["x-nf-original-pathname"];
+
+    if (typeof headerPath === "string" && headerPath.trim()) {
+      return headerPath;
+    }
+  } catch (_) {
+    // ignore header parsing errors
+  }
+
   if (event?.rawUrl) {
     try {
       const url = new URL(event.rawUrl);
@@ -25,14 +44,27 @@ function getRequestPath(event) {
 }
 
 function normalizePath(path) {
-  if (!path) {
-    return "/";
+  if (!path) return "/";
+
+  let p = path;
+
+  // ensure it starts with a slash
+  if (!p.startsWith("/")) {
+    p = `/${p}`;
   }
 
-  return path
-    .replace(/^\/\.netlify\/functions\/api/, "")
-    .replace(/^\/+/, "/")
-    .replace(/\/+$/, "") || "/";
+  // strip Netlify functions prefix with an optional trailing slash
+  p = p.replace(/^\/\.netlify\/functions\/api\/?/, "/");
+
+  // collapse multiple slashes
+  p = p.replace(/\/{2,}/g, "/");
+
+  // trim trailing slashes except for root
+  if (p.length > 1) {
+    p = p.replace(/\/+$/, "");
+  }
+
+  return p || "/";
 }
 
 function extractSegments(path) {
@@ -108,7 +140,11 @@ export async function handler(event, context) {
   } catch (error) {
     console.error("Unhandled API router error:", error);
     const headers = createCorsHeaders(event);
-    return jsonResponse(500, { success: false, error: "Internal server error" }, headers);
+    return jsonResponse(
+      500,
+      { success: false, error: "Internal server error" },
+      headers
+    );
   }
 }
 

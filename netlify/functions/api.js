@@ -12,10 +12,25 @@ import handleGeminiScan from "../../api/gemini-scan.js";
 import { createCorsHeaders, jsonResponse } from "../../lib/http.js";
 
 function getRequestPath(event) {
+  // Netlify Functions v2: Request object with .url
+  if (event && typeof event.url === "string") {
+    try {
+      const u = new URL(event.url);
+      return u.pathname || "/";
+    } catch (_) {
+      // ignore URL parse errors
+    }
+  }
+
   // Try common proxy headers first (Netlify/AWS) to get the original URI
   try {
     const headers = event?.headers || {};
     const headerPath =
+      (typeof headers.get === "function" &&
+        (headers.get("x-forwarded-uri") ||
+          headers.get("x-original-uri") ||
+          headers.get("x-rewrite-url") ||
+          headers.get("x-nf-original-pathname"))) ||
       headers["x-forwarded-uri"] ||
       headers["X-Forwarded-Uri"] ||
       headers["x-original-uri"] ||

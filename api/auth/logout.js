@@ -28,7 +28,7 @@ export async function handleAuthLogout(event) {
 
     await connectDatabase();
 
-    const { refreshToken } = parseJsonBody(event);
+    const { refreshToken } = await parseJsonBody(event);
 
     if (refreshToken) {
       try {

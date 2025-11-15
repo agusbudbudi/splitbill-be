@@ -29,7 +29,7 @@ export async function handleAuthLogin(event) {
 
     await connectDatabase();
 
-    const { email, password } = parseJsonBody(event);
+    const { email, password } = await parseJsonBody(event);
 
     if (!email || !password) {
       throw new HttpError(400, "Email and password are required");

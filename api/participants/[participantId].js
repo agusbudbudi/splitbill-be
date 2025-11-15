@@ -1,106 +1,44 @@
 import mongoose from "mongoose";
-import dotenv from "dotenv";
-import cors from "cors";
 
 import Participant from "../models/Participant.js";
-import { authenticateToken } from "../middleware/auth.js";
-import initMiddleware from "../../lib/init-middleware.js";
+import { requireUser } from "../middleware/auth.js";
+import { connectDatabase } from "../../lib/db.js";
+import { createCorsHeaders, errorResponse, jsonResponse, noContentResponse } from "../../lib/http.js";
+import { HttpError, toHttpError } from "../../lib/errors.js";
 
-dotenv.config();
+export async function handleParticipantById(event, participantId) {
+  const headers = createCorsHeaders(event);
 
-const corsMiddleware = initMiddleware(
-  cors({
-    origin: true,
-    credentials: true,
-  })
-);
-
-const connectDB = async () => {
-  if (!mongoose.connection.readyState) {
-    const uri = process.env.MONGO_URI;
-    if (!uri) {
-      throw new Error("Database configuration error");
-    }
-    await mongoose.connect(uri);
+  if (event.httpMethod === "OPTIONS") {
+    return noContentResponse(headers);
   }
-};
-
-const runAuth = (req, res) =>
-  new Promise((resolve, reject) => {
-    authenticateToken(req, res, (result) => {
-      if (result instanceof Error) {
-        reject(result);
-      } else {
-        resolve(result);
-      }
-    });
-  });
-
-export default async function handler(req, res) {
-  const {
-    query: { participantId },
-  } = req;
 
   try {
-    await corsMiddleware(req, res);
+    await connectDatabase();
+    const user = await requireUser(event);
 
-    if (req.method === "OPTIONS") {
-      return res.status(204).end();
-    }
-
-    if (!process.env.MONGO_URI) {
-      return res.status(500).json({
-        success: false,
-        error: "Database configuration error",
-      });
-    }
-
-    await connectDB();
-    await runAuth(req, res);
-
-    if (req.method !== "DELETE") {
-      res.setHeader("Allow", ["DELETE"]);
-      return res.status(405).json({
-        success: false,
-        error: `Method ${req.method} not allowed`,
-      });
+    if (event.httpMethod !== "DELETE") {
+      throw new HttpError(405, `Method ${event.httpMethod} not allowed`);
     }
 
     if (!mongoose.Types.ObjectId.isValid(participantId)) {
-      return res.status(400).json({
-        success: false,
-        error: "ID peserta tidak valid",
-      });
+      throw new HttpError(400, "ID peserta tidak valid");
     }
 
     const participant = await Participant.findOneAndDelete({
       _id: participantId,
-      user: req.user._id,
+      user: user._id,
     });
 
     if (!participant) {
-      return res.status(404).json({
-        success: false,
-        error: "Peserta tidak ditemukan",
-      });
+      throw new HttpError(404, "Peserta tidak ditemukan");
     }
 
-    return res.status(200).json({
-      success: true,
-    });
+    return jsonResponse(200, { success: true }, headers);
   } catch (error) {
     console.error("Delete participant error:", error);
-
-    if (error.status) {
-      return res.status(error.status).json({
-        success: false,
-        error: error.message,
-      });
-    }
-
-    return res.status(500).json({
-      success: false,
-      error: "Internal server error",
-    });
+    return errorResponse(toHttpError(error), headers);
   }
 }
+
+export default handleParticipantById;

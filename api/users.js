@@ -1,33 +1,32 @@
-import mongoose from "mongoose";
 import dotenv from "dotenv";
-import User from "./models/User.js"; // Adjust the path as necessary
+
+import User from "./models/User.js";
+import { connectDatabase } from "../lib/db.js";
+import { createCorsHeaders, errorResponse, jsonResponse, noContentResponse } from "../lib/http.js";
+import { HttpError, toHttpError } from "../lib/errors.js";
 
 dotenv.config();
 
-// Handler to get all users
-export default async function handler(req, res) {
-  if (req.method === "GET") {
-    try {
-      // Connect to the database
-      if (mongoose.connection.readyState !== 1) {
-        await mongoose.connect(process.env.MONGO_URI, {
-          useNewUrlParser: true,
-          useUnifiedTopology: true,
-        });
-      }
+export async function handleUsers(event) {
+  const headers = createCorsHeaders(event);
 
-      // Fetch all users
-      const users = await User.find({});
+  if (event.httpMethod === "OPTIONS") {
+    return noContentResponse(headers);
+  }
 
-      // Return the users
-      res.status(200).json(users);
-    } catch (error) {
-      console.error("Error fetching users:", error);
-      res.status(500).json({ message: "Internal Server Error" });
+  try {
+    if (event.httpMethod !== "GET") {
+      throw new HttpError(405, `Method ${event.httpMethod} not allowed`);
     }
-  } else {
-    // Handle unsupported methods
-    res.setHeader("Allow", ["GET"]);
-    res.status(405).end(`Method ${req.method} Not Allowed`);
+
+    await connectDatabase();
+    const users = await User.find({});
+
+    return jsonResponse(200, { success: true, users }, headers);
+  } catch (error) {
+    console.error("Users handler error:", error);
+    return errorResponse(toHttpError(error), headers);
   }
 }
+
+export default handleUsers;

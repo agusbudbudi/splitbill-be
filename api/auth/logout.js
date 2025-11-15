@@ -1,69 +1,49 @@
-import mongoose from "mongoose";
 import dotenv from "dotenv";
-import cors from "cors";
+
+import { connectDatabase } from "../../lib/db.js";
+import { createCorsHeaders, errorResponse, jsonResponse, noContentResponse } from "../../lib/http.js";
+import { parseJsonBody } from "../../lib/parsers.js";
+import { HttpError, toHttpError } from "../../lib/errors.js";
 import { verifyRefreshToken } from "../middleware/auth.js";
-import initMiddleware from "../../lib/init-middleware.js";
 
 dotenv.config();
 
-// Initialize CORS middleware
-const corsMiddleware = initMiddleware(
-  cors({
-    origin: true,
-    credentials: true,
-  })
-);
+export async function handleAuthLogout(event) {
+  const headers = createCorsHeaders(event);
 
-// Connect to MongoDB
-const connectDB = async () => {
-  if (!mongoose.connection.readyState) {
-    const uri = process.env.MONGO_URI;
-    await mongoose.connect(uri);
-  }
-};
-
-export default async function handler(req, res) {
-  // Apply CORS
-  await corsMiddleware(req, res);
-
-  // Only allow POST method
-  if (req.method !== "POST") {
-    return res.status(405).json({
-      success: false,
-      error: "Method not allowed",
-    });
+  if (event.httpMethod === "OPTIONS") {
+    return noContentResponse(headers);
   }
 
   try {
-    await connectDB();
+    if (event.httpMethod !== "POST") {
+      throw new HttpError(405, "Method not allowed");
+    }
 
-    const { refreshToken } = req.body;
+    await connectDatabase();
 
-    // Validate refresh token if provided
+    const { refreshToken } = parseJsonBody(event);
+
     if (refreshToken) {
       try {
         verifyRefreshToken(refreshToken);
       } catch (error) {
-        // Token is invalid, but we still proceed with logout
         console.log("Invalid refresh token during logout:", error.message);
       }
     }
 
-    // In a production app, you might want to:
-    // 1. Add the refresh token to a blacklist
-    // 2. Store refresh tokens in database and remove them
-    // For now, we'll just return success since the frontend will clear tokens
-
-    return res.status(200).json({
-      success: true,
-      message: "Logout successful",
-    });
+    return jsonResponse(
+      200,
+      {
+        success: true,
+        message: "Logout successful",
+      },
+      headers
+    );
   } catch (error) {
-    console.error("Logout error:", error);
-
-    return res.status(500).json({
-      success: false,
-      error: "Internal server error",
-    });
+    console.error("Logout handler error:", error);
+    return errorResponse(toHttpError(error), headers);
   }
 }
+
+export default handleAuthLogout;

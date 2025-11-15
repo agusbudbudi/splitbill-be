@@ -104,7 +104,30 @@ export async function handler(event, context) {
 
   try {
     if (segments.length === 0) {
-      return handleRoot(event, context);
+      // Temporary debug output to inspect routing input from Netlify
+      const headers = createCorsHeaders(event);
+      return jsonResponse(
+        200,
+        {
+          route: "root",
+          requestPath,
+          normalizedPath,
+          rawUrl: event?.rawUrl || null,
+          path: event?.path || null,
+          headers: {
+            host: event?.headers?.host || event?.headers?.Host || null,
+            "x-forwarded-uri":
+              event?.headers?.["x-forwarded-uri"] ||
+              event?.headers?.["X-Forwarded-Uri"] ||
+              null,
+            "x-original-uri":
+              event?.headers?.["x-original-uri"] ||
+              event?.headers?.["X-Original-Uri"] ||
+              null,
+          },
+        },
+        headers
+      );
     }
 
     const [resource, subresource, ...rest] = segments;

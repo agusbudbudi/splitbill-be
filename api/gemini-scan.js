@@ -9,7 +9,7 @@ import { HttpError, toHttpError } from "../lib/errors.js";
 
 // Use latest stable Gemini 1.5 Flash endpoint compatible with v1beta generateContent
 const GOOGLE_API_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent";
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
 const PROMPT = `
 Analyze this bill/receipt image and extract the following information in JSON format:

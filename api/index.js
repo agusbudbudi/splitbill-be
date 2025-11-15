@@ -10,11 +10,10 @@ export async function handleRoot(event) {
     return noContentResponse(headers);
   }
 
-  return {
-    statusCode: 200,
+  return new Response("🎉 Split Bill Backend is Live on Netlify Functions", {
+    status: 200,
     headers,
-    body: "🎉 Split Bill Backend is Live on Netlify Functions",
-  };
+  });
 }
 
 export default handleRoot;

@@ -11,6 +11,19 @@ import handleWallets from "../../api/wallets.js";
 import handleGeminiScan from "../../api/gemini-scan.js";
 import { createCorsHeaders, jsonResponse } from "../../lib/http.js";
 
+function getRequestPath(event) {
+  if (event?.rawUrl) {
+    try {
+      const url = new URL(event.rawUrl);
+      return url.pathname || "/";
+    } catch (error) {
+      console.warn("Failed to parse rawUrl", event.rawUrl, error);
+    }
+  }
+
+  return event?.path || "/";
+}
+
 function normalizePath(path) {
   if (!path) {
     return "/";
@@ -18,6 +31,7 @@ function normalizePath(path) {
 
   return path
     .replace(/^\/\.netlify\/functions\/api/, "")
+    .replace(/^\/api\b/, "")
     .replace(/^\/+/, "/")
     .replace(/\/+$/, "") || "/";
 }
@@ -34,7 +48,8 @@ function extractSegments(path) {
 }
 
 export async function handler(event, context) {
-  const normalizedPath = normalizePath(event.path);
+  const requestPath = getRequestPath(event);
+  const normalizedPath = normalizePath(requestPath);
   let segments = extractSegments(normalizedPath);
 
   if (segments[0] === "api") {

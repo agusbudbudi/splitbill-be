@@ -35,7 +35,11 @@ function extractSegments(path) {
 
 export async function handler(event, context) {
   const normalizedPath = normalizePath(event.path);
-  const segments = extractSegments(normalizedPath);
+  let segments = extractSegments(normalizedPath);
+
+  if (segments[0] === "api") {
+    segments = segments.slice(1);
+  }
 
   try {
     if (segments.length === 0) {

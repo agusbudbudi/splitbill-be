@@ -3,7 +3,12 @@ import dotenv from "dotenv";
 import User from "../models/User.js";
 import { generateTokens } from "../middleware/auth.js";
 import { connectDatabase } from "../../lib/db.js";
-import { createCorsHeaders, errorResponse, jsonResponse, noContentResponse } from "../../lib/http.js";
+import {
+  createCorsHeaders,
+  errorResponse,
+  jsonResponse,
+  noContentResponse,
+} from "../../lib/http.js";
 import { parseJsonBody } from "../../lib/parsers.js";
 import { HttpError, toHttpError } from "../../lib/errors.js";
 
@@ -12,13 +17,14 @@ dotenv.config();
 export async function handleAuthLogin(event) {
   const headers = createCorsHeaders(event);
 
-  if (event.httpMethod === "OPTIONS") {
+  const method = event?.httpMethod || event?.method || "GET";
+  if (method === "OPTIONS") {
     return noContentResponse(headers);
   }
 
   try {
-    if (event.httpMethod !== "POST") {
-      throw new HttpError(405, "Method not allowed");
+    if (method !== "POST") {
+      throw new HttpError(405, `Method ${method} not allowed`);
     }
 
     await connectDatabase();

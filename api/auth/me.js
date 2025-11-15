@@ -2,7 +2,12 @@ import dotenv from "dotenv";
 
 import { requireUser } from "../middleware/auth.js";
 import { connectDatabase } from "../../lib/db.js";
-import { createCorsHeaders, errorResponse, jsonResponse, noContentResponse } from "../../lib/http.js";
+import {
+  createCorsHeaders,
+  errorResponse,
+  jsonResponse,
+  noContentResponse,
+} from "../../lib/http.js";
 import { HttpError, toHttpError } from "../../lib/errors.js";
 
 dotenv.config();
@@ -10,13 +15,14 @@ dotenv.config();
 export async function handleAuthMe(event) {
   const headers = createCorsHeaders(event);
 
-  if (event.httpMethod === "OPTIONS") {
+  const method = event?.httpMethod || event?.method || "GET";
+  if (method === "OPTIONS") {
     return noContentResponse(headers);
   }
 
   try {
-    if (event.httpMethod !== "GET") {
-      throw new HttpError(405, "Method not allowed");
+    if (method !== "GET") {
+      throw new HttpError(405, `Method ${method} not allowed`);
     }
 
     await connectDatabase();

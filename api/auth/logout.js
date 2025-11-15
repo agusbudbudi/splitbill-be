@@ -1,7 +1,12 @@
 import dotenv from "dotenv";
 
 import { connectDatabase } from "../../lib/db.js";
-import { createCorsHeaders, errorResponse, jsonResponse, noContentResponse } from "../../lib/http.js";
+import {
+  createCorsHeaders,
+  errorResponse,
+  jsonResponse,
+  noContentResponse,
+} from "../../lib/http.js";
 import { parseJsonBody } from "../../lib/parsers.js";
 import { HttpError, toHttpError } from "../../lib/errors.js";
 import { verifyRefreshToken } from "../middleware/auth.js";
@@ -11,13 +16,14 @@ dotenv.config();
 export async function handleAuthLogout(event) {
   const headers = createCorsHeaders(event);
 
-  if (event.httpMethod === "OPTIONS") {
+  const method = event?.httpMethod || event?.method || "GET";
+  if (method === "OPTIONS") {
     return noContentResponse(headers);
   }
 
   try {
-    if (event.httpMethod !== "POST") {
-      throw new HttpError(405, "Method not allowed");
+    if (method !== "POST") {
+      throw new HttpError(405, `Method ${method} not allowed`);
     }
 
     await connectDatabase();

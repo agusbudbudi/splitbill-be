@@ -1,118 +1,88 @@
-import mongoose from "mongoose";
 import dotenv from "dotenv";
-import cors from "cors";
+
 import User from "../models/User.js";
 import { generateTokens } from "../middleware/auth.js";
-import initMiddleware from "../../lib/init-middleware.js";
+import { connectDatabase } from "../../lib/db.js";
+import { createCorsHeaders, errorResponse, jsonResponse, noContentResponse } from "../../lib/http.js";
+import { parseJsonBody } from "../../lib/parsers.js";
+import { HttpError, toHttpError } from "../../lib/errors.js";
 
 dotenv.config();
 
-// Initialize CORS middleware
-const corsMiddleware = initMiddleware(
-  cors({
-    origin: true,
-    credentials: true,
-  })
-);
+export async function handleAuthRegister(event) {
+  const headers = createCorsHeaders(event);
 
-// Connect to MongoDB
-const connectDB = async () => {
-  if (!mongoose.connection.readyState) {
-    const uri = process.env.MONGO_URI;
-    await mongoose.connect(uri);
-  }
-};
-
-export default async function handler(req, res) {
-  // Apply CORS
-  await corsMiddleware(req, res);
-
-  // Only allow POST method
-  if (req.method !== "POST") {
-    return res.status(405).json({
-      success: false,
-      error: "Method not allowed",
-    });
+  if (event.httpMethod === "OPTIONS") {
+    return noContentResponse(headers);
   }
 
   try {
-    await connectDB();
+    if (event.httpMethod !== "POST") {
+      throw new HttpError(405, "Method not allowed");
+    }
 
-    const { name, email, password } = req.body;
+    await connectDatabase();
 
-    // Validate required fields
+    const { name, email, password } = parseJsonBody(event);
+
     if (!name || !email || !password) {
-      return res.status(400).json({
-        success: false,
-        error: "Name, email, and password are required",
-      });
+      throw new HttpError(400, "Name, email, and password are required");
     }
 
-    // Validate password length
     if (password.length < 6) {
-      return res.status(400).json({
-        success: false,
-        error: "Password must be at least 6 characters long",
-      });
+      throw new HttpError(400, "Password must be at least 6 characters long");
     }
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    const normalizedEmail = email.toLowerCase().trim();
+    const existingUser = await User.findOne({ email: normalizedEmail });
+
     if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        error: "User with this email already exists",
-      });
+      throw new HttpError(400, "User with this email already exists");
     }
 
-    // Create new user
     const user = new User({
       name: name.trim(),
-      email: email.toLowerCase().trim(),
+      email: normalizedEmail,
       password,
     });
 
     await user.save();
 
-    // Generate tokens
     const { accessToken, refreshToken } = generateTokens(user._id);
 
-    // Return success response
-    return res.status(201).json({
-      success: true,
-      message: "User registered successfully",
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        createdAt: user.createdAt,
+    return jsonResponse(
+      201,
+      {
+        success: true,
+        message: "User registered successfully",
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          createdAt: user.createdAt,
+        },
+        accessToken,
+        refreshToken,
       },
-      accessToken,
-      refreshToken,
-    });
+      headers
+    );
   } catch (error) {
-    console.error("Register error:", error);
+    console.error("Register handler error:", error);
 
-    // Handle validation errors
-    if (error.name === "ValidationError") {
+    if (error?.name === "ValidationError") {
       const messages = Object.values(error.errors).map((err) => err.message);
-      return res.status(400).json({
-        success: false,
-        error: messages.join(", "),
-      });
+      return errorResponse(
+        new HttpError(400, messages.join(", ")),
+        headers
+      );
     }
 
-    // Handle duplicate key error (email already exists)
-    if (error.code === 11000) {
-      return res.status(400).json({
-        success: false,
-        error: "User with this email already exists",
-      });
+    if (error?.code === 11000) {
+      return errorResponse(new HttpError(400, "User with this email already exists"), headers);
     }
 
-    return res.status(500).json({
-      success: false,
-      error: "Internal server error",
-    });
+    return errorResponse(toHttpError(error), headers);
   }
 }
+
+export default handleAuthRegister;

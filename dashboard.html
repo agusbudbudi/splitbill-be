@@ -153,13 +153,39 @@
                     <th>Nama</th>
                     <th>Review</th>
                     <th>Rating</th>
+                    <th>Tanggal & Waktu Pengajuan</th>
                     <th>Bersedia Dihubungi</th>
                   </tr>
                 </thead>
+
                 <tbody id="reviewsTableBody">
                   <!-- Data akan diisi oleh JavaScript -->
                 </tbody>
               </table>
+            </div>
+
+            <div class="pagination-container">
+              <button
+                id="prevBtn"
+                class="pagination-btn"
+                onclick="previousPage()"
+                disabled
+              >
+                <i class="uil uil-angle-left"></i>
+                Previous
+              </button>
+              <div class="pagination-info">
+                <span id="pageInfo">Page 1 of 1</span>
+              </div>
+              <button
+                id="nextBtn"
+                class="pagination-btn"
+                onclick="nextPage()"
+                disabled
+              >
+                Next
+                <i class="uil uil-angle-right"></i>
+              </button>
             </div>
           </div>
         </div>

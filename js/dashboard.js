@@ -2,6 +2,10 @@ let usersData = [];
 let reviewsData = [];
 let filteredUsers = [];
 let filteredReviews = [];
+let currentPage = 1;
+let totalPages = 1;
+let itemsPerPage = 10;
+let totalReviews = 0;
 
 function switchTab(tabName, element) {
   // Update active tab
@@ -41,6 +45,26 @@ function formatDate(dateString) {
   return new Date(dateString).toLocaleDateString("id-ID", options);
 }
 
+function formatDateTime(dateString) {
+  const date = new Date(dateString);
+  const dateOptions = {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "Asia/Jakarta",
+  };
+  const timeOptions = {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Jakarta",
+  };
+
+  const formattedDate = date.toLocaleDateString("id-ID", dateOptions);
+  const formattedTime = date.toLocaleTimeString("id-ID", timeOptions);
+
+  return `${formattedDate} ${formattedTime}`;
+}
+
 function renderUsersTable() {
   const tableBody = document.getElementById("usersTableBody");
   tableBody.innerHTML = "";
@@ -60,13 +84,25 @@ function renderUsersTable() {
   document.getElementById("activeUsers").textContent = usersData.length;
 }
 
-async function fetchReviews() {
+async function fetchReviews(page = 1) {
   try {
-    const response = await fetch("/api/reviews");
+    const response = await fetch(
+      `/api/reviews?page=${page}&limit=${itemsPerPage}`
+    );
     const data = await response.json();
-    reviewsData = data.data.reviews;
-    filteredReviews = [...reviewsData];
-    renderReviewsTable();
+
+    if (data.success) {
+      reviewsData = data.data.reviews;
+      filteredReviews = [...reviewsData];
+
+      // Update pagination info
+      currentPage = data.data.pagination.currentPage;
+      totalPages = data.data.pagination.totalPages;
+      totalReviews = data.data.pagination.totalItems;
+
+      renderReviewsTable();
+      updatePaginationControls();
+    }
   } catch (error) {
     console.error("Error fetching reviews:", error);
   }
@@ -93,6 +129,7 @@ function renderReviewsTable() {
         <div class="review-text">${review.review}</div>
       </td>
       <td>${renderStars(review.rating)}</td>
+      <td>${formatDateTime(review.createdAt)}</td>
       <td>
         <div class="contact-status">
           <span class="status-badge ${
@@ -105,18 +142,6 @@ function renderReviewsTable() {
       </td>
     `;
   });
-
-  // Update stats
-  const totalReviews = reviewsData.length;
-  const avgRating =
-    reviewsData.reduce((sum, review) => sum + review.rating, 0) / totalReviews;
-  const contactableCount = reviewsData.filter(
-    (review) => review.contactPermission
-  ).length;
-
-  document.getElementById("totalReviews").textContent = totalReviews;
-  document.getElementById("avgRating").textContent = avgRating.toFixed(1);
-  document.getElementById("contactableUsers").textContent = contactableCount;
 }
 
 function searchUsers() {
@@ -142,10 +167,65 @@ function searchReviews() {
   renderReviewsTable();
 }
 
+// Pagination functions
+function updatePaginationControls() {
+  const prevBtn = document.getElementById("prevBtn");
+  const nextBtn = document.getElementById("nextBtn");
+  const pageInfo = document.getElementById("pageInfo");
+
+  // Update page info
+  pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+
+  // Update button states
+  prevBtn.disabled = currentPage <= 1;
+  nextBtn.disabled = currentPage >= totalPages;
+}
+
+function previousPage() {
+  if (currentPage > 1) {
+    fetchReviews(currentPage - 1);
+  }
+}
+
+function nextPage() {
+  if (currentPage < totalPages) {
+    fetchReviews(currentPage + 1);
+  }
+}
+
+// Fetch all reviews for stats calculation
+async function fetchAllReviewsForStats() {
+  try {
+    const response = await fetch("/api/reviews?page=1&limit=1000"); // Get a large number to get all reviews
+    const data = await response.json();
+
+    if (data.success) {
+      const allReviews = data.data.reviews;
+      const avgRating =
+        allReviews.length > 0
+          ? allReviews.reduce((sum, review) => sum + review.rating, 0) /
+            allReviews.length
+          : 0;
+      const contactableCount = allReviews.filter(
+        (review) => review.contactPermission
+      ).length;
+
+      document.getElementById("totalReviews").textContent =
+        data.data.pagination.totalItems;
+      document.getElementById("avgRating").textContent = avgRating.toFixed(1);
+      document.getElementById("contactableUsers").textContent =
+        contactableCount;
+    }
+  } catch (error) {
+    console.error("Error fetching all reviews for stats:", error);
+  }
+}
+
 // Initialize dashboard
 document.addEventListener("DOMContentLoaded", function () {
   fetchUsers();
   fetchReviews();
+  fetchAllReviewsForStats();
 
   const menuBtn = document.querySelector(".menu-btn");
   const closeBtn = document.querySelector(".close-btn");

@@ -44,6 +44,10 @@ export default async function handler(req, res) {
   try {
     await corsMiddleware(req, res);
 
+    if (req.method === "OPTIONS") {
+      return res.status(204).end();
+    }
+
     if (!process.env.MONGO_URI) {
       return res.status(500).json({
         success: false,

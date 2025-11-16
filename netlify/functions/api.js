@@ -9,6 +9,8 @@ import handleAuthMe from "../../api/auth/me.js";
 import handleUsers from "../../api/users.js";
 import handleWallets from "../../api/wallets.js";
 import handleGeminiScan from "../../api/gemini-scan.js";
+import handleSplitBills from "../../api/split-bills/index.js";
+import handleSplitBillById from "../../api/split-bills/[recordId].js";
 import { createCorsHeaders, jsonResponse } from "../../lib/http.js";
 
 function getRequestPath(event) {
@@ -198,6 +200,16 @@ export async function handler(event, context) {
 
     if (resource === "gemini-scan" && !subresource && rest.length === 0) {
       return handleGeminiScan(event, context);
+    }
+
+    if (resource === "split-bills") {
+      if (!subresource && rest.length === 0) {
+        return handleSplitBills(event, context);
+      }
+
+      if (subresource && rest.length === 0) {
+        return handleSplitBillById(event, subresource, context);
+      }
     }
 
     const headers = createCorsHeaders(event);

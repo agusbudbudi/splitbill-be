@@ -11,22 +11,40 @@ Backend service untuk aplikasi Split Bill dengan fitur authentication menggunaka
 - ✅ Input Validation
 - ✅ CORS Support
 - ✅ MongoDB Integration
-- ✅ Vercel Serverless Functions
+- ✅ Netlify Serverless Functions
 
 ## 📁 Project Structure
 
 ```
 api/
 ├── auth/
-│   ├── register.js     # POST /api/auth/register
-│   ├── login.js        # POST /api/auth/login
-│   ├── logout.js       # POST /api/auth/logout
-│   └── me.js          # GET /api/auth/me
+│   ├── register.js         # POST /api/auth/register
+│   ├── login.js            # POST /api/auth/login
+│   ├── logout.js           # POST /api/auth/logout
+│   └── me.js               # GET /api/auth/me
+├── participants/
+│   ├── index.js            # GET/POST /api/participants
+│   └── [participantId].js  # DELETE /api/participants/:id
+├── split-bills/
+│   ├── index.js            # GET/POST /api/split-bills
+│   └── [recordId].js       # GET /api/split-bills/:id
+├── reviews.js              # POST/GET /api/reviews
+├── users.js                # GET /api/users
+└── gemini-scan.js          # Existing Gemini API
+
+lib/
 ├── models/
-│   └── User.js        # User model dengan Mongoose
+│   ├── User.js
+│   ├── Participant.js
+│   ├── Review.js
+│   └── SplitBillRecord.js
 ├── middleware/
-│   └── auth.js        # JWT authentication middleware
-└── gemini-scan.js     # Existing Gemini API
+│   └── auth.js
+├── db.js
+├── errors.js
+├── http.js
+├── parsers.js
+└── init-middleware.js
 ```
 
 ## 🔧 Setup & Installation
@@ -54,10 +72,24 @@ JWT_SECRET=your-super-secret-jwt-key-here
 JWT_REFRESH_SECRET=your-super-secret-refresh-key-here
 ```
 
-### 4. Deploy ke Vercel
+### 4. Deploy ke Netlify (Netlify CLI)
 
 ```bash
-vercel --prod
+# Install Netlify CLI (once)
+npm i -g netlify-cli
+
+# Link project to a Netlify site (or create a new one)
+netlify init
+# or if the site already exists in the dashboard:
+# netlify link
+
+# (Optional) Set environment variables via CLI
+netlify env:set MONGO_URI "your-mongodb-uri"
+netlify env:set JWT_SECRET "your-jwt-secret"
+netlify env:set JWT_REFRESH_SECRET "your-jwt-refresh-secret"
+
+# Deploy using netlify.toml (build + functions)
+netlify deploy --build --prod
 ```
 
 ## 📚 API Documentation
@@ -250,19 +282,19 @@ Frontend sudah dikonfigurasi untuk menggunakan backend ini:
 ## 📝 Development Notes
 
 - Menggunakan ES Modules (`type: "module"`)
-- Vercel Serverless Functions
+- Netlify Serverless Functions
 - MongoDB dengan Mongoose ODM
 - CORS middleware untuk semua endpoints
 - Environment variables untuk konfigurasi
 
 ## 🚀 Deployment
 
-Project ini sudah dikonfigurasi untuk deployment di Vercel:
+Project ini sudah dikonfigurasi untuk deployment di Netlify:
 
 1. Push ke GitHub repository
-2. Connect repository ke Vercel
-3. Set environment variables di Vercel dashboard
-4. Deploy otomatis setiap push ke main branch
+2. Connect repository ke Netlify
+3. Set environment variables di Netlify dashboard (MONGO_URI, JWT_SECRET, JWT_REFRESH_SECRET)
+4. Netlify akan build & deploy otomatis setiap push ke main branch (menggunakan pengaturan di netlify.toml: functions = "netlify/functions", publish = "public")
 
 ## 📞 Support
 

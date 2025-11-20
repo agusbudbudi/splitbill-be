@@ -9,7 +9,7 @@ import {
 } from "../../lib/http.js";
 import { parseJsonBody } from "../../lib/parsers.js";
 import { HttpError, toHttpError } from "../../lib/errors.js";
-import { verifyRefreshToken } from "../middleware/auth.js";
+import { verifyRefreshToken } from "../../lib/middleware/auth.js";
 
 dotenv.config();
 

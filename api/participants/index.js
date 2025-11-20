@@ -1,5 +1,5 @@
-import Participant from "../models/Participant.js";
-import { requireUser } from "../middleware/auth.js";
+import Participant from "../../lib/models/Participant.js";
+import { requireUser } from "../../lib/middleware/auth.js";
 import { connectDatabase } from "../../lib/db.js";
 import {
   createCorsHeaders,

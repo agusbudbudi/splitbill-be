@@ -1,4 +1,3 @@
-import handleRoot from "../../api/index.js";
 import handleParticipants from "../../api/participants/index.js";
 import handleParticipantById from "../../api/participants/[participantId].js";
 import handleReviews from "../../api/reviews.js";

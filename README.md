@@ -26,8 +26,7 @@ api/
 │   └── User.js        # User model dengan Mongoose
 ├── middleware/
 │   └── auth.js        # JWT authentication middleware
-├── gemini-scan.js     # Existing Gemini API
-└── index.js           # Health check endpoint
+└── gemini-scan.js     # Existing Gemini API
 ```
 
 ## 🔧 Setup & Installation

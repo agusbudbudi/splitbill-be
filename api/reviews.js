@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 
-import Review from "./models/Review.js";
+import Review from "../lib/models/Review.js";
 import { connectDatabase } from "../lib/db.js";
 import {
   createCorsHeaders,

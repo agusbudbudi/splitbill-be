@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 
-import User from "./models/User.js";
+import User from "../lib/models/User.js";
 import { connectDatabase } from "../lib/db.js";
 import {
   createCorsHeaders,

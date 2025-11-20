@@ -1,7 +1,7 @@
 import dotenv from "dotenv";
 
-import User from "../models/User.js";
-import { generateTokens } from "../middleware/auth.js";
+import User from "../../lib/models/User.js";
+import { generateTokens } from "../../lib/middleware/auth.js";
 import { connectDatabase } from "../../lib/db.js";
 import {
   createCorsHeaders,

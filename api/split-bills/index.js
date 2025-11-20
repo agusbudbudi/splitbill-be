@@ -26,7 +26,10 @@ export function mapRecord(record) {
     id: record._id.toString(),
     ownerId: ownerId ?? "",
     activityName: doc.activityName,
-    occurredAt: doc.occurredAt instanceof Date ? doc.occurredAt.toISOString() : doc.occurredAt,
+    occurredAt:
+      doc.occurredAt instanceof Date
+        ? doc.occurredAt.toISOString()
+        : doc.occurredAt,
     participants: (doc.participants || []).map((participant) => ({
       id: participant.id,
       name: participant.name,
@@ -34,10 +37,17 @@ export function mapRecord(record) {
     expenses: doc.expenses || [],
     additionalExpenses: doc.additionalExpenses || [],
     paymentMethodIds: doc.paymentMethodIds || [],
+    paymentMethodSnapshots: doc.paymentMethodSnapshots || [],
     summary: doc.summary,
     status: doc.status,
-    createdAt: record.createdAt instanceof Date ? record.createdAt.toISOString() : record.createdAt,
-    updatedAt: record.updatedAt instanceof Date ? record.updatedAt.toISOString() : record.updatedAt,
+    createdAt:
+      record.createdAt instanceof Date
+        ? record.createdAt.toISOString()
+        : record.createdAt,
+    updatedAt:
+      record.updatedAt instanceof Date
+        ? record.updatedAt.toISOString()
+        : record.updatedAt,
   };
 }
 
@@ -54,7 +64,8 @@ function sanitizeParticipant(participant) {
   }
 
   const id = typeof participant.id === "string" ? participant.id.trim() : "";
-  const name = typeof participant.name === "string" ? participant.name.trim() : "";
+  const name =
+    typeof participant.name === "string" ? participant.name.trim() : "";
 
   if (!id || !name) {
     throw new HttpError(400, "Data peserta wajib diisi dengan benar");
@@ -69,20 +80,30 @@ function sanitizeExpense(expense, errorMessage) {
   }
 
   const id = typeof expense.id === "string" ? expense.id.trim() : "";
-  const description = typeof expense.description === "string" ? expense.description.trim() : "";
-  const paidBy = typeof expense.paidBy === "string" ? expense.paidBy.trim() : "";
+  const description =
+    typeof expense.description === "string" ? expense.description.trim() : "";
+  const paidBy =
+    typeof expense.paidBy === "string" ? expense.paidBy.trim() : "";
   const amount = Number(expense.amount);
   const createdAt = Number(expense.createdAt);
-  const participants = ensureArray(expense.participants, "Daftar peserta pada pengeluaran tidak valid").map(
-    (participantId) => {
-      if (typeof participantId !== "string" || !participantId.trim()) {
-        throw new HttpError(400, "ID peserta pada pengeluaran tidak valid");
-      }
-      return participantId.trim();
+  const participants = ensureArray(
+    expense.participants,
+    "Daftar peserta pada pengeluaran tidak valid"
+  ).map((participantId) => {
+    if (typeof participantId !== "string" || !participantId.trim()) {
+      throw new HttpError(400, "ID peserta pada pengeluaran tidak valid");
     }
-  );
+    return participantId.trim();
+  });
 
-  if (!id || !description || !paidBy || Number.isNaN(amount) || amount < 0 || Number.isNaN(createdAt)) {
+  if (
+    !id ||
+    !description ||
+    !paidBy ||
+    Number.isNaN(amount) ||
+    amount < 0 ||
+    Number.isNaN(createdAt)
+  ) {
     throw new HttpError(400, errorMessage);
   }
 
@@ -122,12 +143,18 @@ function sanitizeSummary(summary) {
       throw new HttpError(400, "Entry ringkasan peserta tidak valid");
     }
 
-    const participantId = typeof entry.participantId === "string" ? entry.participantId.trim() : "";
+    const participantId =
+      typeof entry.participantId === "string" ? entry.participantId.trim() : "";
     const paid = Number(entry.paid);
     const owed = Number(entry.owed);
     const balance = Number(entry.balance);
 
-    if (!participantId || Number.isNaN(paid) || Number.isNaN(owed) || Number.isNaN(balance)) {
+    if (
+      !participantId ||
+      Number.isNaN(paid) ||
+      Number.isNaN(owed) ||
+      Number.isNaN(balance)
+    ) {
       throw new HttpError(400, "Data ringkasan peserta tidak valid");
     }
 
@@ -140,7 +167,8 @@ function sanitizeSummary(summary) {
       }
 
       const itemId = typeof item.id === "string" ? item.id.trim() : "";
-      const description = typeof item.description === "string" ? item.description.trim() : "";
+      const description =
+        typeof item.description === "string" ? item.description.trim() : "";
       const amount = Number(item.amount);
       const type = item.type === "additional" ? "additional" : "base";
 
@@ -168,7 +196,8 @@ function sanitizeSummary(summary) {
       throw new HttpError(400, "Pelunasan tidak valid");
     }
 
-    const from = typeof settlement.from === "string" ? settlement.from.trim() : "";
+    const from =
+      typeof settlement.from === "string" ? settlement.from.trim() : "";
     const to = typeof settlement.to === "string" ? settlement.to.trim() : "";
     const amount = Number(settlement.amount);
 
@@ -186,13 +215,57 @@ function sanitizeSummary(summary) {
   };
 }
 
+function sanitizePaymentMethodSnapshot(method) {
+  if (!method || typeof method !== "object") {
+    throw new HttpError(400, "Snapshot metode pembayaran tidak valid");
+  }
+
+  const id = typeof method.id === "string" ? method.id.trim() : "";
+  const category =
+    method.category === "bank_transfer"
+      ? "bank_transfer"
+      : method.category === "ewallet"
+      ? "ewallet"
+      : null;
+  const provider =
+    typeof method.provider === "string" ? method.provider.trim() : "";
+  const ownerName =
+    typeof method.ownerName === "string" ? method.ownerName.trim() : "";
+  const accountNumber =
+    typeof method.accountNumber === "string"
+      ? method.accountNumber.trim()
+      : undefined;
+  const phoneNumber =
+    typeof method.phoneNumber === "string"
+      ? method.phoneNumber.trim()
+      : undefined;
+
+  if (!id || !category || !provider || !ownerName) {
+    throw new HttpError(400, "Data snapshot metode pembayaran tidak valid");
+  }
+
+  if (category === "bank_transfer" && !accountNumber) {
+    throw new HttpError(
+      400,
+      "Snapshot bank transfer wajib memiliki accountNumber"
+    );
+  }
+  if (category === "ewallet" && !phoneNumber) {
+    throw new HttpError(400, "Snapshot e-wallet wajib memiliki phoneNumber");
+  }
+
+  return { id, category, provider, ownerName, accountNumber, phoneNumber };
+}
+
 function sanitizePayload(payload) {
   if (!payload || typeof payload !== "object") {
     throw new HttpError(400, "Payload tidak valid");
   }
 
-  const activityName = typeof payload.activityName === "string" ? payload.activityName.trim() : "";
-  const occurredAt = typeof payload.occurredAt === "string" ? payload.occurredAt : null;
+  const activityName =
+    typeof payload.activityName === "string" ? payload.activityName.trim() : "";
+  const occurredAt =
+    typeof payload.occurredAt === "string" ? payload.occurredAt : null;
 
   if (!activityName) {
     throw new HttpError(400, "Nama aktivitas wajib diisi");
@@ -202,13 +275,15 @@ function sanitizePayload(payload) {
     throw new HttpError(400, "Tanggal aktivitas tidak valid");
   }
 
-  const participants = ensureArray(payload.participants, "Daftar peserta tidak valid").map(
-    sanitizeParticipant
-  );
+  const participants = ensureArray(
+    payload.participants,
+    "Daftar peserta tidak valid"
+  ).map(sanitizeParticipant);
 
-  const expenses = ensureArray(payload.expenses, "Daftar pengeluaran tidak valid").map(
-    sanitizeBaseExpense
-  );
+  const expenses = ensureArray(
+    payload.expenses,
+    "Daftar pengeluaran tidak valid"
+  ).map(sanitizeBaseExpense);
 
   const additionalExpenses = ensureArray(
     payload.additionalExpenses,
@@ -225,6 +300,11 @@ function sanitizePayload(payload) {
     return id.trim();
   });
 
+  const paymentMethodSnapshots = ensureArray(
+    payload.paymentMethodSnapshots ?? [],
+    "Daftar snapshot metode pembayaran tidak valid"
+  ).map(sanitizePaymentMethodSnapshot);
+
   const summary = sanitizeSummary(payload.summary);
 
   return {
@@ -234,6 +314,7 @@ function sanitizePayload(payload) {
     expenses,
     additionalExpenses,
     paymentMethodIds,
+    paymentMethodSnapshots,
     summary,
   };
 }
@@ -251,7 +332,9 @@ export async function handleSplitBills(event) {
     const user = await requireUser(event);
 
     if (method === "GET") {
-      const records = await SplitBillRecord.find({ user: user._id }).sort({ createdAt: -1 });
+      const records = await SplitBillRecord.find({ user: user._id }).sort({
+        createdAt: -1,
+      });
       return jsonResponse(
         200,
         {

@@ -183,6 +183,22 @@ const SummarySchema = new mongoose.Schema(
   { _id: false }
 );
 
+const PaymentMethodSnapshotSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true, trim: true },
+    category: {
+      type: String,
+      enum: ["bank_transfer", "ewallet"],
+      required: true,
+    },
+    provider: { type: String, required: true, trim: true, maxlength: 120 },
+    ownerName: { type: String, required: true, trim: true, maxlength: 120 },
+    accountNumber: { type: String, required: false, trim: true, maxlength: 50 },
+    phoneNumber: { type: String, required: false, trim: true, maxlength: 50 },
+  },
+  { _id: false }
+);
+
 const SplitBillRecordSchema = new mongoose.Schema(
   {
     user: {
@@ -215,6 +231,10 @@ const SplitBillRecordSchema = new mongoose.Schema(
     },
     paymentMethodIds: {
       type: [String],
+      default: [],
+    },
+    paymentMethodSnapshots: {
+      type: [PaymentMethodSnapshotSchema],
       default: [],
     },
     summary: {

@@ -27,8 +27,7 @@ api/
 ├── middleware/
 │   └── auth.js        # JWT authentication middleware
 ├── gemini-scan.js     # Existing Gemini API
-├── index.js           # Health check endpoint
-└── wallets.js         # Existing wallet API
+└── index.js           # Health check endpoint
 ```
 
 ## 🔧 Setup & Installation

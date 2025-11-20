@@ -7,7 +7,6 @@ import handleAuthRegister from "../../api/auth/register.js";
 import handleAuthLogout from "../../api/auth/logout.js";
 import handleAuthMe from "../../api/auth/me.js";
 import handleUsers from "../../api/users.js";
-import handleWallets from "../../api/wallets.js";
 import handleGeminiScan from "../../api/gemini-scan.js";
 import handleSplitBills from "../../api/split-bills/index.js";
 import handleSplitBillById from "../../api/split-bills/[recordId].js";
@@ -192,10 +191,6 @@ export async function handler(event, context) {
 
     if (resource === "users" && !subresource && rest.length === 0) {
       return handleUsers(event, context);
-    }
-
-    if (resource === "wallets" && !subresource && rest.length === 0) {
-      return handleWallets(event, context);
     }
 
     if (resource === "gemini-scan" && !subresource && rest.length === 0) {

@@ -40,7 +40,7 @@ export async function handleReviews(event) {
 
 async function createReview(event, headers) {
   const { rating, name, review, contactPermission, email, phone } =
-    parseJsonBody(event);
+    await parseJsonBody(event);
 
   if (!rating || !review) {
     throw new HttpError(400, "Validation error", [

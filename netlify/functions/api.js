@@ -9,6 +9,7 @@ import handleUsers from "../../api/users.js";
 import handleGeminiScan from "../../api/gemini-scan.js";
 import handleSplitBills from "../../api/split-bills/index.js";
 import handleSplitBillById from "../../api/split-bills/[recordId].js";
+import handleBanners from "../../api/banners.js";
 import { createCorsHeaders, jsonResponse } from "../../lib/http.js";
 
 function getRequestPath(event) {
@@ -186,6 +187,10 @@ export async function handler(event, context) {
 
     if (resource === "reviews" && !subresource && rest.length === 0) {
       return handleReviews(event, context);
+    }
+
+    if (resource === "banners" && !subresource && rest.length === 0) {
+      return handleBanners(event, context);
     }
 
     if (resource === "users" && !subresource && rest.length === 0) {

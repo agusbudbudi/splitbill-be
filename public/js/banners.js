@@ -90,6 +90,13 @@ function createBannerSection(banner = {}) {
 }
 
 async function fetchBanners() {
+  const token = localStorage.getItem("token");
+  if (!token) {
+    alert("Silakan login terlebih dahulu.");
+    window.location.href = "/login.html";
+    return;
+  }
+
   try {
     const response = await fetch(apiUrl);
     const result = await response.json();
@@ -155,6 +162,14 @@ async function saveAllBanners() {
       },
       body: JSON.stringify({ banners: newBannersToSave }), // Send an array
     });
+
+    if (response.status === 401) {
+      alert(
+        "Sesi login berakhir atau belum login. Silakan login terlebih dahulu."
+      );
+      window.location.href = "/login.html";
+      return;
+    }
 
     const result = await response.json();
 

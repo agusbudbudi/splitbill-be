@@ -1,0 +1,137 @@
+:root {
+  --primary-color: #7056ec;
+  --secondary-color: #eef6fc;
+  --background-color: #f9fafb;
+  --sidebar-bg-color: #ffffff;
+  --text-color: #111827;
+  --text-light-color: #6b7280;
+  --border-color: #e5e7eb;
+  --white-color: #ffffff;
+  --shadow-color: rgba(0, 0, 0, 0.05);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Inter", sans-serif;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: "Inter", sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
+.card {
+  background-color: var(--white-color);
+  border-radius: 16px;
+  box-shadow: 0 2px 10px var(--shadow-color);
+  padding: 30px;
+  text-align: center;
+  width: min(440px, 92vw);
+}
+
+h1 {
+  margin: 0 0 8px;
+  font-size: 24px;
+  color: var(--text-color);
+}
+
+p.subtitle {
+  margin: 0 0 20px;
+  opacity: 0.8;
+  font-size: 0.95rem;
+  color: var(--text-light-color);
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+
+label {
+  font-size: 0.9rem;
+  margin-bottom: 6px;
+  display: inline-block;
+  color: var(--text-color);
+  font-weight: 500;
+}
+
+input {
+  padding: 12px 15px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 16px;
+  color: var(--text-color);
+  outline: none;
+  transition: border-color 0.3s ease;
+}
+
+input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(112, 86, 236, 0.1);
+}
+
+.actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+button {
+  padding: 12px 20px;
+  border-radius: 8px;
+  border: none;
+  background: var(--primary-color);
+  color: var(--white-color);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+button:hover {
+  background-color: #5c43d4;
+}
+
+a {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.error {
+  color: #b00020;
+  min-height: 20px;
+  font-size: 0.9rem;
+  margin-top: 4px;
+  text-align: left;
+}
+
+.login-logo {
+  width: 80px;
+  margin-bottom: 20px;
+}

@@ -100,18 +100,17 @@ body {
 
 .main-content {
   flex: 1;
-  padding: 32px;
+  padding: 16px;
   overflow-y: auto;
 }
 
 .header {
-  margin-bottom: 32px;
+  margin-bottom: 16px;
 }
 
 .header h1 {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
-  margin-bottom: 10px;
 }
 
 .header-logo {
@@ -120,14 +119,14 @@ body {
 
 .header p {
   color: var(--text-light-color);
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .content {
   background-color: var(--white-color);
-  border-radius: 20px;
+  border-radius: 12px;
   /* border: 1px solid var(--border-color); */
-  padding: 30px;
+  padding: 20px;
 }
 
 .tab-content {
@@ -151,22 +150,22 @@ body {
 }
 
 .section-title {
-  font-size: 1.25rem;
+  font-size: 1rem;
   font-weight: 600;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 24px;
+  gap: 16px;
   margin-bottom: 24px;
 }
 
 .stat-card {
   background-color: var(--secondary-color);
-  border-radius: 20px;
-  padding: 20px;
+  border-radius: 16px;
+  padding: 16px;
 }
 
 .stat-label {
@@ -199,7 +198,7 @@ body {
   width: 100%;
   padding: 12px 16px 12px 40px;
   border: 1px solid var(--border-color);
-  border-radius: 16px;
+  border-radius: 12px;
   font-size: 1rem;
   outline: none;
   transition: border-color 0.3s, box-shadow 0.3s;
@@ -213,7 +212,7 @@ body {
 .table-container {
   overflow-x: auto;
   border: 1px solid var(--border-color);
-  border-radius: 16px;
+  border-radius: 12px;
 }
 
 table {
@@ -372,6 +371,243 @@ tr:hover {
   z-index: 999;
 }
 
+/* Banner management styles */
+.toolbar {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.title-section h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.title-section p {
+  font-size: 0.8rem;
+  color: var(--text-light-color);
+  margin: 0;
+}
+
+.save-all {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 12px;
+  background-color: var(--primary-color);
+  color: var(--white-color);
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.btn-primary:hover {
+  background-color: #5c43d4;
+}
+
+#bannerSectionsContainer {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 24px;
+}
+
+.banner-section {
+  background-color: var(--white-color);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.banner-preview {
+  width: 100%;
+  /* height: 150px; */
+  background-color: var(--secondary-color);
+  border-radius: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  aspect-ratio: 1080 / 339;
+}
+
+.banner-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.banner-preview i {
+  font-size: 2rem;
+  color: var(--border-color);
+}
+
+.banner-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-light-color);
+}
+
+.image-size-info {
+  font-size: 0.75rem;
+  color: var(--text-light-color);
+}
+
+.form-group input[type="text"] {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.form-group input[type="text"]:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.file-input-wrapper {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center; /* Align items vertically in the flex container */
+  gap: 10px; /* Space between the label and the file name display */
+}
+
+.file-input-wrapper input[type="file"] {
+  /* Hide the default file input button */
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 1; /* Ensure it's above the label but still hidden visually */
+}
+
+.file-input-wrapper .file-input-label {
+  display: block; /* Make it take full width of its container */
+  flex-shrink: 0; /* Prevent the label from shrinking */
+  cursor: pointer;
+  padding: 10px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background-color: var(--primary-color);
+  color: var(--white-color);
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: background-color 0.3s ease, border-color 0.3s ease,
+    box-shadow 0.3s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px; /* Limit label width */
+  box-sizing: border-box; /* Include padding and border in width */
+  text-align: center;
+}
+
+.file-input-wrapper .file-name-display {
+  flex-grow: 1; /* Allow the file name to take remaining space */
+  font-size: 0.7rem;
+  color: var(--text-light-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 5px 0; /* Add some vertical padding for alignment */
+}
+
+.file-input-wrapper .file-input-label:hover {
+  background-color: #5c43d4;
+}
+
+/* Focus style for the label when the hidden input is focused */
+.file-input-wrapper input[type="file"]:focus + .file-input-label {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.banner-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+  justify-content: flex-end;
+}
+
+.btn-save,
+.btn-delete {
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.btn-save {
+  background-color: var(--primary-color);
+  color: var(--white-color);
+}
+
+.btn-save:hover {
+  background-color: #5c43d4;
+}
+
+.btn-delete {
+  background-color: #ef4444;
+  color: var(--white-color);
+}
+
+.btn-delete:hover {
+  background-color: #dc2626;
+}
+
+.btn-delete-section {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  background-color: #ef4444;
+  color: var(--white-color);
+}
+
+.btn-delete-section:hover {
+  background-color: #dc2626;
+}
+
 @media (max-width: 768px) {
   .sidebar {
     position: fixed;
@@ -393,11 +629,11 @@ tr:hover {
   }
 
   .header {
-    margin-bottom: 20px;
+    margin-bottom: 16px;
   }
 
   .content {
-    padding: 16px;
+    padding: 12px;
   }
 
   .mobile-header {

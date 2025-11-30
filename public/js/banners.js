@@ -1,6 +1,26 @@
 const apiUrl = "/api/banners";
 let bannersData = []; // To store current state of banners
 
+function showLoadingSpinner(containerElement) {
+  if (!containerElement) return;
+
+  containerElement.innerHTML = ''; // Clear content
+  containerElement.style.position = 'relative'; // Ensure positioning context for overlay
+
+  const loadingOverlay = document.createElement('div');
+  loadingOverlay.classList.add('loading-overlay');
+  loadingOverlay.innerHTML = '<div class="spinner"></div>';
+  containerElement.appendChild(loadingOverlay);
+}
+
+function hideLoadingSpinner(containerElement) {
+  if (!containerElement) return;
+  const loadingOverlay = containerElement.querySelector('.loading-overlay');
+  if (loadingOverlay) {
+    loadingOverlay.remove();
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   fetchBanners();
 
@@ -90,10 +110,14 @@ function createBannerSection(banner = {}) {
 }
 
 async function fetchBanners() {
+  const container = document.getElementById("bannerSectionsContainer");
+  showLoadingSpinner(container);
+
   const token = localStorage.getItem("token");
   if (!token) {
     alert("Silakan login terlebih dahulu.");
     window.location.href = "/login.html";
+    hideLoadingSpinner(container); // Hide spinner if redirecting
     return;
   }
 
@@ -103,12 +127,16 @@ async function fetchBanners() {
 
     if (result.success) {
       bannersData = result.data.banners; // Store fetched data
-      const container = document.getElementById("bannerSectionsContainer");
-      container.innerHTML = "";
+      container.innerHTML = ""; // Clear existing content before rendering
       bannersData.forEach((banner) => createBannerSection(banner));
+    } else {
+      container.innerHTML = `<p style="text-align: center; color: red;">Error loading banners: ${result.message}</p>`;
     }
   } catch (error) {
     console.error("Error fetching banners:", error);
+    container.innerHTML = `<p style="text-align: center; color: red;">Error loading banners.</p>`;
+  } finally {
+    hideLoadingSpinner(container);
   }
 }
 

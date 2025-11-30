@@ -101,7 +101,7 @@ function sanitizeExpense(expense, errorMessage) {
     !description ||
     !paidBy ||
     Number.isNaN(amount) ||
-    amount < 0 ||
+    // amount < 0 || // Allow negative for promo
     Number.isNaN(createdAt)
   ) {
     throw new HttpError(400, errorMessage);
@@ -172,7 +172,7 @@ function sanitizeSummary(summary) {
       const amount = Number(item.amount);
       const type = item.type === "additional" ? "additional" : "base";
 
-      if (!itemId || !description || Number.isNaN(amount) || amount < 0) {
+      if (!itemId || !description || Number.isNaN(amount)) {
         throw new HttpError(400, "Detail tagihan peserta tidak valid");
       }
 

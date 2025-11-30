@@ -7,6 +7,29 @@ let totalPages = 1;
 let itemsPerPage = 10;
 let totalReviews = 0;
 
+function showLoadingSpinner(containerElement) {
+  if (!containerElement) return;
+
+  containerElement.style.position = 'relative'; // Ensure positioning context for overlay
+
+  let loadingOverlay = containerElement.querySelector('.loading-overlay');
+  if (!loadingOverlay) {
+    loadingOverlay = document.createElement('div');
+    loadingOverlay.classList.add('loading-overlay');
+    loadingOverlay.innerHTML = '<div class="spinner"></div>';
+    containerElement.appendChild(loadingOverlay);
+  }
+  loadingOverlay.style.display = 'flex';
+}
+
+function hideLoadingSpinner(containerElement) {
+  if (!containerElement) return;
+  const loadingOverlay = containerElement.querySelector('.loading-overlay');
+  if (loadingOverlay) {
+    loadingOverlay.style.display = 'none';
+  }
+}
+
 function switchTab(tabName, element) {
   // Update active tab
   document
@@ -30,6 +53,11 @@ function renderStars(rating) {
 }
 
 async function fetchUsers() {
+  const tableContainer = document.querySelector("#accounts .table-container");
+  const usersTableBody = document.getElementById("usersTableBody");
+  showLoadingSpinner(tableContainer);
+  usersTableBody.innerHTML = ''; // Clear table body when loading
+
   try {
     const response = await fetch("/api/users");
     usersData = await response.json();
@@ -37,6 +65,9 @@ async function fetchUsers() {
     renderUsersTable();
   } catch (error) {
     console.error("Error fetching users:", error);
+    usersTableBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: red;">Error loading users.</td></tr>`;
+  } finally {
+    hideLoadingSpinner(tableContainer);
   }
 }
 
@@ -69,6 +100,11 @@ function renderUsersTable() {
   const tableBody = document.getElementById("usersTableBody");
   tableBody.innerHTML = "";
 
+  if (filteredUsers.length === 0) {
+    tableBody.innerHTML = `<tr><td colspan="4" style="text-align: center;">No users found.</td></tr>`;
+    return;
+  }
+
   filteredUsers.forEach((user) => {
     const row = tableBody.insertRow();
     row.innerHTML = `
@@ -85,6 +121,11 @@ function renderUsersTable() {
 }
 
 async function fetchReviews(page = 1) {
+  const tableContainer = document.querySelector("#reviews .table-container");
+  const reviewsTableBody = document.getElementById("reviewsTableBody");
+  showLoadingSpinner(tableContainer);
+  reviewsTableBody.innerHTML = ''; // Clear table body when loading
+
   try {
     const response = await fetch(
       `/api/reviews?page=${page}&limit=${itemsPerPage}`
@@ -102,15 +143,25 @@ async function fetchReviews(page = 1) {
 
       renderReviewsTable();
       updatePaginationControls();
+    } else {
+      reviewsTableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: red;">Error: ${data.message}</td></tr>`;
     }
   } catch (error) {
     console.error("Error fetching reviews:", error);
+    reviewsTableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: red;">Error loading reviews.</td></tr>`;
+  } finally {
+    hideLoadingSpinner(tableContainer);
   }
 }
 
 function renderReviewsTable() {
   const tableBody = document.getElementById("reviewsTableBody");
   tableBody.innerHTML = "";
+
+  if (filteredReviews.length === 0) {
+    tableBody.innerHTML = `<tr><td colspan="5" style="text-align: center;">No reviews found.</td></tr>`;
+    return;
+  }
 
   filteredReviews.forEach((review) => {
     const row = tableBody.insertRow();
@@ -221,8 +272,57 @@ async function fetchAllReviewsForStats() {
   }
 }
 
+async function checkLoginAndLoadProfile() {
+  const token = localStorage.getItem("token");
+  const userProfileHeader = document.getElementById("userProfileHeader");
+  console.log("checkLoginAndLoadProfile called. Token:", token ? "Exists" : "Does not exist");
+
+  if (!userProfileHeader) {
+    console.error("userProfileHeader element not found.");
+    return;
+  }
+
+  if (token) {
+    try {
+      const response = await fetch("/api/auth/me", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      console.log("/api/auth/me response status:", response.status, "ok:", response.ok);
+      if (response.ok) {
+        const user = await response.json();
+        console.log("User data from /api/auth/me:", user);
+        renderUserProfile(user.data);
+      } else {
+        console.error("Failed to fetch user profile:", response.statusText);
+        localStorage.removeItem("token");
+        userProfileHeader.innerHTML = '<span>Guest</span>';
+        // Optionally redirect to login page: window.location.href = '/login.html';
+      }
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      localStorage.removeItem("token");
+      userProfileHeader.innerHTML = '<span>Guest</span>';
+    }
+  } else {
+    userProfileHeader.innerHTML = '<span>Guest</span>';
+  }
+}
+
+function renderUserProfile(user) {
+  const userProfileHeader = document.getElementById("userProfileHeader");
+  if (userProfileHeader && user && user.name) {
+    userProfileHeader.innerHTML = `
+      <i class="uil uil-user-circle"></i>
+      <span>${user.name}</span>
+    `;
+  }
+}
+
 // Initialize dashboard
 document.addEventListener("DOMContentLoaded", function () {
+  checkLoginAndLoadProfile(); // Check login and load profile first
   fetchUsers();
   fetchReviews();
   fetchAllReviewsForStats();
@@ -255,3 +355,4 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 });
+

@@ -131,7 +131,7 @@ function sanitizeSummary(summary) {
   }
 
   const total = Number(summary.total);
-  if (Number.isNaN(total) || total < 0) {
+  if (Number.isNaN(total)) {
     throw new HttpError(400, "Total ringkasan tidak valid");
   }
 

@@ -7,7 +7,7 @@ let totalPages = 1;
 let itemsPerPage = 10;
 let totalReviews = 0;
 
-function showLoadingSpinner(containerElement) {
+function showLoadingSpinner(containerElement, loadingText = 'Loading...') {
   if (!containerElement) return;
 
   containerElement.style.position = 'relative'; // Ensure positioning context for overlay
@@ -16,7 +16,10 @@ function showLoadingSpinner(containerElement) {
   if (!loadingOverlay) {
     loadingOverlay = document.createElement('div');
     loadingOverlay.classList.add('loading-overlay');
-    loadingOverlay.innerHTML = '<div class="spinner"></div>';
+    loadingOverlay.innerHTML = `
+      <div class="spinner"></div>
+      <p style="margin-top: 16px; color: var(--text-light-color); font-size: 0.9rem;">${loadingText}</p>
+    `;
     containerElement.appendChild(loadingOverlay);
   }
   loadingOverlay.style.display = 'flex';
@@ -55,7 +58,7 @@ function renderStars(rating) {
 async function fetchUsers() {
   const tableContainer = document.querySelector("#accounts .table-container");
   const usersTableBody = document.getElementById("usersTableBody");
-  showLoadingSpinner(tableContainer);
+  showLoadingSpinner(tableContainer, 'Loading Split Bill Account data...');
   usersTableBody.innerHTML = ''; // Clear table body when loading
 
   try {
@@ -123,7 +126,7 @@ function renderUsersTable() {
 async function fetchReviews(page = 1) {
   const tableContainer = document.querySelector("#reviews .table-container");
   const reviewsTableBody = document.getElementById("reviewsTableBody");
-  showLoadingSpinner(tableContainer);
+  showLoadingSpinner(tableContainer, 'Loading Split Bill Reviews...');
   reviewsTableBody.innerHTML = ''; // Clear table body when loading
 
   try {
@@ -314,6 +317,7 @@ function renderUserProfile(user) {
   const userProfileHeader = document.getElementById("userProfileHeader");
   if (userProfileHeader && user && user.name) {
     userProfileHeader.innerHTML = `
+      <span style="font-size: 0.85rem;">${user.email || ''}</span>
       <i class="uil uil-user-circle"></i>
       <span>${user.name}</span>
     `;

@@ -52,7 +52,7 @@ document.addEventListener("DOMContentLoaded", () => {
       } catch (_) {}
 
       // Redirect ke dashboard
-      window.location.href = "/dashboard.html";
+      window.location.href = "/index.html";
     } catch (err) {
       console.error("Login request failed:", err);
       errorEl.textContent = "Terjadi kesalahan jaringan. Coba lagi.";

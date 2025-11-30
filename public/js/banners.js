@@ -1,7 +1,7 @@
 const apiUrl = "/api/banners";
 let bannersData = []; // To store current state of banners
 
-function showLoadingSpinner(containerElement) {
+function showLoadingSpinner(containerElement, loadingText = 'Loading...') {
   if (!containerElement) return;
 
   containerElement.innerHTML = ''; // Clear content
@@ -9,7 +9,10 @@ function showLoadingSpinner(containerElement) {
 
   const loadingOverlay = document.createElement('div');
   loadingOverlay.classList.add('loading-overlay');
-  loadingOverlay.innerHTML = '<div class="spinner"></div>';
+  loadingOverlay.innerHTML = `
+    <div class="spinner"></div>
+    <p style="margin-top: 16px; color: var(--text-light-color); font-size: 0.9rem;">${loadingText}</p>
+  `;
   containerElement.appendChild(loadingOverlay);
 }
 
@@ -29,6 +32,35 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const saveAllBannersBtn = document.getElementById("saveAllBannersBtn");
   saveAllBannersBtn.addEventListener("click", saveAllBanners);
+
+  // Mobile sidebar toggle
+  const menuBtn = document.querySelector(".menu-btn");
+  const closeBtn = document.querySelector(".close-btn");
+  const sidebar = document.querySelector(".sidebar");
+  const overlay = document.querySelector(".overlay");
+  const navItems = document.querySelectorAll(".nav-item");
+
+  function openSidebar() {
+    sidebar.classList.add("active");
+    overlay.classList.add("active");
+  }
+
+  function closeSidebar() {
+    sidebar.classList.remove("active");
+    overlay.classList.remove("active");
+  }
+
+  if (menuBtn) menuBtn.addEventListener("click", openSidebar);
+  if (closeBtn) closeBtn.addEventListener("click", closeSidebar);
+  if (overlay) overlay.addEventListener("click", closeSidebar);
+
+  navItems.forEach((item) => {
+    item.addEventListener("click", () => {
+      if (window.innerWidth <= 768) {
+        closeSidebar();
+      }
+    });
+  });
 });
 
 function createBannerSection(banner = {}) {
@@ -111,7 +143,7 @@ function createBannerSection(banner = {}) {
 
 async function fetchBanners() {
   const container = document.getElementById("bannerSectionsContainer");
-  showLoadingSpinner(container);
+  showLoadingSpinner(container, 'Loading Split Bill Banner...');
 
   const token = localStorage.getItem("token");
   if (!token) {

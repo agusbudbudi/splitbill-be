@@ -5,7 +5,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "echo 'Netlify build - no compilation step'"
+    "build": "cd client && npm install && npm run build",
+    "start": "netlify dev --offline"
   },
   "keywords": [],
   "author": "",

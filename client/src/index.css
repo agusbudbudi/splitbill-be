@@ -1,0 +1,116 @@
+@import "tailwindcss";
+
+:root {
+  /* Split Bill v2 Brand Colors */
+  --background: #f8f9fd;
+  --foreground: #2d2d3e;
+
+  --card: #ffffff;
+  --card-foreground: #2d2d3e;
+
+  --popover: #ffffff;
+  --popover-foreground: #2d2d3e;
+
+  /* Vibrant Blue Primary */
+  --primary: #479fea;
+  --primary-foreground: #ffffff;
+
+  /* Secondary / Accents */
+  --secondary: #e0f2fe;
+  --secondary-foreground: #0369a1;
+
+  --muted: #f6f8fb;
+  --muted-foreground: #64748b;
+
+  --accent: #f8faff;
+  --accent-foreground: #0284c7;
+
+  /* Status Colors */
+  --success: #10b981;
+  --success-foreground: #ffffff;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --warning: #f59e0b;
+  --warning-foreground: #ffffff;
+
+  /* Soft Variants for Icon Backgrounds */
+  --primary-soft: rgba(71, 159, 234, 0.1);
+  --success-soft: rgba(16, 185, 129, 0.1);
+  --warning-soft: rgba(245, 158, 11, 0.1);
+
+  /* Very soft border for subtle separation */
+  --border: #f3f4f6;
+  --input: #f8f9fd;
+  --ring: #479fea;
+
+  --radius: 1rem;
+
+  /* Split Bill Shadows - Softer */
+  --shadow-soft: 0 2px 12px -4px rgba(71, 159, 234, 0.08);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-xl: 1.5rem;
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  --shadow-soft: 0 2px 12px -4px rgba(71, 159, 234, 0.08);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+}
+
+button,
+[role="button"],
+a {
+  cursor: pointer;
+}
+
+/* Split Bill v2 Backdrop Blur Utilities */
+.backdrop-blur-xs {
+  backdrop-filter: blur(4px);
+}
+
+/* Soft Shadow Utility */
+.shadow-soft {
+  box-shadow: var(--shadow-soft);
+}

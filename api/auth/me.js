@@ -36,10 +36,11 @@ export async function handleAuthMe(event) {
           id: user._id,
           name: user.name,
           email: user.email,
+          isAdmin: user.isAdmin,
           createdAt: user.createdAt,
         },
       },
-      headers
+      headers,
     );
   } catch (error) {
     console.error("Get current user handler error:", error);

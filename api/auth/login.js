@@ -102,6 +102,19 @@ export async function handleAuthLogin(event) {
       );
     }
 
+    // Check if user is admin
+    if (!user.isAdmin) {
+      const logger = await import("../../lib/logger.js");
+      logger.security("Non-admin user attempted to access admin dashboard", {
+        userId: user._id,
+        email: user.email,
+      });
+      throw new HttpError(
+        403,
+        "Anda tidak memiliki akses admin. Halaman ini hanya untuk administrator.",
+      );
+    }
+
     // Reset login attempts on successful login
     await user.resetLoginAttempts();
 
@@ -122,6 +135,7 @@ export async function handleAuthLogin(event) {
           id: user._id,
           name: user.name,
           email: user.email,
+          isAdmin: user.isAdmin,
           createdAt: user.createdAt,
         },
         accessToken,

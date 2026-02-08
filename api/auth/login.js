@@ -27,6 +27,19 @@ export async function handleAuthLogin(event) {
       throw new HttpError(405, `Method ${method} not allowed`);
     }
 
+    // Apply rate limiting
+    try {
+      const { applyAuthRateLimit } =
+        await import("../../lib/middleware/rateLimiter.js");
+      applyAuthRateLimit(event);
+    } catch (rateLimitError) {
+      if (rateLimitError.statusCode === 429) {
+        throw rateLimitError;
+      }
+      // If rate limiter fails to load, continue (fail open)
+      console.warn("Rate limiter not available:", rateLimitError);
+    }
+
     await connectDatabase();
 
     const { email, password } = await parseJsonBody(event);
@@ -35,20 +48,70 @@ export async function handleAuthLogin(event) {
       throw new HttpError(400, "Email and password are required");
     }
 
-    console.log("Attempting login for email:", email);
-
     const user = await User.findOne({ email: email.toLowerCase() });
 
+    // Use consistent error message to prevent email enumeration
+    const invalidCredentialsError = new HttpError(
+      401,
+      "Invalid email or password",
+    );
+
     if (!user) {
-      throw new HttpError(401, "Invalid email or password");
+      // Log security event for failed login attempt
+      const logger = await import("../../lib/logger.js");
+      logger.security("Failed login attempt - user not found", {
+        email: email.toLowerCase(),
+      });
+      throw invalidCredentialsError;
+    }
+
+    // Check if account is locked
+    if (user.isLocked) {
+      const lockUntil = new Date(user.lockUntil);
+      const logger = await import("../../lib/logger.js");
+      logger.security("Login attempt on locked account", {
+        userId: user._id,
+        email: user.email,
+        lockUntil: lockUntil.toISOString(),
+      });
+      throw new HttpError(
+        423,
+        `Account is locked due to too many failed login attempts. Please try again after ${lockUntil.toLocaleTimeString()}`,
+      );
     }
 
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
-      throw new HttpError(401, "Invalid email or password");
+      // Increment login attempts
+      await user.incLoginAttempts();
+
+      const logger = await import("../../lib/logger.js");
+      logger.security("Failed login attempt - invalid password", {
+        userId: user._id,
+        email: user.email,
+        loginAttempts: user.loginAttempts + 1,
+      });
+
+      throw invalidCredentialsError;
     }
 
+    if (!user.isVerified) {
+      throw new HttpError(
+        403,
+        "Email not verified. Please check your email to verify your account.",
+      );
+    }
+
+    // Reset login attempts on successful login
+    await user.resetLoginAttempts();
+
     const { accessToken, refreshToken } = generateTokens(user._id);
+
+    const logger = await import("../../lib/logger.js");
+    logger.info("Successful login", {
+      userId: user._id,
+      email: user.email,
+    });
 
     return jsonResponse(
       200,
@@ -64,7 +127,7 @@ export async function handleAuthLogin(event) {
         accessToken,
         refreshToken,
       },
-      headers
+      headers,
     );
   } catch (error) {
     console.error("Login handler error:", error);

@@ -5,6 +5,8 @@ import handleAuthLogin from "../../api/auth/login.js";
 import handleAuthRegister from "../../api/auth/register.js";
 import handleAuthLogout from "../../api/auth/logout.js";
 import handleAuthMe from "../../api/auth/me.js";
+import handleAuthVerify from "../../api/auth/verify.js";
+import handleResendVerification from "../../api/auth/resend-verification.js";
 import handleUsers from "../../api/users.js";
 import handleGeminiScan from "../../api/gemini-scan.js";
 import handleSplitBills from "../../api/split-bills/index.js";
@@ -154,7 +156,7 @@ export async function handler(event, context) {
               null,
           },
         },
-        headers
+        headers,
       );
     }
 
@@ -170,6 +172,10 @@ export async function handler(event, context) {
           return handleAuthLogout(event, context);
         case "me":
           return handleAuthMe(event, context);
+        case "verify":
+          return handleAuthVerify(event, context);
+        case "resend-verification":
+          return handleResendVerification(event, context);
         default:
           break;
       }
@@ -219,7 +225,7 @@ export async function handler(event, context) {
     return jsonResponse(
       500,
       { success: false, error: "Internal server error" },
-      headers
+      headers,
     );
   }
 }

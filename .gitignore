@@ -65,3 +65,7 @@ Thumbs.db
 VERCEL_SETUP.md
 # Local Netlify folder
 .netlify
+
+doc/
+
+.env.example

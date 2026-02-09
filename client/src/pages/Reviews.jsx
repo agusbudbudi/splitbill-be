@@ -31,7 +31,12 @@ export default function Reviews() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/reviews?page=${page}&limit=10`);
+      const token = localStorage.getItem("token");
+      const res = await fetch(`/api/reviews?page=${page}&limit=10`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       const data = await res.json();
 
       if (data.success) {
@@ -52,7 +57,12 @@ export default function Reviews() {
 
   const fetchStats = async () => {
     try {
-      const res = await fetch("/api/reviews?page=1&limit=1000");
+      const token = localStorage.getItem("token");
+      const res = await fetch("/api/reviews?page=1&limit=1000", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       const data = await res.json();
 
       if (data.success) {

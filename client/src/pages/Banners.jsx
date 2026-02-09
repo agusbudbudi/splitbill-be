@@ -15,7 +15,12 @@ export default function Banners() {
   const fetchBanners = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/banners");
+      const token = localStorage.getItem("token");
+      const res = await fetch("/api/banners", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       const data = await res.json();
       if (data.success) {
         setBanners(data.data.banners || []);

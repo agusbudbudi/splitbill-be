@@ -23,7 +23,12 @@ export default function Users() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/users?page=${page}&limit=10`);
+      const token = localStorage.getItem("token");
+      const res = await fetch(`/api/users?page=${page}&limit=10`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       const data = await res.json();
 
       if (data.success) {

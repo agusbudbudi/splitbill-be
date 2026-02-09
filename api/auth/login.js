@@ -42,7 +42,7 @@ export async function handleAuthLogin(event) {
 
     await connectDatabase();
 
-    const { email, password } = await parseJsonBody(event);
+    const { email, password, requiredRole } = await parseJsonBody(event);
 
     if (!email || !password) {
       throw new HttpError(400, "Email and password are required");
@@ -102,13 +102,16 @@ export async function handleAuthLogin(event) {
       );
     }
 
-    // Check if user is admin
-    if (!user.isAdmin) {
+    // Optional admin enforcement (e.g., for dashboard login)
+    if (requiredRole === "admin" && !user.isAdmin) {
       const logger = await import("../../lib/logger.js");
-      logger.security("Non-admin user attempted to access admin dashboard", {
-        userId: user._id,
-        email: user.email,
-      });
+      logger.security(
+        "Non-admin user attempted to login with admin requirement",
+        {
+          userId: user._id,
+          email: user.email,
+        },
+      );
       throw new HttpError(
         403,
         "Anda tidak memiliki akses admin. Halaman ini hanya untuk administrator.",

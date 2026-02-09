@@ -28,6 +28,9 @@ export async function handleUsers(event) {
 
     await connectDatabase();
 
+    const { requireAdmin } = await import("../lib/middleware/auth.js");
+    await requireAdmin(event);
+
     const { page = 1, limit = 10 } = getQueryParams(event);
     const pageNum = Math.max(parseInt(page, 10) || 1, 1);
     const limitNum = Math.max(parseInt(limit, 10) || 10, 1);

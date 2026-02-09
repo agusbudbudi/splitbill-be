@@ -28,7 +28,9 @@ export async function handleReviews(event) {
       case "POST":
         return await createReview(event, headers);
       case "GET":
-        return await getReviews(event, headers);
+        return await (
+          await import("../lib/middleware/auth.js")
+        ).adminMiddleware(getReviews)(event, headers);
       default:
         throw new HttpError(405, `Method ${method} not allowed`);
     }
@@ -108,7 +110,7 @@ async function createReview(event, headers) {
         message: "Review berhasil disimpan",
         data: savedReview,
       },
-      headers
+      headers,
     );
   } catch (error) {
     if (error?.name === "ValidationError") {
@@ -157,7 +159,7 @@ async function getReviews(event, headers) {
         },
       },
     },
-    headers
+    headers,
   );
 }
 

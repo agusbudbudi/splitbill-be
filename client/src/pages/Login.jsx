@@ -20,13 +20,13 @@ export default function Login() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, requiredRole: "admin" }),
       });
 
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok || !data?.success) {
-        throw new Error(data?.message || "Login failed");
+        throw new Error(data?.error || data?.message || "Login failed");
       }
 
       localStorage.setItem("token", data.accessToken);

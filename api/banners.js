@@ -27,11 +27,15 @@ export async function handleBanners(event) {
 
     switch (method) {
       case "POST":
-        return await authMiddleware(upsertBanners)(event, headers);
+        return await (
+          await import("../lib/middleware/auth.js")
+        ).adminMiddleware(upsertBanners)(event, headers);
       case "GET":
         return await getBanners(event, headers);
       case "DELETE":
-        return await authMiddleware(deleteBanner)(event, headers);
+        return await (
+          await import("../lib/middleware/auth.js")
+        ).adminMiddleware(deleteBanner)(event, headers);
       default:
         throw new HttpError(405, `Method ${method} not allowed`);
     }
@@ -57,10 +61,14 @@ async function upsertBanners(event, headers) {
       const { _id, image, route } = bannerData;
 
       if (!image || !route) {
-        throw new HttpError(400, "Validation error: Image and route are required for all banners", [
-          { field: "image", message: "Image URL harus diisi" },
-          { field: "route", message: "Route harus diisi" },
-        ]);
+        throw new HttpError(
+          400,
+          "Validation error: Image and route are required for all banners",
+          [
+            { field: "image", message: "Image URL harus diisi" },
+            { field: "route", message: "Route harus diisi" },
+          ],
+        );
       }
 
       let banner;
@@ -69,7 +77,7 @@ async function upsertBanners(event, headers) {
         banner = await Banner.findByIdAndUpdate(
           _id,
           { image: image, route: route.trim(), updatedAt: Date.now() },
-          { new: true, runValidators: true, session }
+          { new: true, runValidators: true, session },
         );
         if (!banner) {
           throw new HttpError(404, `Banner with ID ${_id} not found`);
@@ -83,10 +91,7 @@ async function upsertBanners(event, headers) {
     }
 
     // Delete banners not in the current submission
-    await Banner.deleteMany(
-      { _id: { $nin: processedBannerIds } },
-      { session }
-    );
+    await Banner.deleteMany({ _id: { $nin: processedBannerIds } }, { session });
 
     await session.commitTransaction();
     session.endSession();
@@ -102,7 +107,7 @@ async function upsertBanners(event, headers) {
           banners: updatedBanners,
         },
       },
-      headers
+      headers,
     );
   } catch (error) {
     await session.abortTransaction();
@@ -129,7 +134,7 @@ async function getBanners(event, headers) {
         banners,
       },
     },
-    headers
+    headers,
   );
 }
 
@@ -152,7 +157,7 @@ async function deleteBanner(event, headers) {
       success: true,
       message: "Banner berhasil dihapus",
     },
-    headers
+    headers,
   );
 }
 

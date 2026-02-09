@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Plus, Save, Trash, Image as ImageIcon, Upload } from "lucide-react";
 import { cn as clsx } from "../lib/utils";
+import { compressImage } from "../lib/imageUtils";
 
 export default function Banners() {
   const [banners, setBanners] = useState([]);
@@ -51,16 +52,18 @@ export default function Banners() {
     }
   };
 
-  const handleImageChange = (index, file) => {
+  const handleImageChange = async (index, file) => {
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
+    try {
+      const compressedBase64 = await compressImage(file);
       const newBanners = [...banners];
-      newBanners[index].image = e.target.result;
+      newBanners[index].image = compressedBase64;
       setBanners(newBanners);
-    };
-    reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("Error compressing image:", error);
+      alert("Gagal memproses gambar. Silakan coba lagi.");
+    }
   };
 
   const handleRouteChange = (index, value) => {
@@ -80,6 +83,18 @@ export default function Banners() {
 
     setSaving(true);
     try {
+      const payload = JSON.stringify({ banners });
+      const payloadSize = new Blob([payload]).size;
+      console.log(`Payload size: ${(payloadSize / 1024 / 1024).toFixed(2)} MB`);
+
+      if (payloadSize > 6 * 1024 * 1024) {
+        alert(
+          `Ukuran total banner terlalu besar (${(payloadSize / 1024 / 1024).toFixed(2)} MB). Maksimum 6MB. Harap kurangi jumlah banner atau upload gambar yang lebih kecil.`,
+        );
+        setSaving(false);
+        return;
+      }
+
       const token = localStorage.getItem("token");
       const response = await fetch("/api/banners", {
         method: "POST",
@@ -87,7 +102,7 @@ export default function Banners() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ banners }),
+        body: payload,
       });
 
       const result = await response.json();
@@ -95,11 +110,15 @@ export default function Banners() {
         alert("Semua banner berhasil disimpan!");
         fetchBanners();
       } else {
-        alert(`Error menyimpan banner: ${result.message}`);
+        alert(
+          `Error menyimpan banner: ${result.message || "Terjadi kesalahan yang tidak diketahui"}`,
+        );
       }
     } catch (err) {
       console.error(err);
-      alert("Terjadi kesalahan saat menyimpan semua banner.");
+      alert(
+        "Terjadi kesalahan saat menyimpan semua banner. Cek koneksi atau ukuran gambar.",
+      );
     } finally {
       setSaving(false);
     }

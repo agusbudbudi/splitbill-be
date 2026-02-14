@@ -116,6 +116,7 @@ export async function handleAuthRegister(event) {
           id: user._id,
           name: user.name,
           email: user.email,
+          freeScanCount: user.freeScanCount,
           createdAt: user.createdAt,
           isVerified: user.isVerified,
         },

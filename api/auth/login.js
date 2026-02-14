@@ -139,6 +139,7 @@ export async function handleAuthLogin(event) {
           name: user.name,
           email: user.email,
           isAdmin: user.isAdmin,
+          freeScanCount: user.freeScanCount,
           createdAt: user.createdAt,
         },
         accessToken,

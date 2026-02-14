@@ -26,6 +26,7 @@
     "resend": "^4.1.2"
   },
   "devDependencies": {
+    "netlify-cli": "^23.15.1",
     "vercel": "^46.0.1"
   }
 }

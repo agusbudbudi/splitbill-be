@@ -37,6 +37,7 @@ export async function handleAuthMe(event) {
           name: user.name,
           email: user.email,
           isAdmin: user.isAdmin,
+          freeScanCount: user.freeScanCount,
           createdAt: user.createdAt,
         },
       },

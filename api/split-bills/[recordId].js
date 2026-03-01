@@ -27,29 +27,59 @@ export async function handleSplitBillById(event, recordId) {
     }
 
     await connectDatabase();
-    const user = await requireUser(event);
+    if (method === "GET") {
+      let user = null;
+      try {
+        user = await requireUser(event);
+      } catch (authErr) {
+        // Optional auth: allow guest access for GET
+        if (authErr.statusCode !== 401) {
+          throw authErr;
+        }
+      }
 
-    if (method !== "GET") {
-      throw new HttpError(405, `Method ${method} not allowed`);
+      const record = await SplitBillRecord.findById(recordId);
+
+      if (!record) {
+        throw new HttpError(404, "Split bill tidak ditemukan");
+      }
+
+      // If authenticated, we could still show it (publicly shared)
+      // but we skip the "this user only" check for GET if it's a valid ID
+      // Note: In a real production app, we might want a 'isPublic' flag on the record
+      // for now, we follow the user's request to allow opening shared links.
+
+      return jsonResponse(
+        200,
+        {
+          success: true,
+          record: mapRecord(record),
+        },
+        headers
+      );
     }
 
-    const record = await SplitBillRecord.findOne({
-      _id: recordId,
-      user: user._id,
-    });
+    if (method === "DELETE") {
+      const result = await SplitBillRecord.deleteOne({
+        _id: recordId,
+        user: user._id,
+      });
 
-    if (!record) {
-      throw new HttpError(404, "Split bill tidak ditemukan");
+      if (result.deletedCount === 0) {
+        throw new HttpError(404, "Split bill tidak ditemukan atau sudah dihapus");
+      }
+
+      return jsonResponse(
+        200,
+        {
+          success: true,
+          message: "Split bill berhasil dihapus",
+        },
+        headers
+      );
     }
 
-    return jsonResponse(
-      200,
-      {
-        success: true,
-        record: mapRecord(record),
-      },
-      headers
-    );
+    throw new HttpError(405, `Method ${method} not allowed`);
   } catch (error) {
     console.error("Split bill detail handler error:", error);
     return errorResponse(toHttpError(error), headers);

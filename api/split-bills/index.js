@@ -335,11 +335,15 @@ export async function handleSplitBills(event) {
       const records = await SplitBillRecord.find({ user: user._id }).sort({
         createdAt: -1,
       });
+      
+      // Explicitly filter again for safety (even though find should have done it)
+      const userRecords = records.filter(r => r.user && r.user.toString() === user._id.toString());
+      
       return jsonResponse(
         200,
         {
           success: true,
-          records: records.map(mapRecord),
+          records: userRecords.map(mapRecord),
         },
         headers
       );

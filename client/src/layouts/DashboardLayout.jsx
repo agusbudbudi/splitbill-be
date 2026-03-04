@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { Users, Star, Image, LogOut, Menu, X } from "lucide-react";
+import { Users, Star, Image, LogOut, Menu, X, Receipt } from "lucide-react";
 
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -16,6 +16,7 @@ export default function DashboardLayout() {
 
   const navItems = [
     { name: "Accounts", href: "/", icon: Users },
+    { name: "Split Bill", href: "/split-bills", icon: Receipt },
     { name: "Reviews", href: "/reviews", icon: Star },
     { name: "Banners", href: "/banners", icon: Image },
   ];

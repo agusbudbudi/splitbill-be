@@ -5,6 +5,8 @@ import Reviews from "./pages/Reviews";
 import DashboardLayout from "./layouts/DashboardLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Banners from "./pages/Banners";
+import SplitBills from "./pages/SplitBills";
+import SplitBillDetail from "./pages/SplitBillDetail";
 
 function App() {
   return (
@@ -16,6 +18,8 @@ function App() {
           <Route path="/" element={<Users />} />
           <Route path="/reviews" element={<Reviews />} />
           <Route path="/banners" element={<Banners />} />
+          <Route path="/split-bills" element={<SplitBills />} />
+          <Route path="/split-bills/:id" element={<SplitBillDetail />} />
         </Route>
       </Route>
 

@@ -14,17 +14,24 @@ export function mapRecord(record) {
   const doc = record.toObject({ versionKey: false });
   const ownerId = (() => {
     if (record.user && typeof record.user.toString === "function") {
-      return record.user.toString();
+      return record.user._id ? record.user._id.toString() : record.user.toString();
     }
     if (doc.user && typeof doc.user.toString === "function") {
-      return doc.user.toString();
+      return doc.user._id ? doc.user._id.toString() : doc.user.toString();
     }
     return typeof doc.user === "string" ? doc.user : undefined;
   })();
 
+  const owner = record.user && typeof record.user === "object" && record.user.name ? {
+    id: record.user._id.toString(),
+    name: record.user.name,
+    email: record.user.email
+  } : null;
+
   return {
     id: record._id.toString(),
     ownerId: ownerId ?? "",
+    owner: owner,
     activityName: doc.activityName,
     occurredAt:
       doc.occurredAt instanceof Date
@@ -118,7 +125,10 @@ function sanitizeExpense(expense, errorMessage) {
 }
 
 function sanitizeAdditionalExpense(expense) {
-  return sanitizeExpense(expense, "Additional expense tidak valid");
+  const sanitized = sanitizeExpense(expense, "Additional expense tidak valid");
+  const splitType =
+    expense.splitType === "proportionally" ? "proportionally" : "equally";
+  return { ...sanitized, splitType };
 }
 
 function sanitizeBaseExpense(expense) {
@@ -332,18 +342,40 @@ export async function handleSplitBills(event) {
     const user = await requireUser(event);
 
     if (method === "GET") {
-      const records = await SplitBillRecord.find({ user: user._id }).sort({
-        createdAt: -1,
-      });
+      const url = new URL(event.url || `http://localhost${event.path || ""}`);
+      const page = parseInt(url.searchParams.get("page") || "1", 10);
+      const limit = parseInt(url.searchParams.get("limit") || "10", 10);
+      const skip = (page - 1) * limit;
+
+      const query = user.isAdmin ? {} : { user: user._id };
+      const totalItems = await SplitBillRecord.countDocuments(query);
       
-      // Explicitly filter again for safety (even though find should have done it)
-      const userRecords = records.filter(r => r.user && r.user.toString() === user._id.toString());
+      let recordsQuery = SplitBillRecord.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit);
+
+      if (user.isAdmin) {
+        recordsQuery = recordsQuery.populate("user", "name email");
+      }
+
+      const records = await recordsQuery;
+      
+      const totalPages = Math.ceil(totalItems / limit);
       
       return jsonResponse(
         200,
         {
           success: true,
-          records: userRecords.map(mapRecord),
+          data: {
+            records: records.map(mapRecord),
+            pagination: {
+              totalItems,
+              totalPages,
+              currentPage: page,
+              limit,
+            },
+          },
         },
         headers
       );

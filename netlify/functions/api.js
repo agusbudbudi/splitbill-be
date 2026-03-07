@@ -191,8 +191,8 @@ export async function handler(event, context) {
       }
     }
 
-    if (resource === "reviews" && !subresource && rest.length === 0) {
-      return handleReviews(event, context);
+    if (resource === "reviews" && rest.length === 0) {
+      return handleReviews(event, context, subresource);
     }
 
     if (resource === "banners" && !subresource && rest.length === 0) {

@@ -13,7 +13,7 @@ import { HttpError, toHttpError } from "../lib/errors.js";
 
 dotenv.config();
 
-export async function handleReviews(event) {
+export async function handleReviews(event, context, subresource) {
   const headers = createCorsHeaders(event);
 
   const method = event?.httpMethod || event?.method || "GET";
@@ -24,10 +24,15 @@ export async function handleReviews(event) {
   try {
     await connectDatabase();
 
+    const isPublic = subresource === "public" || event.path?.includes("/public") || event.rawUrl?.includes("/public");
+
     switch (method) {
       case "POST":
         return await createReview(event, headers);
       case "GET":
+        if (isPublic) {
+          return await getReviews(event, headers, true);
+        }
         return await (
           await import("../lib/middleware/auth.js")
         ).adminMiddleware(getReviews)(event, headers);
@@ -126,7 +131,7 @@ async function createReview(event, headers) {
   }
 }
 
-async function getReviews(event, headers) {
+async function getReviews(event, headers, isPublicRequest = false) {
   const { page = 1, limit = 10, rating } = getQueryParams(event);
 
   const query = {};
@@ -138,10 +143,20 @@ async function getReviews(event, headers) {
   const limitNum = Math.max(parseInt(limit, 10) || 10, 1);
   const skip = (pageNum - 1) * limitNum;
 
-  const [reviews, totalItems] = await Promise.all([
+  let [reviews, totalItems] = await Promise.all([
     Review.find(query).sort({ createdAt: -1 }).skip(skip).limit(limitNum),
     Review.countDocuments(query),
   ]);
+
+  if (isPublicRequest) {
+    reviews = reviews.map((r) => {
+      const reviewObj = r.toObject();
+      delete reviewObj.contactPermission;
+      delete reviewObj.email;
+      delete reviewObj.phone;
+      return reviewObj;
+    });
+  }
 
   const totalPages = Math.ceil(totalItems / limitNum) || 1;
 

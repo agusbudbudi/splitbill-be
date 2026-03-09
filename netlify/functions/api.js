@@ -12,7 +12,8 @@ import handleGeminiScan from "../../api/gemini-scan.js";
 import handleSplitBills from "../../api/split-bills/index.js";
 import handleSplitBillById from "../../api/split-bills/[recordId].js";
 import handleBanners from "../../api/banners.js";
-import { createCorsHeaders, jsonResponse } from "../../lib/http.js";
+import { handlePaymentCreate, handleGetPaymentById } from "../../api/payment.js";
+import { createCorsHeaders, jsonResponse, noContentResponse } from "../../lib/http.js";
 
 function getRequestPath(event) {
   // Netlify Functions v2: Request object with .url
@@ -114,6 +115,14 @@ function extractSegments(path) {
 export async function handler(event, context) {
   const requestPath = getRequestPath(event);
   const normalizedPath = normalizePath(requestPath);
+  
+  // Handle OPTIONS preflight requests globally
+  const method = event?.method || event?.httpMethod;
+  if (method === "OPTIONS") {
+    const headers = createCorsHeaders(event);
+    return noContentResponse(headers);
+  }
+
   let segments = extractSegments(normalizedPath);
 
   if (segments[0] === "api") {
@@ -214,6 +223,15 @@ export async function handler(event, context) {
 
       if (subresource && rest.length === 0) {
         return handleSplitBillById(event, subresource, context);
+      }
+    }
+
+    if (resource === "payment") {
+      if (subresource === "create" && rest.length === 0) {
+        return handlePaymentCreate(event, context);
+      }
+      if (subresource && rest.length === 0) {
+        return handleGetPaymentById(event, subresource, context);
       }
     }
 

@@ -38,7 +38,7 @@ export async function handleSplitBillById(event, recordId) {
         }
       }
 
-      const record = await SplitBillRecord.findById(recordId);
+      const record = await SplitBillRecord.findById(recordId).populate("user", "name email");
 
       if (!record) {
         throw new HttpError(404, "Split bill tidak ditemukan");

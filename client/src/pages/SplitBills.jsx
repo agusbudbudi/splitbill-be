@@ -1,312 +1,191 @@
 import { useState, useEffect, useCallback } from "react";
-import { Search, Receipt, Calendar, Users, ChevronRight, Info } from "lucide-react";
+import { Receipt, Calendar, Users, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import Pagination from "../components/Pagination";
+import {
+  Card, CardHeader,
+  SearchInput,
+  Table, Thead, Tbody, Tr, Th, Td, TableSkeleton,
+  Avatar, Button, EmptyState, Pagination,
+} from "../components/ui";
 import { formatDate } from "../lib/utils";
+import { apiFetch } from "../lib/api";
+
+const formatCurrency = (amount) =>
+  new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(amount);
 
 export default function SplitBills() {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
 
-  // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
+  // Debounce: reset page to 1 and apply search after 400ms idle
   useEffect(() => {
-    fetchSplitBills(currentPage);
-  }, [currentPage]);
+    const timer = setTimeout(() => {
+      setCurrentPage(1);
+      setDebouncedSearch(searchQuery);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
-  const fetchSplitBills = useCallback(async (page) => {
+  const fetchSplitBills = useCallback(async (page, search) => {
     setLoading(true);
     setError("");
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`/api/split-bills?page=${page}&limit=10`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const params = new URLSearchParams({ page, limit: 10 });
+      if (search) params.set("search", search);
+      const res = await apiFetch(`/api/split-bills?${params}`);
       const data = await res.json();
-
       if (data.success) {
         setRecords(data.data.records);
         setCurrentPage(data.data.pagination.currentPage);
         setTotalPages(data.data.pagination.totalPages);
         setTotalItems(data.data.pagination.totalItems);
       } else {
-        setError(data.message || "Failed to fetch split bills");
+        setError(data.message || "Gagal memuat data split bill");
       }
-    } catch (err) {
-      setError("An error occurred while fetching split bills");
-      console.error(err);
+    } catch {
+      setError("Terjadi kesalahan saat memuat data");
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const filteredRecords = records.filter(
-    (record) =>
-      record.activityName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.participants.some(p => p.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (record.owner && (
-        record.owner.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        record.owner.email.toLowerCase().includes(searchQuery.toLowerCase())
-      ))
-  );
+  useEffect(() => {
+    fetchSplitBills(currentPage, debouncedSearch);
+  }, [currentPage, debouncedSearch, fetchSplitBills]);
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      minimumFractionDigits: 0,
-    }).format(amount);
-  };
+  const colSpan = user.isAdmin ? 6 : 5;
 
   return (
     <div className="space-y-6">
+      {/* Page header */}
       <div>
-        <h1
-          className="text-2xl font-bold"
-          style={{ color: "var(--foreground)" }}
-        >
-          Riwayat Split Bill
-        </h1>
-        <p
-          className="text-sm font-regular mt-1"
-          style={{ color: "var(--muted-foreground)" }}
-        >
-          Lihat dan kelola semua rekaman split bill yang telah Anda simpan.
+        <h1 className="text-xl font-bold text-foreground">Riwayat Split Bill</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          Lihat dan kelola semua rekaman split bill yang telah disimpan.
         </p>
       </div>
 
-      {/* Stats Summary (Optional, but adds premium feel) */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div
-          className="p-6"
-          style={{
-            background: "rgba(255, 255, 255, 0.9)",
-            backdropFilter: "blur(10px)",
-            borderRadius: "1.2rem",
-            boxShadow: "var(--shadow-soft)",
-          }}
-        >
-          <div className="flex items-center gap-4">
-            <div
-              className="p-3 rounded-xl"
-              style={{
-                background: "var(--primary-soft)",
-                color: "var(--primary)",
-              }}
-            >
-              <Receipt className="h-6 w-6" />
-            </div>
-            <div className="flex-1">
-              <p
-                className="text-sm font-medium"
-                style={{ color: "var(--muted-foreground)" }}
-              >
-                Total Records
-              </p>
-              <p
-                className="text-2xl font-bold mt-1"
-                style={{ color: "var(--foreground)" }}
-              >
-                {totalItems}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Table card */}
+      <Card className="overflow-hidden">
+        <CardHeader className="py-4">
+          <SearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Cari aktivitas, peserta, atau pemilik..."
+            className="max-w-xs w-full"
+          />
+        </CardHeader>
 
-      {/* Search and List */}
-      <div
-        style={{
-          background: "rgba(255, 255, 255, 0.9)",
-          backdropFilter: "blur(10px)",
-          borderRadius: "1.2rem",
-          boxShadow: "var(--shadow-soft)",
-          overflow: "hidden",
-        }}
-      >
-        <div
-          className="px-6 py-5"
-          style={{ borderBottom: "1px solid var(--border)" }}
-        >
-          <div className="relative max-w-sm">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search
-                className="h-5 w-5"
-                style={{ color: "var(--muted-foreground)" }}
-              />
-            </div>
-            <input
-              type="text"
-              name="search"
-              id="search"
-              className="block w-full pl-10 pr-4 py-2.5 text-sm transition-all"
-              style={{
-                background: "var(--input)",
-                border: "1px solid var(--border)",
-                borderRadius: "calc(var(--radius) - 4px)",
-                color: "var(--foreground)",
-              }}
-              placeholder="Cari aktivitas atau peserta..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-        </div>
+        <Table>
+          <Thead>
+            <Tr className="hover:bg-transparent">
+              <Th>Aktivitas</Th>
+              <Th>Tanggal</Th>
+              <Th>Peserta</Th>
+              {user.isAdmin && <Th>Pemilik</Th>}
+              <Th>Total Tagihan</Th>
+              <Th className="text-right">Aksi</Th>
+            </Tr>
+          </Thead>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-border">
-            <thead className="bg-[#fbfcff]">
-              <tr>
-                <th
-                  scope="col"
-                  className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
-                >
-                  Aktivitas
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
-                >
-                  Tanggal
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
-                >
-                  Peserta
-                </th>
-                {user.isAdmin && (
-                  <th
-                    scope="col"
-                    className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
-                  >
-                    Pemilik
-                  </th>
-                )}
-                <th
-                  scope="col"
-                  className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider"
-                >
-                  Total Tagihan
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider"
-                >
-                  Aksi
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-border">
-              {loading ? (
-                <tr>
-                  <td
-                    colSpan="5"
-                    className="px-6 py-8 text-center text-sm text-gray-500"
-                  >
-                    <div className="flex flex-col items-center gap-2">
-                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                       <span>Memuat data...</span>
+          {loading ? (
+            <TableSkeleton cols={colSpan} rows={8} />
+          ) : error ? (
+            <Tbody>
+              <Tr className="hover:bg-transparent">
+                <Td colSpan={colSpan} className="text-center py-12 text-destructive">{error}</Td>
+              </Tr>
+            </Tbody>
+          ) : records.length === 0 ? (
+            <Tbody>
+              <Tr className="hover:bg-transparent">
+                <Td colSpan={colSpan} className="p-0">
+                  <EmptyState
+                    icon={Receipt}
+                    title="Tidak ada data split bill"
+                    description={debouncedSearch ? "Coba ubah kata kunci pencarian." : "Belum ada split bill tercatat."}
+                  />
+                </Td>
+              </Tr>
+            </Tbody>
+          ) : (
+            <Tbody>
+              {records.map((record) => (
+                <Tr key={record.id} className="group">
+                  <Td>
+                    <div className="flex items-center gap-3">
+                      <Avatar name={record.activityName} size="sm" />
+                      <div className="min-w-0">
+                        <button
+                          onClick={() => navigate(`/split-bills/${record.id}`)}
+                          className="text-sm font-semibold text-foreground hover:text-primary hover:underline underline-offset-2 transition-colors truncate text-left"
+                        >
+                          {record.activityName}
+                        </button>
+                        <p className="text-xs text-muted-foreground font-mono">
+                          #{record.id.slice(-6)}
+                        </p>
+                      </div>
                     </div>
-                  </td>
-                </tr>
-              ) : error ? (
-                <tr>
-                  <td
-                    colSpan="5"
-                    className="px-6 py-8 text-center text-sm text-red-500"
-                  >
-                    {error}
-                  </td>
-                </tr>
-              ) : filteredRecords.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan="5"
-                    className="px-6 py-12 text-center text-sm text-gray-500"
-                  >
-                    <div className="flex flex-col items-center gap-2">
-                       <Receipt className="h-12 w-12 text-gray-300" />
-                       <span className="text-lg font-medium text-gray-400">Tidak ada data split bill</span>
+                  </Td>
+                  <Td className="text-muted-foreground">
+                    <div className="flex items-center gap-1.5 text-xs">
+                      <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
+                      {formatDate(record.occurredAt)}
                     </div>
-                  </td>
-                </tr>
-              ) : (
-                filteredRecords.map((record) => (
-                  <tr key={record.id} className="hover:bg-gray-50 transition-colors group">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-lg bg-primary-soft text-primary font-bold">
-                          {record.activityName[0].toUpperCase()}
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-semibold text-gray-900 group-hover:text-primary transition-colors">
-                            {record.activityName}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                             ID: {record.id.slice(-6)}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-gray-400" />
-                        {formatDate(record.occurredAt)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <Users className="h-4 w-4 text-gray-400" />
-                        {record.participants.length} Orang
-                      </div>
-                    </td>
-                    {user.isAdmin && (
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm">
-                           <div className="font-semibold text-gray-900">{record.owner?.name || "Unknown"}</div>
-                           <div className="text-xs text-gray-500">{record.owner?.email || "-"}</div>
-                        </div>
-                      </td>
-                    )}
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm font-bold text-gray-900">
-                        {formatCurrency(record.summary.total)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => navigate(`/split-bills/${record.id}`)}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-primary hover:bg-primary-soft transition-all font-semibold"
-                      >
-                        Detail
-                        <ChevronRight className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                  </Td>
+                  <Td>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Users className="h-3.5 w-3.5 flex-shrink-0" />
+                      {record.participants.length} Orang
+                    </div>
+                  </Td>
+                  {user.isAdmin && (
+                    <Td>
+                      <p className="text-sm font-medium text-foreground">{record.owner?.name || "—"}</p>
+                      <p className="text-xs text-muted-foreground">{record.owner?.email || ""}</p>
+                    </Td>
+                  )}
+                  <Td>
+                    <span className="text-sm font-bold text-foreground">
+                      {formatCurrency(record.summary.total)}
+                    </span>
+                  </Td>
+                  <Td className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => navigate(`/split-bills/${record.id}`)}
+                    >
+                      Detail
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </Td>
+                </Tr>
+              ))}
+            </Tbody>
+          )}
+        </Table>
 
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={setCurrentPage}
-          totalItems={totalItems}
-          itemName="split bills"
-        />
-      </div>
+        {!loading && !error && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={totalItems}
+            itemName="split bill"
+          />
+        )}
+      </Card>
     </div>
   );
 }

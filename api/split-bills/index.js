@@ -1,4 +1,5 @@
 import SplitBillRecord from "../../lib/models/SplitBillRecord.js";
+import User from "../../lib/models/User.js";
 import { requireUser } from "../../lib/middleware/auth.js";
 import { connectDatabase } from "../../lib/db.js";
 import {
@@ -347,9 +348,30 @@ export async function handleSplitBills(event) {
       const limit = parseInt(url.searchParams.get("limit") || "10", 10);
       const skip = (page - 1) * limit;
 
-      const query = user.isAdmin ? {} : { user: user._id };
+      const search = url.searchParams.get("search") || "";
+      const searchRegex = search ? { $regex: search, $options: "i" } : null;
+
+      let query = user.isAdmin ? {} : { user: user._id };
+      if (searchRegex) {
+        const searchConditions = [
+          { activityName: searchRegex },
+          { "participants.name": searchRegex },
+        ];
+        if (user.isAdmin) {
+          const matchingUsers = await User.find({
+            $or: [{ name: searchRegex }, { email: searchRegex }],
+          }).select("_id").lean();
+          if (matchingUsers.length > 0) {
+            searchConditions.push({ user: { $in: matchingUsers.map((u) => u._id) } });
+          }
+        }
+        query = user.isAdmin
+          ? { $or: searchConditions }
+          : { user: user._id, $or: searchConditions };
+      }
+
       const totalItems = await SplitBillRecord.countDocuments(query);
-      
+
       let recordsQuery = SplitBillRecord.find(query)
         .sort({ createdAt: -1 })
         .skip(skip)

@@ -7,6 +7,9 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Banners from "./pages/Banners";
 import SplitBills from "./pages/SplitBills";
 import SplitBillDetail from "./pages/SplitBillDetail";
+import SubscriptionPackages from "./pages/SubscriptionPackages";
+import UserDetail from "./pages/UserDetail";
+import Insights from "./pages/Insights";
 
 function App() {
   return (
@@ -20,6 +23,9 @@ function App() {
           <Route path="/banners" element={<Banners />} />
           <Route path="/split-bills" element={<SplitBills />} />
           <Route path="/split-bills/:id" element={<SplitBillDetail />} />
+          <Route path="/users/:id" element={<UserDetail />} />
+          <Route path="/subscription-packages" element={<SubscriptionPackages />} />
+          <Route path="/insights" element={<Insights />} />
         </Route>
       </Route>
 

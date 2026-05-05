@@ -8,11 +8,14 @@ import handleAuthMe from "../../api/auth/me.js";
 import handleAuthVerify from "../../api/auth/verify.js";
 import handleResendVerification from "../../api/auth/resend-verification.js";
 import handleUsers from "../../api/users.js";
+import handleInsights from "../../api/insights.js";
+import handleUserById from "../../api/user-by-id.js";
 import handleGeminiScan from "../../api/gemini-scan.js";
 import handleSplitBills from "../../api/split-bills/index.js";
 import handleSplitBillById from "../../api/split-bills/[recordId].js";
 import handleBanners from "../../api/banners.js";
 import { handlePaymentCreate, handleGetPaymentById } from "../../api/payment.js";
+import { handleSubscriptionPackages, handleSubscriptionPackageById } from "../../api/subscription-packages.js";
 import { createCorsHeaders, jsonResponse, noContentResponse } from "../../lib/http.js";
 
 function getRequestPath(event) {
@@ -208,12 +211,21 @@ export async function handler(event, context) {
       return handleBanners(event, context);
     }
 
-    if (resource === "users" && !subresource && rest.length === 0) {
-      return handleUsers(event, context);
+    if (resource === "users") {
+      if (!subresource && rest.length === 0) {
+        return handleUsers(event, context);
+      }
+      if (subresource && rest.length === 0) {
+        return handleUserById(event, subresource, context);
+      }
     }
 
     if (resource === "gemini-scan" && !subresource && rest.length === 0) {
       return handleGeminiScan(event, context);
+    }
+
+    if (resource === "insights" && !subresource && rest.length === 0) {
+      return handleInsights(event, context);
     }
 
     if (resource === "split-bills") {
@@ -232,6 +244,18 @@ export async function handler(event, context) {
       }
       if (subresource && rest.length === 0) {
         return handleGetPaymentById(event, subresource, context);
+      }
+    }
+
+    if (resource === "subscription-packages") {
+      if (!subresource && rest.length === 0) {
+        return handleSubscriptionPackages(event, context);
+      }
+      if (subresource && rest.length === 0) {
+        if (subresource === "public") {
+          return handleSubscriptionPackages(event, context, "public");
+        }
+        return handleSubscriptionPackageById(event, subresource, context);
       }
     }
 

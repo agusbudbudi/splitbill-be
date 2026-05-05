@@ -1,6 +1,26 @@
 import { useState } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { Users, Star, Image, LogOut, Menu, X, Receipt } from "lucide-react";
+import {
+  Users,
+  Star,
+  Image,
+  LogOut,
+  Menu,
+  X,
+  Receipt,
+  Package,
+  BarChart2,
+} from "lucide-react";
+import { ToastProvider } from "../components/ui";
+
+const navItems = [
+  { name: "Insight", href: "/insights", icon: BarChart2 },
+  { name: "Akun Pengguna", href: "/", icon: Users },
+  { name: "Split Bill", href: "/split-bills", icon: Receipt },
+  { name: "Reviews", href: "/reviews", icon: Star },
+  { name: "Banners", href: "/banners", icon: Image },
+  { name: "Subscription", href: "/subscription-packages", icon: Package },
+];
 
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -14,163 +34,128 @@ export default function DashboardLayout() {
     navigate("/login");
   };
 
-  const navItems = [
-    { name: "Accounts", href: "/", icon: Users },
-    { name: "Split Bill", href: "/split-bills", icon: Receipt },
-    { name: "Reviews", href: "/reviews", icon: Star },
-    { name: "Banners", href: "/banners", icon: Image },
-  ];
-
   return (
-    <div
-      className="flex h-screen overflow-hidden"
-      style={{ background: "var(--background)" }}
-    >
-      {/* Mobile sidebar backdrop */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-20 bg-black/50 lg:hidden backdrop-blur-sm"
-          onClick={() => setSidebarOpen(false)}
-        ></div>
-      )}
+    <ToastProvider>
+      <div className="flex h-screen overflow-hidden bg-background">
+        {/* Mobile backdrop */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 z-20 bg-black/50 lg:hidden backdrop-blur-sm"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
 
-      {/* Sidebar */}
-      <aside
-        className={`fixed inset-y-0 left-0 z-30 w-56 transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-        style={{
-          background: "rgba(255, 255, 255, 0.9)",
-          backdropFilter: "blur(10px)",
-          borderRight: "1px solid var(--border)",
-        }}
-      >
-        <div className="flex flex-col h-full">
+        {/* Sidebar */}
+        <aside
+          className={`fixed inset-y-0 left-0 z-30 w-60 flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+          style={{ background: "#0f172a" }}
+        >
           {/* Logo */}
-          <div className="flex items-center justify-between h-16 px-4">
-            <img
-              src="/img/logoSummary.png"
-              alt="Split Bill"
-              className="h-10 w-auto"
-            />
+          <div
+            className="flex items-center justify-between h-16 px-5 flex-shrink-0"
+            style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+          >
+            <img src="/img/logo.webp" alt="Split Bill" className="h-8 w-auto" />
             <button
-              className="lg:hidden p-2"
+              className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
               onClick={() => setSidebarOpen(false)}
-              style={{ color: "var(--muted-foreground)" }}
             >
-              <X size={20} />
+              <X size={18} />
             </button>
           </div>
 
-          {/* Navigation */}
-          <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+          {/* Nav */}
+          <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
             {navItems.map((item) => {
-              const isActive = location.pathname === item.href;
+              const isActive =
+                item.href === "/"
+                  ? location.pathname === "/"
+                  : location.pathname.startsWith(item.href);
               return (
                 <Link
                   key={item.name}
                   to={item.href}
-                  className="flex items-center px-3 py-3 rounded-[8px] transition-all duration-200 group relative overflow-hidden"
                   onClick={() => setSidebarOpen(false)}
-                  style={{
-                    color: isActive
-                      ? "var(--primary)"
-                      : "var(--muted-foreground)",
-                    fontWeight: isActive ? 600 : 500,
-                    background: isActive ? "var(--secondary)" : "transparent",
-                  }}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium transition-all duration-150 group ${
+                    isActive
+                      ? "bg-white/10 text-white"
+                      : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                  }`}
                 >
-                  {isActive && (
-                    <div
-                      className="absolute left-0 top-0 bottom-0 w-1 rounded-r-full"
-                      style={{ background: "var(--primary)" }}
-                    />
-                  )}
                   <item.icon
-                    className={`w-5 h-5 mr-3 transition-colors ${isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"}`}
+                    className={`h-4 w-4 flex-shrink-0 transition-colors ${
+                      isActive
+                        ? "text-primary"
+                        : "text-slate-500 group-hover:text-slate-300"
+                    }`}
                   />
-                  <span className="relative z-10">{item.name}</span>
+                  {item.name}
+                  {isActive && (
+                    <div className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />
+                  )}
                 </Link>
               );
             })}
           </nav>
 
-          {/* Logout Button */}
-          <div className="p-4" style={{ borderTop: "1px solid var(--border)" }}>
+          {/* Logout */}
+          <div
+            className="p-3 flex-shrink-0"
+            style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
+          >
             <button
               onClick={handleLogout}
-              className="w-full flex items-center px-4 py-3 rounded-[8px] transition-all duration-200"
-              style={{
-                color: "var(--destructive)",
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "transparent";
-              }}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-all duration-150"
             >
-              <LogOut className="w-5 h-5 mr-3" />
+              <LogOut className="h-4 w-4 flex-shrink-0" />
               Logout
             </button>
           </div>
-        </div>
-      </aside>
+        </aside>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <header
-          className="flex items-center justify-between h-16 px-6"
-          style={{
-            background: "rgba(255, 255, 255, 0.9)",
-            backdropFilter: "blur(10px)",
-            borderBottom: "1px solid var(--border)",
-          }}
-        >
-          <button
-            className="lg:hidden p-2"
-            onClick={() => setSidebarOpen(true)}
-            style={{ color: "var(--foreground)" }}
+        {/* Main */}
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+          {/* Header */}
+          <header
+            className="flex items-center justify-between h-16 px-6 flex-shrink-0 bg-white"
+            style={{
+              borderBottom: "1px solid var(--border)",
+              boxShadow: "0 1px 3px 0 rgba(0,0,0,0.04)",
+            }}
           >
-            <Menu size={24} />
-          </button>
-
-          <div className="flex items-center ml-auto gap-3">
-            <div className="text-right hidden sm:block">
-              <p
-                className="text-sm font-medium"
-                style={{ color: "var(--foreground)" }}
-              >
-                {user.name || "Admin"}
-              </p>
-              <p
-                className="text-xs"
-                style={{ color: "var(--muted-foreground)" }}
-              >
-                {user.email || ""}
-              </p>
-            </div>
-            <div
-              className="h-10 w-10 rounded-full flex items-center justify-center font-bold text-sm"
-              style={{
-                background: "var(--primary)",
-                color: "var(--primary-foreground)",
-              }}
+            <button
+              className="lg:hidden p-2 rounded-lg text-foreground hover:bg-muted transition-colors"
+              onClick={() => setSidebarOpen(true)}
             >
-              {(user.name || "A")[0].toUpperCase()}
-            </div>
-          </div>
-        </header>
+              <Menu size={20} />
+            </button>
 
-        {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-6">
-          <Outlet />
-        </main>
+            <div className="flex items-center ml-auto gap-3">
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-semibold text-foreground leading-tight">
+                  {user.name || "Admin"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {user.email || ""}
+                </p>
+              </div>
+              <div
+                className="h-9 w-9 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0"
+                style={{ background: "var(--primary)", color: "white" }}
+              >
+                {(user.name || "A")[0].toUpperCase()}
+              </div>
+            </div>
+          </header>
+
+          {/* Page content */}
+          <main className="flex-1 overflow-y-auto p-6">
+            <Outlet />
+          </main>
+        </div>
       </div>
-    </div>
+    </ToastProvider>
   );
 }

@@ -1,301 +1,176 @@
-import { useState, useEffect } from "react";
-import { Search, User, UserCheck, CheckCircle, XCircle } from "lucide-react";
-import Pagination from "../components/Pagination";
-import { formatDate, formatDateTime } from "../lib/utils";
+import { useState, useEffect, useCallback } from "react";
+import { User, CheckCircle, XCircle, Eye } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import {
+  Card, CardHeader,
+  SearchInput,
+  Table, Thead, Tbody, Tr, Th, Td, TableSkeleton,
+  Avatar, EmptyState, Pagination,
+} from "../components/ui";
+import { formatDateTime } from "../lib/utils";
+import { apiFetch } from "../lib/api";
 
 export default function Users() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-
-  // Pagination state
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const [activeUsersCount, setActiveUsersCount] = useState(0);
 
+  // Debounce: reset page to 1 and apply search after 400ms idle
   useEffect(() => {
-    fetchUsers(currentPage);
-  }, [currentPage]);
+    const timer = setTimeout(() => {
+      setCurrentPage(1);
+      setDebouncedSearch(searchQuery);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
-  const fetchUsers = async (page) => {
+  const fetchUsers = useCallback(async (page, search) => {
     setLoading(true);
     setError("");
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`/api/users?page=${page}&limit=10`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const params = new URLSearchParams({ page, limit: 10 });
+      if (search) params.set("search", search);
+      const res = await apiFetch(`/api/users?${params}`);
       const data = await res.json();
-
       if (data.success) {
         setUsers(data.data.users);
         setCurrentPage(data.data.pagination.currentPage);
         setTotalPages(data.data.pagination.totalPages);
         setTotalItems(data.data.pagination.totalItems);
-        setActiveUsersCount(data.data.pagination.activeUsersCount || 0);
       } else {
-        setError(data.message || "Failed to fetch users");
+        setError(data.message || "Gagal memuat data pengguna");
       }
-    } catch (err) {
-      setError("An error occurred while fetching users");
-      console.error(err);
+    } catch {
+      setError("Terjadi kesalahan saat memuat data");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const filteredUsers = users.filter(
-    (user) =>
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (user.phone && user.phone.includes(searchQuery)),
-  );
+  useEffect(() => {
+    fetchUsers(currentPage, debouncedSearch);
+  }, [currentPage, debouncedSearch, fetchUsers]);
 
   return (
     <div className="space-y-6">
+      {/* Page header */}
       <div>
-        <h1
-          className="text-2xl font-bold"
-          style={{ color: "var(--foreground)" }}
-        >
-          Daftar Akun Pengguna
-        </h1>
-        <p
-          className="text-sm font-regular mt-1"
-          style={{ color: "var(--muted-foreground)" }}
-        >
-          Kelola data pengguna dan pantau aktivitas akun mereka di platform
-          Split Bill.
+        <h1 className="text-xl font-bold text-foreground">Daftar Akun Pengguna</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">
+          Kelola data pengguna dan pantau aktivitas akun di platform Split Bill.
         </p>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div
-          className="p-6"
-          style={{
-            background: "rgba(255, 255, 255, 0.9)",
-            backdropFilter: "blur(10px)",
-            borderRadius: "1.2rem",
-            boxShadow: "var(--shadow-soft)",
-          }}
-        >
-          <div className="flex items-center gap-4">
-            <div
-              className="p-3 rounded-xl"
-              style={{
-                background: "var(--primary-soft)",
-                color: "var(--primary)",
-              }}
-            >
-              <User className="h-6 w-6" />
-            </div>
-            <div className="flex-1">
-              <p
-                className="text-sm font-medium"
-                style={{ color: "var(--muted-foreground)" }}
-              >
-                Total Pengguna
-              </p>
-              <p
-                className="text-2xl font-bold mt-1"
-                style={{ color: "var(--foreground)" }}
-              >
-                {totalItems}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div
-          className="p-6"
-          style={{
-            background: "rgba(255, 255, 255, 0.9)",
-            backdropFilter: "blur(10px)",
-            borderRadius: "1.2rem",
-            boxShadow: "var(--shadow-soft)",
-          }}
-        >
-          <div className="flex items-center gap-4">
-            <div
-              className="p-3 rounded-xl"
-              style={{
-                background: "var(--success-soft)",
-                color: "var(--success)",
-              }}
-            >
-              <UserCheck className="h-6 w-6" />
-            </div>
-            <div className="flex-1">
-              <p
-                className="text-sm font-medium"
-                style={{ color: "var(--muted-foreground)" }}
-              >
-                Pengguna Aktif
-              </p>
-              <p
-                className="text-2xl font-bold mt-1"
-                style={{ color: "var(--foreground)" }}
-              >
-                {activeUsersCount}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Table card */}
+      <Card className="overflow-hidden">
+        <CardHeader className="flex items-center justify-between gap-4 py-4">
+          <SearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Cari nama atau email..."
+            className="max-w-xs w-full"
+          />
+        </CardHeader>
 
-      {/* Search and Table */}
-      <div
-        style={{
-          background: "rgba(255, 255, 255, 0.9)",
-          backdropFilter: "blur(10px)",
-          borderRadius: "1.2rem",
-          boxShadow: "var(--shadow-soft)",
-          overflow: "hidden",
-        }}
-      >
-        <div
-          className="px-6 py-5"
-          style={{ borderBottom: "1px solid var(--border)" }}
-        >
-          <div className="relative max-w-sm">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search
-                className="h-5 w-5"
-                style={{ color: "var(--muted-foreground)" }}
-              />
-            </div>
-            <input
-              type="text"
-              name="search"
-              id="search"
-              className="block w-full pl-10 pr-4 py-2.5 text-sm transition-all"
-              style={{
-                background: "var(--input)",
-                border: "1px solid var(--border)",
-                borderRadius: "calc(var(--radius) - 4px)",
-                color: "var(--foreground)",
-              }}
-              placeholder="Cari pengguna..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-        </div>
+        <Table>
+          <Thead>
+            <Tr className="hover:bg-transparent">
+              <Th>Pengguna</Th>
+              <Th>Email</Th>
+              <Th className="text-center">Verified</Th>
+              <Th className="text-center">Total Aktivitas</Th>
+              <Th>Last Login</Th>
+              <Th>Tanggal Daftar</Th>
+              <Th></Th>
+            </Tr>
+          </Thead>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-border">
-            <thead className="bg-[#fbfcff]">
-              <tr>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  User ID
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Nama Lengkap
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Email
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Verified
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Last Login
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                >
-                  Tanggal Registrasi
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-border">
-              {loading ? (
-                <tr>
-                  <td
-                    colSpan="6"
-                    className="px-6 py-4 text-center text-sm text-gray-500"
-                  >
-                    Loading users...
-                  </td>
-                </tr>
-              ) : error ? (
-                <tr>
-                  <td
-                    colSpan="6"
-                    className="px-6 py-4 text-center text-sm text-red-500"
-                  >
-                    {error}
-                  </td>
-                </tr>
-              ) : filteredUsers.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan="6"
-                    className="px-6 py-4 text-center text-sm text-gray-500"
-                  >
-                    No users found.
-                  </td>
-                </tr>
-              ) : (
-                filteredUsers.map((user) => (
-                  <tr key={user._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {user._id}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {user.name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {user.email}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      {user.isVerified ? (
-                        <CheckCircle className="h-5 w-5 text-green-500 inline" />
-                      ) : (
-                        <XCircle className="h-5 w-5 text-red-500 inline" />
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDateTime(user.lastLogin)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(user.createdAt)}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+          {loading ? (
+            <TableSkeleton cols={7} rows={8} />
+          ) : error ? (
+            <Tbody>
+              <Tr className="hover:bg-transparent">
+                <Td colSpan={7} className="text-center py-12 text-destructive">{error}</Td>
+              </Tr>
+            </Tbody>
+          ) : users.length === 0 ? (
+            <Tbody>
+              <Tr className="hover:bg-transparent">
+                <Td colSpan={7} className="p-0">
+                  <EmptyState
+                    icon={User}
+                    title="Tidak ada pengguna ditemukan"
+                    description={debouncedSearch ? "Coba ubah kata kunci pencarian." : "Belum ada pengguna terdaftar."}
+                  />
+                </Td>
+              </Tr>
+            </Tbody>
+          ) : (
+            <Tbody>
+              {users.map((user) => (
+                <Tr key={user._id}>
+                  <Td>
+                    <div className="flex items-center gap-3">
+                      <Avatar name={user.name} size="sm" />
+                      <div className="min-w-0">
+                        <button
+                          onClick={() => navigate(`/users/${user._id}`)}
+                          className="text-sm font-semibold text-foreground hover:text-primary hover:underline underline-offset-2 transition-colors truncate block text-left w-full"
+                        >
+                          {user.name}
+                        </button>
+                        <p className="text-xs text-muted-foreground font-mono truncate">
+                          {user._id.slice(-8)}
+                        </p>
+                      </div>
+                    </div>
+                  </Td>
+                  <Td className="text-muted-foreground">{user.email}</Td>
+                  <Td className="text-center">
+                    {user.isVerified ? (
+                      <CheckCircle className="h-4 w-4 text-success inline-block" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-destructive inline-block" />
+                    )}
+                  </Td>
+                  <Td className="text-center">
+                    <span className="inline-flex items-center gap-1 text-sm font-semibold text-foreground">
+                      {user.splitBillCount}
+                    </span>
+                  </Td>
+                  <Td className="text-muted-foreground text-xs">{formatDateTime(user.lastLogin)}</Td>
+                  <Td className="text-muted-foreground text-xs">{formatDateTime(user.createdAt)}</Td>
+                  <Td>
+                    <button
+                      onClick={() => navigate(`/users/${user._id}`)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 transition-colors"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      View
+                    </button>
+                  </Td>
+                </Tr>
+              ))}
+            </Tbody>
+          )}
+        </Table>
 
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={setCurrentPage}
-          totalItems={totalItems}
-          itemName="users"
-        />
-      </div>
+        {!loading && !error && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={totalItems}
+            itemName="pengguna"
+          />
+        )}
+      </Card>
     </div>
   );
 }

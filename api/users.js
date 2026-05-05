@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 
 import User from "../lib/models/User.js";
+import SplitBillRecord from "../lib/models/SplitBillRecord.js";
 import { connectDatabase } from "../lib/db.js";
 import {
   createCorsHeaders,
@@ -31,22 +32,38 @@ export async function handleUsers(event) {
     const { requireAdmin } = await import("../lib/middleware/auth.js");
     await requireAdmin(event);
 
-    const { page = 1, limit = 10 } = getQueryParams(event);
+    const { page = 1, limit = 10, search = "" } = getQueryParams(event);
     const pageNum = Math.max(parseInt(page, 10) || 1, 1);
     const limitNum = Math.max(parseInt(limit, 10) || 10, 1);
     const skip = (pageNum - 1) * limitNum;
 
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    const searchFilter = search
+      ? { $or: [
+          { name: { $regex: search, $options: "i" } },
+          { email: { $regex: search, $options: "i" } },
+        ]}
+      : {};
 
-    const [users, totalItems, activeUsersCount] = await Promise.all([
-      User.find({}).sort({ createdAt: -1 }).skip(skip).limit(limitNum),
-      User.countDocuments({}),
-      User.countDocuments({
-        isVerified: true,
-        lastLogin: { $gte: sixMonthsAgo },
-      }),
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+    const [users, totalItems, verifiedUsersCount, activeUsersCount, usersWithSplitBill, splitBillCounts] = await Promise.all([
+      User.find(searchFilter).sort({ createdAt: -1 }).skip(skip).limit(limitNum),
+      User.countDocuments(searchFilter),
+      User.countDocuments({ isVerified: true }),
+      User.countDocuments({ lastLogin: { $gte: threeMonthsAgo } }),
+      SplitBillRecord.distinct("user").then((ids) => ids.length),
+      SplitBillRecord.aggregate([{ $group: { _id: "$user", count: { $sum: 1 } } }]),
     ]);
+
+    const splitBillCountMap = Object.fromEntries(
+      splitBillCounts.map(({ _id, count }) => [_id.toString(), count])
+    );
+
+    const usersWithCounts = users.map((u) => ({
+      ...u.toObject(),
+      splitBillCount: splitBillCountMap[u._id.toString()] ?? 0,
+    }));
 
     const totalPages = Math.ceil(totalItems / limitNum) || 1;
 
@@ -55,12 +72,14 @@ export async function handleUsers(event) {
       {
         success: true,
         data: {
-          users,
+          users: usersWithCounts,
           pagination: {
             currentPage: pageNum,
             totalPages,
             totalItems,
+            verifiedUsersCount,
             activeUsersCount,
+            usersWithSplitBillCount: usersWithSplitBill,
             itemsPerPage: limitNum,
           },
         },

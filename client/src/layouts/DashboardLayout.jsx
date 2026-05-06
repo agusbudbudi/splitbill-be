@@ -47,19 +47,24 @@ export default function DashboardLayout() {
 
         {/* Sidebar */}
         <aside
-          className={`fixed inset-y-0 left-0 z-30 w-60 flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${
+          className={`fixed inset-y-0 left-0 z-30 w-56 flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 bg-white border-r border-border ${
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
           }`}
-          style={{ background: "#0f172a" }}
         >
           {/* Logo */}
-          <div
-            className="flex items-center justify-between h-16 px-5 flex-shrink-0"
-            style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
-          >
-            <img src="/img/logo.webp" alt="Split Bill" className="h-8 w-auto" />
+          <div className="flex items-center justify-between h-16 px-6 flex-shrink-0 border-b border-border">
+            <div className="flex items-center gap-3">
+              <img
+                src="/img/logoSummary.png"
+                alt="Split Bill"
+                className="h-8 w-auto"
+              />
+              <span className="bg-primary/10 text-primary text-[10px] font-black px-2 py-0.5 rounded-sm uppercase tracking-wider">
+                Admin
+              </span>
+            </div>
             <button
-              className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+              className="lg:hidden p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
               onClick={() => setSidebarOpen(false)}
             >
               <X size={18} />
@@ -67,7 +72,7 @@ export default function DashboardLayout() {
           </div>
 
           {/* Nav */}
-          <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
             {navItems.map((item) => {
               const isActive =
                 item.href === "/"
@@ -78,17 +83,17 @@ export default function DashboardLayout() {
                   key={item.name}
                   to={item.href}
                   onClick={() => setSidebarOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium transition-all duration-150 group ${
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-semibold transition-all duration-150 group ${
                     isActive
-                      ? "bg-white/10 text-white"
-                      : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   }`}
                 >
                   <item.icon
-                    className={`h-4 w-4 flex-shrink-0 transition-colors ${
+                    className={`h-4.5 w-4.5 flex-shrink-0 transition-colors ${
                       isActive
                         ? "text-primary"
-                        : "text-slate-500 group-hover:text-slate-300"
+                        : "text-muted-foreground group-hover:text-foreground"
                     }`}
                   />
                   {item.name}
@@ -101,15 +106,12 @@ export default function DashboardLayout() {
           </nav>
 
           {/* Logout */}
-          <div
-            className="p-3 flex-shrink-0"
-            style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
-          >
+          <div className="p-4 flex-shrink-0 border-t border-border">
             <button
               onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-medium text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 transition-all duration-150"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-destructive hover:bg-destructive/10 transition-all duration-150"
             >
-              <LogOut className="h-4 w-4 flex-shrink-0" />
+              <LogOut className="h-4.5 w-4.5 flex-shrink-0" />
               Logout
             </button>
           </div>

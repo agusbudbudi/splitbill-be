@@ -1,18 +1,45 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Users, Receipt, Star, TrendingUp, Wallet, Scan,
-  RefreshCw, UserCheck, Zap, Target, Info,
+  Users,
+  Receipt,
+  Star,
+  TrendingUp,
+  Wallet,
+  Scan,
+  RefreshCw,
+  UserCheck,
+  Zap,
+  Target,
+  Info,
 } from "lucide-react";
 import {
-  LineChart, Line, BarChart, Bar,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
 } from "recharts";
-import { Card, CardHeader, CardBody, StatCard, Spinner } from "../components/ui";
+import {
+  Card,
+  CardHeader,
+  CardBody,
+  StatCard,
+  Spinner,
+} from "../components/ui";
 import { apiFetch } from "../lib/api";
 
 const formatRp = (v) =>
-  new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(v ?? 0);
+  new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    minimumFractionDigits: 0,
+  }).format(v ?? 0);
 
 const formatRpShort = (v) => {
   if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(1)}M`;
@@ -21,7 +48,20 @@ const formatRpShort = (v) => {
   return `Rp${v}`;
 };
 
-const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+const MONTH_LABELS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "Mei",
+  "Jun",
+  "Jul",
+  "Agu",
+  "Sep",
+  "Okt",
+  "Nov",
+  "Des",
+];
 
 function periodLabel(period) {
   const [, m] = period.split("-");
@@ -31,17 +71,21 @@ function periodLabel(period) {
 const PRIMARY = "#479fea";
 const SUCCESS = "#22c55e";
 const WARNING = "#f59e0b";
-const DANGER  = "#ef4444";
-const PURPLE  = "#a78bfa";
+const DANGER = "#ef4444";
+const PURPLE = "#a78bfa";
 
 const FUNNEL_COLORS = [PRIMARY, SUCCESS, WARNING, PURPLE];
-const STAR_COLORS   = [DANGER, WARNING, WARNING, SUCCESS, SUCCESS];
+const STAR_COLORS = [DANGER, WARNING, WARNING, SUCCESS, SUCCESS];
 
 const FUNNEL_DESCRIPTIONS = {
-  Registered: "Total seluruh pengguna yang telah membuat akun, dihitung dari semua dokumen di koleksi User tanpa filter apapun.",
-  Verified: "Pengguna yang sudah mengkonfirmasi email mereka. Dihitung dari User dengan field isVerified = true.",
-  Activated: "Pengguna yang sudah membuat minimal 1 split bill. Dihitung dari jumlah user unik yang tercatat di koleksi SplitBillRecord.",
-  Engaged: "Pengguna yang sudah membuat minimal 2 split bill — indikator pengguna yang benar-benar aktif dan loyal menggunakan platform.",
+  Registered:
+    "Total seluruh pengguna yang telah membuat akun, dihitung dari semua dokumen di koleksi User tanpa filter apapun.",
+  Verified:
+    "Pengguna yang sudah mengkonfirmasi email mereka. Dihitung dari User dengan field isVerified = true.",
+  Activated:
+    "Pengguna yang sudah membuat minimal 1 split bill. Dihitung dari jumlah user unik yang tercatat di koleksi SplitBillRecord.",
+  Engaged:
+    "Pengguna yang sudah membuat minimal 2 split bill — indikator pengguna yang benar-benar aktif dan loyal menggunakan platform.",
 };
 
 // Custom tooltip for charts
@@ -75,11 +119,13 @@ function FunnelBar({ stage, count, rate, color, maxCount, description }) {
             </span>
           </span>
         </span>
-        <span className="text-muted-foreground">{count.toLocaleString("id-ID")} pengguna ({rate}%)</span>
+        <span className="text-muted-foreground">
+          {count.toLocaleString("id-ID")} pengguna ({rate}%)
+        </span>
       </div>
-      <div className="h-8 bg-muted rounded-md overflow-hidden">
+      <div className="h-8 bg-muted rounded-full overflow-hidden">
         <div
-          className="h-full rounded-md flex items-center px-3 transition-all duration-700"
+          className="h-full rounded-full flex items-center px-3 transition-all duration-700"
           style={{ width: `${width}%`, background: color }}
         >
           <span className="text-white text-xs font-bold">{rate}%</span>
@@ -152,7 +198,15 @@ export default function Insights() {
     );
   }
 
-  const { kpis, funnel, userGrowth, activityTrend, featureAdoption, reviews, topUsers } = data;
+  const {
+    kpis,
+    funnel,
+    userGrowth,
+    activityTrend,
+    featureAdoption,
+    reviews,
+    topUsers,
+  } = data;
   const funnelMax = funnel[0]?.count ?? 1;
 
   return (
@@ -160,9 +214,12 @@ export default function Insights() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-foreground">Insight & Analitik</h1>
+          <h1 className="text-xl font-bold text-foreground">
+            Insight & Analitik
+          </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Gambaran performa platform, pertumbuhan pengguna, dan marketing funnel.
+            Gambaran performa platform, pertumbuhan pengguna, dan marketing
+            funnel.
           </p>
         </div>
         <button
@@ -170,13 +227,15 @@ export default function Insights() {
           disabled={refreshing}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 transition-colors disabled:opacity-50"
         >
-          <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+          <RefreshCw
+            className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
+          />
           Refresh
         </button>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
         <StatCard
           title="Total Pengguna"
           value={kpis.totalUsers.toLocaleString("id-ID")}
@@ -227,7 +286,9 @@ export default function Insights() {
         <Card>
           <CardHeader>
             <SectionTitle>Marketing Funnel</SectionTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">Konversi pengguna dari registrasi hingga engaged</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Konversi pengguna dari registrasi hingga engaged
+            </p>
           </CardHeader>
           <CardBody className="space-y-4">
             {funnel.map((f, i) => (
@@ -244,22 +305,30 @@ export default function Insights() {
             <div className="pt-2 border-t border-border grid grid-cols-3 gap-3 text-center">
               <div>
                 <p className="text-xs text-muted-foreground">Reg → Verified</p>
-                <p className="text-sm font-bold text-foreground">{funnel[1]?.rate ?? 0}%</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Verified → Activated</p>
                 <p className="text-sm font-bold text-foreground">
-                  {funnel[1]?.count > 0
-                    ? Math.round((funnel[2]?.count / funnel[1]?.count) * 100)
-                    : 0}%
+                  {funnel[1]?.rate ?? 0}%
                 </p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Activated → Engaged</p>
+                <p className="text-xs text-muted-foreground">
+                  Verified → Activated
+                </p>
+                <p className="text-sm font-bold text-foreground">
+                  {funnel[1]?.count > 0
+                    ? Math.round((funnel[2]?.count / funnel[1]?.count) * 100)
+                    : 0}
+                  %
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">
+                  Activated → Engaged
+                </p>
                 <p className="text-sm font-bold text-foreground">
                   {funnel[2]?.count > 0
                     ? Math.round((funnel[3]?.count / funnel[2]?.count) * 100)
-                    : 0}%
+                    : 0}
+                  %
                 </p>
               </div>
             </div>
@@ -283,8 +352,16 @@ export default function Insights() {
                   tick={{ fontSize: 11 }}
                   tickFormatter={(v) => `${"★".repeat(v)}`}
                 />
-                <YAxis tick={{ fontSize: 11 }} allowDecimals={false} width={28} />
-                <Tooltip content={<ChartTooltip valueFormatter={(v) => `${v} review`} />} />
+                <YAxis
+                  tick={{ fontSize: 11 }}
+                  allowDecimals={false}
+                  width={28}
+                />
+                <Tooltip
+                  content={
+                    <ChartTooltip valueFormatter={(v) => `${v} review`} />
+                  }
+                />
                 <Bar dataKey="count" name="Review" radius={[4, 4, 0, 0]}>
                   {reviews.ratingDistribution.map((_, i) => (
                     <Cell key={i} fill={STAR_COLORS[i]} />
@@ -293,9 +370,12 @@ export default function Insights() {
               </BarChart>
             </ResponsiveContainer>
             <div className="mt-3 pt-3 border-t border-border flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Contact permission (leads)</span>
+              <span className="text-muted-foreground">
+                Contact permission (leads)
+              </span>
               <span className="font-bold text-foreground">
-                {reviews.contactPermissionCount} orang ({reviews.contactPermissionRate}%)
+                {reviews.contactPermissionCount} orang (
+                {reviews.contactPermissionRate}%)
               </span>
             </div>
           </CardBody>
@@ -306,16 +386,24 @@ export default function Insights() {
       <Card>
         <CardHeader>
           <SectionTitle>Pertumbuhan Pengguna</SectionTitle>
-          <p className="text-xs text-muted-foreground mt-0.5">Registrasi baru per bulan (6 bulan terakhir)</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Registrasi baru per bulan (6 bulan terakhir)
+          </p>
         </CardHeader>
         <CardBody>
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={userGrowth}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="period" tick={{ fontSize: 11 }} tickFormatter={periodLabel} />
+              <XAxis
+                dataKey="period"
+                tick={{ fontSize: 11 }}
+                tickFormatter={periodLabel}
+              />
               <YAxis tick={{ fontSize: 11 }} allowDecimals={false} width={28} />
               <Tooltip
-                content={<ChartTooltip valueFormatter={(v) => `${v} pengguna`} />}
+                content={
+                  <ChartTooltip valueFormatter={(v) => `${v} pengguna`} />
+                }
                 labelFormatter={periodLabel}
               />
               <Line
@@ -336,14 +424,25 @@ export default function Insights() {
       <Card>
         <CardHeader>
           <SectionTitle>Tren Aktivitas Split Bill</SectionTitle>
-          <p className="text-xs text-muted-foreground mt-0.5">Jumlah split bill dibuat per bulan (6 bulan terakhir)</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Jumlah split bill dibuat per bulan (6 bulan terakhir)
+          </p>
         </CardHeader>
         <CardBody>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={activityTrend} barCategoryGap="35%">
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="period" tick={{ fontSize: 11 }} tickFormatter={periodLabel} />
-              <YAxis yAxisId="left" tick={{ fontSize: 11 }} allowDecimals={false} width={28} />
+              <XAxis
+                dataKey="period"
+                tick={{ fontSize: 11 }}
+                tickFormatter={periodLabel}
+              />
+              <YAxis
+                yAxisId="left"
+                tick={{ fontSize: 11 }}
+                allowDecimals={false}
+                width={28}
+              />
               <YAxis
                 yAxisId="right"
                 orientation="right"
@@ -361,7 +460,13 @@ export default function Insights() {
                 }
                 labelFormatter={periodLabel}
               />
-              <Bar yAxisId="left" dataKey="count" name="Aktivitas" fill={WARNING} radius={[4, 4, 0, 0]} />
+              <Bar
+                yAxisId="left"
+                dataKey="count"
+                name="Aktivitas"
+                fill={WARNING}
+                radius={[4, 4, 0, 0]}
+              />
               <Line
                 yAxisId="right"
                 type="monotone"
@@ -395,13 +500,17 @@ export default function Insights() {
                   Sudah Pakai Scan
                 </span>
                 <span className="text-muted-foreground">
-                  {featureAdoption.scanAdopted} / {kpis.totalUsers} ({featureAdoption.scanAdoptionRate}%)
+                  {featureAdoption.scanAdopted} / {kpis.totalUsers} (
+                  {featureAdoption.scanAdoptionRate}%)
                 </span>
               </div>
               <div className="h-3 bg-muted rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all duration-700"
-                  style={{ width: `${featureAdoption.scanAdoptionRate}%`, background: PRIMARY }}
+                  style={{
+                    width: `${featureAdoption.scanAdoptionRate}%`,
+                    background: PRIMARY,
+                  }}
                 />
               </div>
             </div>
@@ -432,18 +541,28 @@ export default function Insights() {
             <div className="pt-3 border-t border-border">
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="bg-primary/5 rounded-lg p-3">
-                  <p className="text-lg font-black text-primary">{featureAdoption.scanAdoptionRate}%</p>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">Adopsi</p>
+                  <p className="text-lg font-black text-primary">
+                    {featureAdoption.scanAdoptionRate}%
+                  </p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">
+                    Adopsi
+                  </p>
                 </div>
                 <div className="bg-warning/5 rounded-lg p-3">
-                  <p className="text-lg font-black text-warning">{featureAdoption.scanExhausted}</p>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">Power Users</p>
+                  <p className="text-lg font-black text-warning">
+                    {featureAdoption.scanExhausted}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">
+                    Power Users
+                  </p>
                 </div>
                 <div className="bg-muted rounded-lg p-3">
                   <p className="text-lg font-black text-foreground">
                     {kpis.totalUsers - featureAdoption.scanAdopted}
                   </p>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">Belum Pakai</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">
+                    Belum Pakai
+                  </p>
                 </div>
               </div>
             </div>
@@ -455,26 +574,33 @@ export default function Insights() {
           <CardHeader className="flex items-center justify-between gap-2">
             <div>
               <SectionTitle>Top Pengguna Aktif</SectionTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">10 pengguna dengan split bill terbanyak</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                10 pengguna dengan split bill terbanyak
+              </p>
             </div>
             <Target className="h-4 w-4 text-muted-foreground flex-shrink-0" />
           </CardHeader>
           <CardBody className="p-0">
             {topUsers.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">Belum ada data</p>
+              <p className="text-sm text-muted-foreground text-center py-8">
+                Belum ada data
+              </p>
             ) : (
               <ol className="divide-y divide-border">
                 {topUsers.map((u, i) => (
-                  <li key={u.userId} className="flex items-center gap-3 px-5 py-3">
+                  <li
+                    key={u.userId}
+                    className="flex items-center gap-3 px-5 py-3"
+                  >
                     <span
                       className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 ${
                         i === 0
                           ? "bg-warning text-white"
                           : i === 1
-                          ? "bg-slate-400 text-white"
-                          : i === 2
-                          ? "bg-amber-600 text-white"
-                          : "bg-muted text-muted-foreground"
+                            ? "bg-slate-400 text-white"
+                            : i === 2
+                              ? "bg-amber-600 text-white"
+                              : "bg-muted text-muted-foreground"
                       }`}
                     >
                       {i + 1}
@@ -486,7 +612,9 @@ export default function Insights() {
                       >
                         {u.name}
                       </button>
-                      <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {u.email}
+                      </p>
                     </div>
                     <span className="flex-shrink-0 inline-flex items-center gap-1 text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
                       <Receipt className="h-3 w-3" />

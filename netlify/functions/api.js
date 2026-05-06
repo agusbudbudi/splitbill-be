@@ -16,6 +16,8 @@ import handleSplitBillById from "../../api/split-bills/[recordId].js";
 import handleBanners from "../../api/banners.js";
 import { handlePaymentCreate, handleGetPaymentById } from "../../api/payment.js";
 import { handleSubscriptionPackages, handleSubscriptionPackageById } from "../../api/subscription-packages.js";
+import { handleOrders, handleOrderById } from "../../api/orders.js";
+import handlePakasirWebhook from "../../api/pakasir-webhook.js";
 import { createCorsHeaders, jsonResponse, noContentResponse } from "../../lib/http.js";
 
 function getRequestPath(event) {
@@ -131,6 +133,8 @@ export async function handler(event, context) {
   if (segments[0] === "api") {
     segments = segments.slice(1);
   }
+
+  console.log("API Request Path:", normalizedPath, "Segments:", segments);
 
   try {
     if (segments.length === 0) {
@@ -257,6 +261,22 @@ export async function handler(event, context) {
         }
         return handleSubscriptionPackageById(event, subresource, context);
       }
+    }
+
+    if (resource === "orders") {
+      if (!subresource && rest.length === 0) {
+        return handleOrders(event, context);
+      }
+      if (subresource === "create" && rest.length === 0) {
+        return handleOrders(event, context);
+      }
+      if (subresource && rest.length === 0) {
+        return handleOrderById(event, subresource, context);
+      }
+    }
+
+    if (resource === "pakasir-webhook" && !subresource && rest.length === 0) {
+      return handlePakasirWebhook(event, context);
     }
 
     const headers = createCorsHeaders(event);

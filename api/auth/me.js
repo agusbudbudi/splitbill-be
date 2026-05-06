@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+import Order from "../../lib/models/Order.js";
 
 import { requireUser } from "../../lib/middleware/auth.js";
 import { connectDatabase } from "../../lib/db.js";
@@ -28,6 +29,19 @@ export async function handleAuthMe(event) {
     await connectDatabase();
     const user = await requireUser(event);
 
+    // Populate order if exists to get more details
+    let orderInfo = null;
+    if (user.orderId) {
+      const order = await Order.findById(user.orderId);
+      if (order) {
+        orderInfo = {
+          orderId: order.orderId,
+          paidAt: order.paidAt,
+          snapshot: order.snapshot
+        };
+      }
+    }
+
     return jsonResponse(
       200,
       {
@@ -39,6 +53,10 @@ export async function handleAuthMe(event) {
           isAdmin: user.isAdmin,
           freeScanCount: user.freeScanCount,
           createdAt: user.createdAt,
+          subscriptionStatus: user.subscriptionStatus,
+          subscriptionPlan: user.subscriptionPlan,
+          subscriptionExpiry: user.subscriptionExpiry,
+          order: orderInfo
         },
       },
       headers,

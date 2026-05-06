@@ -57,6 +57,12 @@ jspm_packages/
 *.swp
 *.swo
 
+# Development scripts
+scripts/
+
+# Build outputs
+public/
+
 # OS
 .DS_Store
 Thumbs.db

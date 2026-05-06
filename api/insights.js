@@ -67,8 +67,8 @@ export async function handleInsights(event) {
       // 3. active last 30 days
       User.countDocuments({ lastLogin: { $gte: thirtyDaysAgo } }),
 
-      // 4. scan adopted (used at least 1 scan: freeScanCount < 10)
-      User.countDocuments({ freeScanCount: { $lt: 10 } }),
+      // 4. scan adopted (used at least 1 scan: freeScanCount < 5)
+      User.countDocuments({ freeScanCount: { $lt: 5 } }),
 
       // 5. scan exhausted
       User.countDocuments({ freeScanCount: 0 }),

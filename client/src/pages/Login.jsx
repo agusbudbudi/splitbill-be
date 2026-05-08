@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { usePageMeta } from "../lib/usePageMeta";
 import { useNavigate } from "react-router-dom";
 import { Lock, Mail, Loader2 } from "lucide-react";
 
 export default function Login() {
+  usePageMeta("Login", "Masuk ke dashboard admin Split Bill.");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);

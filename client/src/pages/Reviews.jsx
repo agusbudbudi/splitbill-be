@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { usePageMeta } from "../lib/usePageMeta";
 import { Star, MessageSquare, Phone } from "lucide-react";
 import {
   Card, CardHeader,
@@ -25,6 +26,10 @@ function StarRating({ rating }) {
 }
 
 export default function Reviews() {
+  usePageMeta(
+    "Daftar Review",
+    "Pantau feedback dan pengalaman pengguna untuk meningkatkan kualitas layanan."
+  );
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

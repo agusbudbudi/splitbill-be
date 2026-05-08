@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { usePageMeta } from "../lib/usePageMeta";
 import { Receipt, Calendar, Users, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -14,6 +15,10 @@ const formatCurrency = (amount) =>
   new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(amount);
 
 export default function SplitBills() {
+  usePageMeta(
+    "Riwayat Split Bill",
+    "Lihat dan kelola semua rekaman split bill yang telah disimpan."
+  );
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

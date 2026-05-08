@@ -96,6 +96,33 @@ async function createOrder(event, headers) {
     throw new HttpError(400, `Unsupported order type: ${type}`);
   }
 
+  // ✅ SHOULD DO: Idempotency check to prevent duplicate pending orders
+  const existingOrder = await Order.findOne({
+    userId: user._id,
+    referenceId,
+    type,
+    status: "pending",
+    expiresAt: { $gt: new Date() },
+  });
+
+  if (existingOrder) {
+    return jsonResponse(
+      200,
+      {
+        success: true,
+        data: {
+          orderId: existingOrder.orderId,
+          amount: existingOrder.amount,
+          expiresAt: existingOrder.expiresAt,
+          qrisData: existingOrder.qrisData,
+          status: existingOrder.status,
+          createdAt: existingOrder.createdAt,
+        },
+      },
+      headers
+    );
+  }
+
   const now = new Date();
   const dateStr = now.toISOString().slice(2, 10).replace(/-/g, "");
   const orderId = `SB-${dateStr}-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;

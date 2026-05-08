@@ -223,6 +223,8 @@ async function getOrderById(event, id, headers) {
         } : null,
         paymentMethod: order.paymentMethod,
         isSandbox: order.isSandbox,
+        total_payment: order.qrisData?.total_payment || order.amount,
+        fee: order.qrisData?.fee || 0,
       },
     },
     headers
@@ -286,6 +288,8 @@ async function getOrders(event, headers) {
           createdAt: order.createdAt,
           paidAt: order.paidAt,
           snapshot: order.snapshot,
+          total_payment: order.qrisData?.total_payment || order.amount,
+          fee: order.qrisData?.fee || 0,
           user: order.userId && typeof order.userId === 'object' ? {
             id: order.userId._id,
             name: order.userId.name,

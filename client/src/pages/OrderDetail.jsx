@@ -182,7 +182,7 @@ export default function OrderDetail() {
           </>
         }
         statLabel="Total Bayar"
-        statValue={formatCurrency(order.amount)}
+        statValue={formatCurrency(order.total_payment || order.amount)}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -264,7 +264,7 @@ export default function OrderDetail() {
                           Waktu Bayar
                         </span>
                         <span className="text-sm font-medium text-foreground">
-                          {formatDate(order.paidAt)}
+                          {formatDateTime(order.paidAt)}
                         </span>
                       </div>
                     )}
@@ -293,29 +293,25 @@ export default function OrderDetail() {
                         Harga Paket
                       </span>
                       <span className="text-sm font-medium text-foreground">
-                        {formatCurrency(order.snapshot?.price || order.amount)}
+                        {formatCurrency(order.amount)}
                       </span>
                     </div>
-                    {order.snapshot?.finalPrice &&
-                      order.snapshot.finalPrice !== order.snapshot.price && (
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">
-                            Diskon
-                          </span>
-                          <span className="text-sm font-medium text-success">
-                            -
-                            {formatCurrency(
-                              order.snapshot.price - order.snapshot.finalPrice,
-                            )}
-                          </span>
-                        </div>
-                      )}
+                    {order.fee > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">
+                          Fee Transaksi (Admin Pakasir)
+                        </span>
+                        <span className="text-sm font-medium text-foreground">
+                          {formatCurrency(order.fee)}
+                        </span>
+                      </div>
+                    )}
                     <div className="pt-2 border-t border-border flex justify-between items-center">
                       <span className="text-sm font-bold text-foreground">
                         Total Tagihan
                       </span>
                       <span className="text-lg font-black text-primary">
-                        {formatCurrency(order.amount)}
+                        {formatCurrency(order.total_payment || order.amount)}
                       </span>
                     </div>
                   </div>

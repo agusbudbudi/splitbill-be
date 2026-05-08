@@ -1,4 +1,5 @@
 import { cn } from "../../lib/utils";
+import Tooltip from "./Tooltip";
 
 export default function StatCard({
   title,
@@ -7,6 +8,7 @@ export default function StatCard({
   iconColor = "text-primary",
   iconBg = "bg-primary/10",
   className,
+  tooltip,
 }) {
   return (
     <div
@@ -19,12 +21,15 @@ export default function StatCard({
         <Icon className={cn("h-3 w-3 sm:h-4 w-4", iconColor)} />
       </div>
       <div className="min-w-0">
-        <p className="text-xs font-medium text-muted-foreground truncate">
-          {title}
-        </p>
-        <p className="text-lg sm:text-2xl font-black text-foreground mt-0.5 truncate">
+        <div className="flex items-center gap-1.5">
+          <div className="text-xs font-medium text-muted-foreground truncate">
+            {title}
+          </div>
+          {tooltip && <Tooltip content={tooltip} />}
+        </div>
+        <div className="text-lg sm:text-2xl font-black text-foreground mt-0.5 truncate">
           {value}
-        </p>
+        </div>
       </div>
     </div>
   );

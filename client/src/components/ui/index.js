@@ -11,3 +11,4 @@ export { Table, Thead, Tbody, Tr, Th, Td, TableSkeleton } from "./Table";
 export { default as Modal, ModalBody, ModalFooter } from "./Modal";
 export { ToastProvider, useToast } from "./ToastProvider";
 export { default as Pagination } from "./Pagination";
+export { default as Tooltip } from "./Tooltip";

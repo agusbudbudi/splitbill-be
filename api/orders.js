@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import dotenv from "dotenv";
 import Order from "../lib/models/Order.js";
+import User from "../lib/models/User.js";
 import SubscriptionPackage from "../lib/models/SubscriptionPackage.js";
 import { connectDatabase } from "../lib/db.js";
 import {
@@ -11,7 +12,7 @@ import {
 } from "../lib/http.js";
 import { parseJsonBody } from "../lib/parsers.js";
 import { HttpError, toHttpError } from "../lib/errors.js";
-import { authMiddleware } from "../lib/middleware/auth.js";
+import { authMiddleware, adminMiddleware } from "../lib/middleware/auth.js";
 import { applyRateLimit } from "../lib/middleware/rateLimiter.js";
 
 dotenv.config();
@@ -161,7 +162,13 @@ async function createOrder(event, headers) {
 
 async function getOrderById(event, id, headers) {
   const user = event.user;
-  const order = await Order.findOne({ orderId: id, userId: user._id });
+  
+  let query = { orderId: id };
+  if (!user.isAdmin) {
+    query.userId = user._id;
+  }
+
+  const order = await Order.findOne(query).populate("userId", "name email");
 
   if (!order) {
     throw new HttpError(404, "Order not found");
@@ -172,6 +179,7 @@ async function getOrderById(event, id, headers) {
     {
       success: true,
       data: {
+        id: order._id,
         orderId: order.orderId,
         type: order.type,
         status: order.status,
@@ -181,6 +189,13 @@ async function getOrderById(event, id, headers) {
         expiresAt: order.expiresAt,
         paidAt: order.paidAt,
         createdAt: order.createdAt,
+        user: order.userId ? {
+          id: order.userId._id,
+          name: order.userId.name,
+          email: order.userId.email
+        } : null,
+        paymentMethod: order.paymentMethod,
+        isSandbox: order.isSandbox,
       },
     },
     headers
@@ -189,22 +204,76 @@ async function getOrderById(event, id, headers) {
 
 async function getOrders(event, headers) {
   const user = event.user;
-  const orders = await Order.find({ userId: user._id }).sort({ createdAt: -1 });
+  const url = new URL(event.url || `http://localhost${event.path || ""}`);
+  
+  const page = parseInt(url.searchParams.get("page") || "1", 10);
+  const limit = parseInt(url.searchParams.get("limit") || "10", 10);
+  const skip = (page - 1) * limit;
+  const search = url.searchParams.get("search") || "";
+
+  let query = user.isAdmin ? {} : { userId: user._id };
+
+  if (search) {
+    const searchRegex = { $regex: search, $options: "i" };
+    const searchConditions = [{ orderId: searchRegex }];
+
+    if (user.isAdmin) {
+      // Find users matching name or email
+      const matchingUsers = await User.find({
+        $or: [{ name: searchRegex }, { email: searchRegex }],
+      }).select("_id").lean();
+      
+      if (matchingUsers.length > 0) {
+        searchConditions.push({ userId: { $in: matchingUsers.map(u => u._id) } });
+      }
+    }
+    
+    query = { ...query, $or: searchConditions };
+  }
+
+  const totalItems = await Order.countDocuments(query);
+  const totalPages = Math.ceil(totalItems / limit);
+
+  let ordersQuery = Order.find(query)
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(limit);
+
+  if (user.isAdmin) {
+    ordersQuery = ordersQuery.populate("userId", "name email");
+  }
+
+  const orders = await ordersQuery;
 
   return jsonResponse(
     200,
     {
       success: true,
-      data: orders.map((order) => ({
-        orderId: order.orderId,
-        type: order.type,
-        status: order.status,
-        amount: order.amount,
-        createdAt: order.createdAt,
-        paidAt: order.paidAt,
-        snapshot: order.snapshot,
-      })),
+      data: {
+        orders: orders.map((order) => ({
+          id: order._id,
+          orderId: order.orderId,
+          type: order.type,
+          status: order.status,
+          amount: order.amount,
+          createdAt: order.createdAt,
+          paidAt: order.paidAt,
+          snapshot: order.snapshot,
+          user: order.userId && typeof order.userId === 'object' ? {
+            id: order.userId._id,
+            name: order.userId.name,
+            email: order.userId.email
+          } : null,
+        })),
+        pagination: {
+          totalItems,
+          totalPages,
+          currentPage: page,
+          limit,
+        }
+      },
     },
     headers
   );
 }
+

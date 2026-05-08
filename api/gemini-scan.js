@@ -56,11 +56,13 @@ export async function handleGeminiScan(event) {
     await connectDatabase();
     const user = await requireUser(event);
 
-    // Check free scan quota
-    if (user.freeScanCount <= 0) {
+    // Check quota: Allow if subscription is active OR if they have free scans left
+    const isSubscribed = user.subscriptionStatus === "active";
+    if (!isSubscribed && user.freeScanCount <= 0) {
       throw new HttpError(
         403,
-        "Kuota scan gratis Anda telah habis. Silakan hubungi admin atau tunggu pembaruan berikutnya.",
+        "Kuota scan gratis Anda telah habis. Silakan berlangganan premium untuk scan sepuasnya!",
+        "scanExhaustedAndSubscribe"
       );
     }
 
@@ -156,9 +158,11 @@ export async function handleGeminiScan(event) {
 
       const parsed = JSON.parse(jsonMatch[0]);
 
-      // Decrement free scan count
-      user.freeScanCount = Math.max(0, user.freeScanCount - 1);
-      await user.save();
+      // Decrement free scan count only for non-subscribed users
+      if (!isSubscribed) {
+        user.freeScanCount = Math.max(0, user.freeScanCount - 1);
+        await user.save();
+      }
 
       const logger = await import("../lib/logger.js");
       logger.info("Gemini scan completed", {

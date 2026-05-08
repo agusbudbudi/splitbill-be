@@ -1,23 +1,3 @@
-import handleParticipants from "../../api/participants/index.js";
-import handleParticipantById from "../../api/participants/[participantId].js";
-import handleReviews from "../../api/reviews.js";
-import handleAuthLogin from "../../api/auth/login.js";
-import handleAuthRegister from "../../api/auth/register.js";
-import handleAuthLogout from "../../api/auth/logout.js";
-import handleAuthMe from "../../api/auth/me.js";
-import handleAuthVerify from "../../api/auth/verify.js";
-import handleResendVerification from "../../api/auth/resend-verification.js";
-import handleUsers from "../../api/users.js";
-import handleInsights from "../../api/insights.js";
-import handleUserById from "../../api/user-by-id.js";
-import handleGeminiScan from "../../api/gemini-scan.js";
-import handleSplitBills from "../../api/split-bills/index.js";
-import handleSplitBillById from "../../api/split-bills/[recordId].js";
-import handleBanners from "../../api/banners.js";
-import { handlePaymentCreate, handleGetPaymentById } from "../../api/payment.js";
-import { handleSubscriptionPackages, handleSubscriptionPackageById } from "../../api/subscription-packages.js";
-import { handleOrders, handleOrderById } from "../../api/orders.js";
-import handlePakasirWebhook from "../../api/pakasir-webhook.js";
 import { createCorsHeaders, jsonResponse, noContentResponse } from "../../lib/http.js";
 
 function getRequestPath(event) {
@@ -138,60 +118,38 @@ export async function handler(event, context) {
 
   try {
     if (segments.length === 0) {
-      // Temporary debug output to inspect routing input from Netlify
       const headers = createCorsHeaders(event);
-      return jsonResponse(
-        200,
-        {
-          route: "root",
-          requestPath,
-          normalizedPath,
-          url: typeof event?.url === "string" ? event.url : null,
-          method: event?.method || event?.httpMethod || null,
-          rawUrl: event?.rawUrl || null,
-          path: event?.path || null,
-          eventType: Object.prototype.toString.call(event),
-          eventCtor: event?.constructor?.name || null,
-          eventKeys: (() => {
-            try {
-              return Object.getOwnPropertyNames(event || {});
-            } catch {
-              return [];
-            }
-          })(),
-          hasHeadersGet: typeof event?.headers?.get === "function",
-          headers: {
-            host: event?.headers?.host || event?.headers?.Host || null,
-            "x-forwarded-uri":
-              event?.headers?.["x-forwarded-uri"] ||
-              event?.headers?.["X-Forwarded-Uri"] ||
-              null,
-            "x-original-uri":
-              event?.headers?.["x-original-uri"] ||
-              event?.headers?.["X-Original-Uri"] ||
-              null,
-          },
-        },
-        headers,
-      );
+      return jsonResponse(200, { route: "root", requestPath, normalizedPath }, headers);
     }
 
     const [resource, subresource, ...rest] = segments;
 
     if (resource === "auth" && rest.length === 0) {
       switch (subresource) {
-        case "login":
-          return handleAuthLogin(event, context);
-        case "register":
-          return handleAuthRegister(event, context);
-        case "logout":
-          return handleAuthLogout(event, context);
-        case "me":
-          return handleAuthMe(event, context);
-        case "verify":
-          return handleAuthVerify(event, context);
-        case "resend-verification":
-          return handleResendVerification(event, context);
+        case "login": {
+          const { default: h } = await import("../../api/auth/login.js");
+          return h(event, context);
+        }
+        case "register": {
+          const { default: h } = await import("../../api/auth/register.js");
+          return h(event, context);
+        }
+        case "logout": {
+          const { default: h } = await import("../../api/auth/logout.js");
+          return h(event, context);
+        }
+        case "me": {
+          const { default: h } = await import("../../api/auth/me.js");
+          return h(event, context);
+        }
+        case "verify": {
+          const { default: h } = await import("../../api/auth/verify.js");
+          return h(event, context);
+        }
+        case "resend-verification": {
+          const { default: h } = await import("../../api/auth/resend-verification.js");
+          return h(event, context);
+        }
         default:
           break;
       }
@@ -199,50 +157,59 @@ export async function handler(event, context) {
 
     if (resource === "participants") {
       if (!subresource && rest.length === 0) {
-        return handleParticipants(event, context);
+        const { default: h } = await import("../../api/participants/index.js");
+        return h(event, context);
       }
-
       if (subresource && rest.length === 0) {
-        return handleParticipantById(event, subresource, context);
+        const { default: h } = await import("../../api/participants/[participantId].js");
+        return h(event, subresource, context);
       }
     }
 
     if (resource === "reviews" && rest.length === 0) {
-      return handleReviews(event, context, subresource);
+      const { default: h } = await import("../../api/reviews.js");
+      return h(event, context, subresource);
     }
 
     if (resource === "banners" && !subresource && rest.length === 0) {
-      return handleBanners(event, context);
+      const { default: h } = await import("../../api/banners.js");
+      return h(event, context);
     }
 
     if (resource === "users") {
       if (!subresource && rest.length === 0) {
-        return handleUsers(event, context);
+        const { default: h } = await import("../../api/users.js");
+        return h(event, context);
       }
       if (subresource && rest.length === 0) {
-        return handleUserById(event, subresource, context);
+        const { default: h } = await import("../../api/user-by-id.js");
+        return h(event, subresource, context);
       }
     }
 
     if (resource === "gemini-scan" && !subresource && rest.length === 0) {
-      return handleGeminiScan(event, context);
+      const { default: h } = await import("../../api/gemini-scan.js");
+      return h(event, context);
     }
 
     if (resource === "insights" && !subresource && rest.length === 0) {
-      return handleInsights(event, context);
+      const { default: h } = await import("../../api/insights.js");
+      return h(event, context);
     }
 
     if (resource === "split-bills") {
       if (!subresource && rest.length === 0) {
-        return handleSplitBills(event, context);
+        const { default: h } = await import("../../api/split-bills/index.js");
+        return h(event, context);
       }
-
       if (subresource && rest.length === 0) {
-        return handleSplitBillById(event, subresource, context);
+        const { default: h } = await import("../../api/split-bills/[recordId].js");
+        return h(event, subresource, context);
       }
     }
 
     if (resource === "payment") {
+      const { handlePaymentCreate, handleGetPaymentById } = await import("../../api/payment.js");
       if (subresource === "create" && rest.length === 0) {
         return handlePaymentCreate(event, context);
       }
@@ -252,6 +219,7 @@ export async function handler(event, context) {
     }
 
     if (resource === "subscription-packages") {
+      const { handleSubscriptionPackages, handleSubscriptionPackageById } = await import("../../api/subscription-packages.js");
       if (!subresource && rest.length === 0) {
         return handleSubscriptionPackages(event, context);
       }
@@ -264,6 +232,7 @@ export async function handler(event, context) {
     }
 
     if (resource === "orders") {
+      const { handleOrders, handleOrderById } = await import("../../api/orders.js");
       if (!subresource && rest.length === 0) {
         return handleOrders(event, context);
       }
@@ -276,7 +245,13 @@ export async function handler(event, context) {
     }
 
     if (resource === "pakasir-webhook" && !subresource && rest.length === 0) {
-      return handlePakasirWebhook(event, context);
+      const { default: h } = await import("../../api/pakasir-webhook.js");
+      return h(event, context);
+    }
+
+    if (resource === "campaigns" && rest.length === 0) {
+      const { default: h } = await import("../../api/campaigns.js");
+      return h(event, context);
     }
 
     const headers = createCorsHeaders(event);
@@ -284,11 +259,7 @@ export async function handler(event, context) {
   } catch (error) {
     console.error("Unhandled API router error:", error);
     const headers = createCorsHeaders(event);
-    return jsonResponse(
-      500,
-      { success: false, error: "Internal server error" },
-      headers,
-    );
+    return jsonResponse(500, { success: false, error: "Internal server error" }, headers);
   }
 }
 

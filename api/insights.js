@@ -310,6 +310,7 @@ export async function handleInsights(event) {
           $match: {
             status: "paid",
             paidAt: { $gte: startOfMonthJkt },
+            isSandbox: { $ne: true },
           },
         },
         { $group: { _id: null, total: { $sum: "$amount" } } },
@@ -327,6 +328,7 @@ export async function handleInsights(event) {
           $match: {
             status: "paid",
             paidAt: { $gte: startOfSixMonthsAgoJkt },
+            isSandbox: { $ne: true },
           },
         },
         {

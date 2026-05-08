@@ -39,8 +39,9 @@ export default async function handlePakasirWebhook(event, context) {
     // Recommended: Validate via Pakasir API if we have an API Key
     if (PAKASIR_API_KEY) {
       try {
+        // CRIT-2 FIX: Never log the full URL with the API key
         const verifyUrl = `https://app.pakasir.com/api/transactiondetail?project=${project}&amount=${amount}&order_id=${order_id}&api_key=${PAKASIR_API_KEY}`;
-        console.log("Verifying transaction with Pakasir:", verifyUrl);
+        console.log(`Verifying transaction with Pakasir for order: ${order_id} (project: ${project}, amount: ${amount})`);
         const response = await fetch(verifyUrl);
         
         if (response.ok) {
@@ -103,7 +104,20 @@ export default async function handlePakasirWebhook(event, context) {
         order.paymentMethod = payment_method || "QRIS";
         order.paidAt = completed_at ? new Date(completed_at) : new Date();
         order.isSandbox = is_sandbox || false;
+        
+        // Remove expiresAt to prevent TTL deletion
+        order.expiresAt = undefined;
+        
         await order.save({ session });
+
+        // CRIT-3 FIX: Block sandbox transactions from activating real subscriptions in production.
+        // We COMMIT the order as paid (so it's not re-processed), but SKIP subscription activation.
+        if (is_sandbox && process.env.NODE_ENV === "production") {
+          console.warn(`[SECURITY] Sandbox transaction blocked from activating subscription in production. Order: ${order_id} committed as paid without subscription.`);
+          await session.commitTransaction();
+          session.endSession();
+          return jsonResponse(200, { success: true, message: "Sandbox order acknowledged (subscription not activated in production)" }, headers);
+        }
 
         // Update User if it's a subscription
         if (order.type === "subscription") {
@@ -125,12 +139,33 @@ export default async function handlePakasirWebhook(event, context) {
             user.subscriptionExpiry = expiryDate;
             user.orderId = order._id;
             await user.save({ session });
-            console.log(`Subscription activated/renewed for user ${user.email}, plan: ${user.subscriptionPlan}, new expiry: ${expiryDate.toISOString()}`);
+            console.log(`Subscription activated/renewed for user ${user.email}, plan: ${user.subscriptionPlan}, new expiry: ${expiryDate.toISOString()}, isSandbox: ${is_sandbox || false}`);
           }
         }
 
         await session.commitTransaction();
         session.endSession();
+
+        // ✅ SHOULD DO: Send confirmation email
+        if (order.type === "subscription") {
+          try {
+            const { sendSubscriptionConfirmationEmail } = await import("../lib/email.js");
+            const user = await User.findById(order.userId);
+            if (user) {
+              await sendSubscriptionConfirmationEmail({
+                email: user.email,
+                name: user.name,
+                plan: user.subscriptionStatus === "active" ? user.subscriptionPlan : order.snapshot.name,
+                expiry: user.subscriptionExpiry,
+                orderId: order.orderId,
+                amount: order.amount,
+              });
+            }
+          } catch (emailErr) {
+            console.error("Failed to send confirmation email:", emailErr);
+          }
+        }
+
         return jsonResponse(200, { success: true, message: "Webhook processed successfully" }, headers);
       } catch (error) {
         await session.abortTransaction();

@@ -157,9 +157,7 @@ export default function OrderDetail() {
       <PageHero
         onBack={() => navigate("/orders")}
         badges={
-          <div className="flex gap-2">
-             {getStatusBadge(order.status, true)}
-          </div>
+          <div className="flex gap-2">{getStatusBadge(order.status, true)}</div>
         }
         title={order.orderId}
         meta={
@@ -274,7 +272,7 @@ export default function OrderDetail() {
                       <div className="pt-2">
                         <Badge
                           variant="warning"
-                          className="w-full justify-center"
+                          className="w-full justify-center rounded-sm py-1.5"
                         >
                           Sandbox Mode
                         </Badge>
@@ -347,7 +345,9 @@ export default function OrderDetail() {
                         {order.user.name}
                         <ExternalLink size={12} className="flex-shrink-0" />
                       </a>
-                      <p className="text-sm text-muted-foreground truncate">{order.user.email}</p>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {order.user.email}
+                      </p>
                     </div>
                   </div>
                 ) : (
@@ -387,7 +387,9 @@ export default function OrderDetail() {
                   )}
 
                   <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Kadaluarsa</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold">
+                      Kadaluarsa
+                    </p>
                     <div className="flex items-center justify-center gap-1.5 text-foreground font-black">
                       <Clock size={14} className="text-warning" />
                       {formatDateTime(order.expiresAt)}

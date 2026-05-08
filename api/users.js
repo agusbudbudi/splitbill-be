@@ -32,24 +32,31 @@ export async function handleUsers(event) {
     const { requireAdmin } = await import("../lib/middleware/auth.js");
     await requireAdmin(event);
 
-    const { page = 1, limit = 10, search = "" } = getQueryParams(event);
+    const { page = 1, limit = 10, search = "", isVerified, subscriptionStatus } = getQueryParams(event);
     const pageNum = Math.max(parseInt(page, 10) || 1, 1);
     const limitNum = Math.max(parseInt(limit, 10) || 10, 1);
     const skip = (pageNum - 1) * limitNum;
 
-    const searchFilter = search
-      ? { $or: [
+    const filter = {};
+    if (search) {
+      filter.$or = [
           { name: { $regex: search, $options: "i" } },
           { email: { $regex: search, $options: "i" } },
-        ]}
-      : {};
+        ];
+    }
+    if (isVerified !== undefined && isVerified !== "") {
+      filter.isVerified = isVerified === "true";
+    }
+    if (subscriptionStatus) {
+      filter.subscriptionStatus = subscriptionStatus;
+    }
 
     const threeMonthsAgo = new Date();
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
     const [users, totalItems, verifiedUsersCount, activeUsersCount, usersWithSplitBill, splitBillCounts] = await Promise.all([
-      User.find(searchFilter).sort({ createdAt: -1 }).skip(skip).limit(limitNum),
-      User.countDocuments(searchFilter),
+      User.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limitNum),
+      User.countDocuments(filter),
       User.countDocuments({ isVerified: true }),
       User.countDocuments({ lastLogin: { $gte: threeMonthsAgo } }),
       SplitBillRecord.distinct("user").then((ids) => ids.length),

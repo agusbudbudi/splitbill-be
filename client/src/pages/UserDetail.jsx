@@ -34,6 +34,8 @@ const formatCurrency = (amount) =>
     minimumFractionDigits: 0,
   }).format(amount ?? 0);
 
+const TOTAL_FREE_SCAN_QUOTA = 5;
+
 function InfoRow({ label, children }) {
   return (
     <div className="flex items-start justify-between gap-4 py-3 border-b border-border last:border-0">
@@ -285,17 +287,8 @@ export default function UserDetail() {
                 </div>
               </div>
 
-              <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-                <div
-                  className="h-2 rounded-full transition-all duration-500"
-                  style={{
-                    width: `${Math.min(100, ((userData.freeScanCount ?? 0) / 10) * 100)}%`,
-                    background: "linear-gradient(90deg, #479fea, #6ec6ff)",
-                  }}
-                />
-              </div>
               <p className="text-xs text-muted-foreground text-center">
-                {userData.freeScanCount ?? 0} dari 10 kuota scan tersisa
+                {userData.freeScanCount ?? 0} dari {TOTAL_FREE_SCAN_QUOTA} kuota scan tersisa
               </p>
             </div>
           </section>

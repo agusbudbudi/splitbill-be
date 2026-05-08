@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { usePageMeta } from "../lib/usePageMeta";
-import { Receipt, Calendar, Users, ChevronRight } from "lucide-react";
+import { ShoppingBag, Calendar, User, ChevronRight, Clock, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   Card, CardHeader,
   SearchInput,
   Table, Thead, Tbody, Tr, Th, Td, TableSkeleton,
-  Avatar, Button, EmptyState, Pagination,
+  Avatar, Button, EmptyState, Pagination, Badge
 } from "../components/ui";
 import { formatDate } from "../lib/utils";
 import { apiFetch } from "../lib/api";
@@ -14,12 +14,27 @@ import { apiFetch } from "../lib/api";
 const formatCurrency = (amount) =>
   new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(amount);
 
-export default function SplitBills() {
+const getStatusBadge = (status) => {
+  switch (status) {
+    case "paid":
+      return <Badge variant="success" className="gap-1"><CheckCircle className="h-3 w-3" /> Paid</Badge>;
+    case "pending":
+      return <Badge variant="warning" className="gap-1"><Clock className="h-3 w-3" /> Pending</Badge>;
+    case "expired":
+      return <Badge variant="neutral" className="gap-1"><AlertCircle className="h-3 w-3" /> Expired</Badge>;
+    case "failed":
+      return <Badge variant="danger" className="gap-1"><XCircle className="h-3 w-3" /> Failed</Badge>;
+    default:
+      return <Badge variant="neutral">{status}</Badge>;
+  }
+};
+
+export default function Orders() {
   usePageMeta(
-    "Riwayat Split Bill",
-    "Lihat dan kelola semua rekaman split bill yang telah disimpan."
+    "Daftar Orders",
+    "Kelola pesanan paket langganan dan status pembayarannya."
   );
-  const [records, setRecords] = useState([]);
+  const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -31,7 +46,7 @@ export default function SplitBills() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
-  // Debounce: reset page to 1 and apply search after 400ms idle
+  // Debounce search
   useEffect(() => {
     const timer = setTimeout(() => {
       setCurrentPage(1);
@@ -40,21 +55,21 @@ export default function SplitBills() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const fetchSplitBills = useCallback(async (page, search) => {
+  const fetchOrders = useCallback(async (page, search) => {
     setLoading(true);
     setError("");
     try {
       const params = new URLSearchParams({ page, limit: 10 });
       if (search) params.set("search", search);
-      const res = await apiFetch(`/api/split-bills?${params}`);
+      const res = await apiFetch(`/api/orders?${params}`);
       const data = await res.json();
       if (data.success) {
-        setRecords(data.data.records);
+        setOrders(data.data.orders);
         setCurrentPage(data.data.pagination.currentPage);
         setTotalPages(data.data.pagination.totalPages);
         setTotalItems(data.data.pagination.totalItems);
       } else {
-        setError(data.message || "Gagal memuat data split bill");
+        setError(data.message || "Gagal memuat data orders");
       }
     } catch {
       setError("Terjadi kesalahan saat memuat data");
@@ -64,8 +79,8 @@ export default function SplitBills() {
   }, []);
 
   useEffect(() => {
-    fetchSplitBills(currentPage, debouncedSearch);
-  }, [currentPage, debouncedSearch, fetchSplitBills]);
+    fetchOrders(currentPage, debouncedSearch);
+  }, [currentPage, debouncedSearch, fetchOrders]);
 
   const colSpan = user.isAdmin ? 6 : 5;
 
@@ -73,9 +88,9 @@ export default function SplitBills() {
     <div className="space-y-6">
       {/* Page header */}
       <div>
-        <h1 className="text-xl font-bold text-foreground">Riwayat Split Bill</h1>
+        <h1 className="text-xl font-bold text-foreground">Daftar Orders</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Lihat dan kelola semua rekaman split bill yang telah disimpan.
+          Kelola pesanan paket langganan dan status pembayarannya.
         </p>
       </div>
 
@@ -85,7 +100,7 @@ export default function SplitBills() {
           <SearchInput
             value={searchQuery}
             onChange={setSearchQuery}
-            placeholder="Cari aktivitas, peserta, atau pemilik..."
+            placeholder="Cari Order ID, Nama, atau Email..."
             className="max-w-xs w-full"
           />
         </CardHeader>
@@ -93,51 +108,52 @@ export default function SplitBills() {
         <Table>
           <Thead>
             <Tr className="hover:bg-transparent">
-              <Th>Aktivitas</Th>
+              <Th>Order ID</Th>
               <Th>Tanggal</Th>
-              <Th>Peserta</Th>
-              {user.isAdmin && <Th>Pemilik</Th>}
-              <Th>Total Tagihan</Th>
+              <Th>Tipe</Th>
+              {user.isAdmin && <Th>Pengguna</Th>}
+              <Th>Total</Th>
+              <Th>Status</Th>
               <Th className="text-right">Aksi</Th>
             </Tr>
           </Thead>
 
           {loading ? (
-            <TableSkeleton cols={colSpan} rows={8} />
+            <TableSkeleton cols={colSpan + 1} rows={8} />
           ) : error ? (
             <Tbody>
               <Tr className="hover:bg-transparent">
-                <Td colSpan={colSpan} className="text-center py-12 text-destructive">{error}</Td>
+                <Td colSpan={colSpan + 1} className="text-center py-12 text-destructive">{error}</Td>
               </Tr>
             </Tbody>
-          ) : records.length === 0 ? (
+          ) : orders.length === 0 ? (
             <Tbody>
               <Tr className="hover:bg-transparent">
-                <Td colSpan={colSpan} className="p-0">
+                <Td colSpan={colSpan + 1} className="p-0">
                   <EmptyState
-                    icon={Receipt}
-                    title="Tidak ada data split bill"
-                    description={debouncedSearch ? "Coba ubah kata kunci pencarian." : "Belum ada split bill tercatat."}
+                    icon={ShoppingBag}
+                    title="Tidak ada data orders"
+                    description={debouncedSearch ? "Coba ubah kata kunci pencarian." : "Belum ada order tercatat."}
                   />
                 </Td>
               </Tr>
             </Tbody>
           ) : (
             <Tbody>
-              {records.map((record) => (
-                <Tr key={record.id} className="group">
+              {orders.map((order) => (
+                <Tr key={order.id} className="group">
                   <Td>
                     <div className="flex items-center gap-3">
-                      <Avatar name={record.activityName} size="sm" />
+                      <Avatar name={order.orderId} size="sm" />
                       <div className="min-w-0">
                         <button
-                          onClick={() => navigate(`/split-bills/${record.id}`)}
+                          onClick={() => navigate(`/orders/${order.orderId}`)}
                           className="text-sm font-semibold text-foreground hover:text-primary hover:underline underline-offset-2 transition-colors truncate text-left"
                         >
-                          {record.activityName}
+                          {order.orderId}
                         </button>
-                        <p className="text-xs text-muted-foreground font-mono">
-                          #{record.id.slice(-6)}
+                        <p className="text-xs text-muted-foreground uppercase">
+                          {order.snapshot?.name || "Subscription"}
                         </p>
                       </div>
                     </div>
@@ -145,31 +161,38 @@ export default function SplitBills() {
                   <Td className="text-muted-foreground">
                     <div className="flex items-center gap-1.5 text-xs">
                       <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
-                      {formatDate(record.occurredAt)}
+                      {formatDate(order.createdAt)}
                     </div>
                   </Td>
                   <Td>
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Users className="h-3.5 w-3.5 flex-shrink-0" />
-                      {record.participants.length} Orang
-                    </div>
+                    <span className="text-xs font-medium text-muted-foreground capitalize">
+                      {order.type}
+                    </span>
                   </Td>
                   {user.isAdmin && (
                     <Td>
-                      <p className="text-sm font-medium text-foreground">{record.owner?.name || "—"}</p>
-                      <p className="text-xs text-muted-foreground">{record.owner?.email || ""}</p>
+                      <div className="flex items-center gap-2">
+                        <User className="h-3.5 w-3.5 text-muted-foreground" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{order.user?.name || "—"}</p>
+                          <p className="text-xs text-muted-foreground truncate">{order.user?.email || ""}</p>
+                        </div>
+                      </div>
                     </Td>
                   )}
                   <Td>
                     <span className="text-sm font-bold text-foreground">
-                      {formatCurrency(record.summary.total)}
+                      {formatCurrency(order.amount)}
                     </span>
+                  </Td>
+                  <Td>
+                    {getStatusBadge(order.status)}
                   </Td>
                   <Td className="text-right">
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => navigate(`/split-bills/${record.id}`)}
+                      onClick={() => navigate(`/orders/${order.orderId}`)}
                     >
                       Detail
                       <ChevronRight className="h-3.5 w-3.5" />
@@ -187,7 +210,7 @@ export default function SplitBills() {
             totalPages={totalPages}
             onPageChange={setCurrentPage}
             totalItems={totalItems}
-            itemName="split bill"
+            itemName="order"
           />
         )}
       </Card>

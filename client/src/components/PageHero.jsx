@@ -43,11 +43,13 @@ export default function PageHero({
         </div>
 
         {(statLabel || statValue) && (
-          <div className="shrink-0">
-            <p className="text-[11px] text-white/70 font-semibold uppercase tracking-widest">
-              {statLabel}
-            </p>
-            <p className="text-3xl font-black mt-0.5">{statValue}</p>
+          <div className="shrink-0 flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-4 sm:gap-0">
+             <div className="flex flex-col sm:items-end">
+                <div className="text-[11px] text-white/70 font-semibold uppercase tracking-widest">
+                  {statLabel}
+                </div>
+                <p className="text-2xl sm:text-3xl font-black">{statValue}</p>
+             </div>
           </div>
         )}
       </div>

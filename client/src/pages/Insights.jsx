@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { usePageMeta } from "../lib/usePageMeta";
 import { useNavigate } from "react-router-dom";
 import {
   Users,
@@ -11,7 +12,9 @@ import {
   UserCheck,
   Zap,
   Target,
-  Info,
+  CreditCard,
+  Clock,
+  DollarSign,
 } from "lucide-react";
 import {
   LineChart,
@@ -24,6 +27,8 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
+  PieChart,
+  Pie,
 } from "recharts";
 import {
   Card,
@@ -31,7 +36,41 @@ import {
   CardBody,
   StatCard,
   Spinner,
+  Tooltip as UiTooltip,
 } from "../components/ui";
+
+const AI_ADOPTION_DESCRIPTIONS = {
+  scanAdopted:
+    "Persentase pengguna yang telah mencoba fitur AI Scan minimal satu kali dari total seluruh pengguna.",
+  scanExhausted:
+    "Jumlah pengguna yang telah menggunakan seluruh kuota scan gratis mereka (limit 3 scan).",
+  totalScans:
+    "Total akumulasi seluruh pemrosesan struk yang berhasil dilakukan oleh sistem AI.",
+  avgScans:
+    "Rata-rata jumlah scan yang dilakukan oleh satu orang pengguna (Total Scan / Total User yang sudah pakai scan).",
+  conversion:
+    "Jumlah power users (kuota habis) yang akhirnya membeli paket langganan (Pro/Business).",
+  conversionRate:
+    "Persentase power users yang berhasil dikonversi menjadi subscriber (Konversi Sub / Kuota Habis).",
+};
+
+const SUBSCRIPTION_DESCRIPTIONS = {
+  activeSubscribers:
+    "Jumlah pengguna yang saat ini memiliki status langganan aktif.",
+  revenueMTD:
+    "Total pendapatan dari pembayaran paket langganan yang berhasil (paid) pada bulan berjalan.",
+  pendingOrders:
+    "Jumlah pesanan (invoice) yang sudah dibuat oleh user namun belum diselesaikan pembayarannya.",
+};
+
+const KPI_DESCRIPTIONS = {
+  totalUsers: "Total seluruh pengguna yang terdaftar di database.",
+  verifiedUsers: "Jumlah pengguna yang sudah melakukan verifikasi email.",
+  totalBills: "Total seluruh catatan split bill yang pernah dibuat oleh user.",
+  totalValue: "Akumulasi nilai nominal rupiah dari seluruh split bill.",
+  avgBill: "Rata-rata nilai nominal per satu catatan split bill.",
+  avgRating: "Rata-rata rating bintang dari feedback pengguna.",
+};
 import { apiFetch } from "../lib/api";
 
 const formatRp = (v) =>
@@ -64,9 +103,33 @@ const MONTH_LABELS = [
 ];
 
 function periodLabel(period) {
+  if (!period) return "";
+  // Daily: YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(period)) {
+    const [, m, d] = period.split("-");
+    return `${parseInt(d, 10)} ${MONTH_LABELS[parseInt(m, 10) - 1]}`;
+  }
+  // Weekly: YYYY-Www
+  if (period.includes("-W")) {
+    const [, week] = period.split("-W");
+    return `W${parseInt(week, 10)}`;
+  }
+  // Monthly: YYYY-MM
   const [, m] = period.split("-");
   return MONTH_LABELS[parseInt(m, 10) - 1];
 }
+
+const GRANULARITY_LABELS = {
+  monthly: "Bulan",
+  weekly: "Minggu",
+  daily: "Hari",
+};
+
+const GRANULARITY_DESCRIPTIONS = {
+  monthly: "Registrasi baru per bulan (6 bulan terakhir)",
+  weekly: "Registrasi baru per minggu (12 minggu terakhir)",
+  daily: "Registrasi baru per hari (30 hari terakhir)",
+};
 
 const PRIMARY = "#479fea";
 const SUCCESS = "#22c55e";
@@ -111,16 +174,10 @@ function FunnelBar({ stage, count, rate, color, maxCount, description }) {
       <div className="flex items-center justify-between text-xs">
         <span className="flex items-center gap-1.5">
           <span className="font-semibold text-foreground">{stage}</span>
-          <span className="relative group/tip">
-            <Info className="h-3.5 w-3.5 text-muted-foreground cursor-pointer hover:text-primary transition-colors" />
-            <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-56 rounded-lg bg-slate-800 text-white text-[11px] leading-relaxed px-3 py-2 shadow-xl opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150 z-50">
-              {description}
-              <span className="absolute left-1/2 -translate-x-1/2 top-full border-4 border-transparent border-t-slate-800" />
-            </span>
-          </span>
+          <UiTooltip content={description} />
         </span>
         <span className="text-muted-foreground">
-          {count.toLocaleString("id-ID")} pengguna ({rate}%)
+          {(count ?? 0).toLocaleString("id-ID")} pengguna ({rate}%)
         </span>
       </div>
       <div className="h-8 bg-muted rounded-full overflow-hidden">
@@ -145,31 +202,39 @@ function SectionTitle({ children }) {
 }
 
 export default function Insights() {
+  usePageMeta(
+    "Insight & Analitik",
+    "Gambaran performa platform, pertumbuhan pengguna, dan marketing funnel Split Bill."
+  );
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [granularity, setGranularity] = useState("monthly");
 
-  const fetchInsights = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-    setError("");
-    try {
-      const res = await apiFetch("/api/insights");
-      const json = await res.json();
-      if (json.success) {
-        setData(json.data);
-      } else {
-        setError(json.message || "Gagal memuat data insight");
+  const fetchInsights = useCallback(
+    async (isRefresh = false) => {
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+      setError("");
+      try {
+        const res = await apiFetch(`/api/insights?granularity=${granularity}`);
+        const json = await res.json();
+        if (json.success) {
+          setData(json.data);
+        } else {
+          setError(json.message || "Gagal memuat data insight");
+        }
+      } catch {
+        setError("Terjadi kesalahan saat memuat data");
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-    } catch {
-      setError("Terjadi kesalahan saat memuat data");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+    },
+    [granularity],
+  );
 
   useEffect(() => {
     fetchInsights();
@@ -205,12 +270,12 @@ export default function Insights() {
     activityTrend,
     featureAdoption,
     reviews,
-    topUsers,
-  } = data;
+    topUsers = [],
+  } = data || {};
   const funnelMax = funnel[0]?.count ?? 1;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -238,24 +303,36 @@ export default function Insights() {
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
         <StatCard
           title="Total Pengguna"
-          value={kpis.totalUsers.toLocaleString("id-ID")}
+          value={
+            <div className="flex items-baseline gap-2">
+              <span>{(kpis.totalUsers ?? 0).toLocaleString("id-ID")}</span>
+              {kpis.newUsersToday > 0 && (
+                <span className="text-[10px] font-bold text-success bg-success/10 px-1.5 py-0.5 rounded-full">
+                  +{kpis.newUsersToday} New
+                </span>
+              )}
+            </div>
+          }
           icon={Users}
           iconColor="text-primary"
           iconBg="bg-primary/10"
+          tooltip={KPI_DESCRIPTIONS.totalUsers}
         />
         <StatCard
           title="Terverifikasi"
-          value={`${kpis.verifiedUsers.toLocaleString("id-ID")} (${kpis.verifiedRate}%)`}
+          value={`${(kpis.verifiedUsers ?? 0).toLocaleString("id-ID")} (${kpis.verifiedRate}%)`}
           icon={UserCheck}
           iconColor="text-success"
           iconBg="bg-success/10"
+          tooltip={KPI_DESCRIPTIONS.verifiedUsers}
         />
         <StatCard
           title="Total Split Bill"
-          value={kpis.totalBills.toLocaleString("id-ID")}
+          value={(kpis.totalBills ?? 0).toLocaleString("id-ID")}
           icon={Receipt}
           iconColor="text-warning"
           iconBg="bg-warning/10"
+          tooltip={KPI_DESCRIPTIONS.totalBills}
         />
         <StatCard
           title="Total Nilai Ditagih"
@@ -263,6 +340,7 @@ export default function Insights() {
           icon={Wallet}
           iconColor="text-purple-500"
           iconBg="bg-purple-500/10"
+          tooltip={KPI_DESCRIPTIONS.totalValue}
         />
         <StatCard
           title="Avg Ukuran Tagihan"
@@ -270,6 +348,7 @@ export default function Insights() {
           icon={TrendingUp}
           iconColor="text-secondary-foreground"
           iconBg="bg-secondary"
+          tooltip={KPI_DESCRIPTIONS.avgBill}
         />
         <StatCard
           title="Rating Rata-rata"
@@ -277,11 +356,40 @@ export default function Insights() {
           icon={Star}
           iconColor="text-warning"
           iconBg="bg-warning/10"
+          tooltip={KPI_DESCRIPTIONS.avgRating}
         />
       </div>
 
-      {/* Funnel + Rating side by side */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      {/* Subscription KPIs */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+        <StatCard
+          title="Subscriber Aktif"
+          value={(kpis.totalSubscribers ?? 0).toLocaleString("id-ID")}
+          icon={UserCheck}
+          iconColor="text-success"
+          iconBg="bg-success/10"
+          tooltip={SUBSCRIPTION_DESCRIPTIONS.activeSubscribers}
+        />
+        <StatCard
+          title="Revenue (MTD)"
+          value={formatRpShort(kpis.revenueMTD)}
+          icon={DollarSign}
+          iconColor="text-primary"
+          iconBg="bg-primary/10"
+          tooltip={SUBSCRIPTION_DESCRIPTIONS.revenueMTD}
+        />
+        <StatCard
+          title="Pending Orders"
+          value={(kpis.pendingOrders ?? 0).toLocaleString("id-ID")}
+          icon={Clock}
+          iconColor="text-warning"
+          iconBg="bg-warning/10"
+          tooltip={SUBSCRIPTION_DESCRIPTIONS.pendingOrders}
+        />
+      </div>
+
+      {/* Funnel + AI Scan Adoption side by side */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         {/* Marketing Funnel */}
         <Card>
           <CardHeader>
@@ -335,48 +443,129 @@ export default function Insights() {
           </CardBody>
         </Card>
 
-        {/* Rating Distribution */}
+        {/* AI Scan Adoption */}
         <Card>
           <CardHeader>
-            <SectionTitle>Distribusi Rating</SectionTitle>
+            <SectionTitle>Adopsi Fitur AI Scan</SectionTitle>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {kpis.totalReviews} review · {kpis.avgRating} rata-rata bintang
+              Seberapa banyak user yang menggunakan scan struk
             </p>
           </CardHeader>
-          <CardBody>
-            <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={reviews.ratingDistribution} barCategoryGap="30%">
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis
-                  dataKey="rating"
-                  tick={{ fontSize: 11 }}
-                  tickFormatter={(v) => `${"★".repeat(v)}`}
+          <CardBody className="space-y-5">
+            {/* Adopted */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="flex items-center gap-1.5 font-semibold text-foreground">
+                  <Scan className="h-3.5 w-3.5 text-primary" />
+                  Sudah Pakai Scan
+                  <UiTooltip content={AI_ADOPTION_DESCRIPTIONS.scanAdopted} />
+                </span>
+                <span className="text-muted-foreground">
+                  {featureAdoption.scanAdopted} / {kpis.totalUsers} (
+                  {featureAdoption.scanAdoptionRate}%)
+                </span>
+              </div>
+              <div className="h-3 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-700"
+                  style={{
+                    width: `${featureAdoption.scanAdoptionRate}%`,
+                    background: PRIMARY,
+                  }}
                 />
-                <YAxis
-                  tick={{ fontSize: 11 }}
-                  allowDecimals={false}
-                  width={28}
+              </div>
+            </div>
+
+            {/* Exhausted */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="flex items-center gap-1.5 font-semibold text-foreground">
+                  <Zap className="h-3.5 w-3.5 text-warning" />
+                  Kuota Habis (Power Users)
+                  <UiTooltip content={AI_ADOPTION_DESCRIPTIONS.scanExhausted} />
+                </span>
+                <span className="text-muted-foreground">
+                  {featureAdoption.scanExhausted} pengguna
+                </span>
+              </div>
+              <div className="h-3 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-700"
+                  style={{
+                    width: `${kpis.totalUsers > 0 ? Math.round((featureAdoption.scanExhausted / kpis.totalUsers) * 100) : 0}%`,
+                    background: WARNING,
+                  }}
                 />
-                <Tooltip
-                  content={
-                    <ChartTooltip valueFormatter={(v) => `${v} review`} />
-                  }
-                />
-                <Bar dataKey="count" name="Review" radius={[4, 4, 0, 0]}>
-                  {reviews.ratingDistribution.map((_, i) => (
-                    <Cell key={i} fill={STAR_COLORS[i]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-            <div className="mt-3 pt-3 border-t border-border flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">
-                Contact permission (leads)
-              </span>
-              <span className="font-bold text-foreground">
-                {reviews.contactPermissionCount} orang (
-                {reviews.contactPermissionRate}%)
-              </span>
+              </div>
+            </div>
+
+            {/* Not adopted & Total Scans */}
+            <div className="pt-3 border-t border-border">
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div className="bg-primary/5 rounded-lg p-4 flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Scan className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1">
+                      <p className="text-xl font-black text-primary leading-none">
+                        {(featureAdoption?.totalScans ?? 0).toLocaleString(
+                          "id-ID",
+                        )}
+                      </p>
+                      <UiTooltip
+                        content={AI_ADOPTION_DESCRIPTIONS.totalScans}
+                      />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">
+                      Total Scan Berhasil
+                    </p>
+                  </div>
+                </div>
+                <div className="bg-purple-500/5 rounded-lg p-4 flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-purple-500/10 flex items-center justify-center flex-shrink-0">
+                    <TrendingUp className="h-5 w-5 text-purple-500" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1">
+                      <p className="text-xl font-black text-purple-500 leading-none">
+                        {featureAdoption.avgScansPerUser ?? 0}
+                      </p>
+                      <UiTooltip content={AI_ADOPTION_DESCRIPTIONS.avgScans} />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">
+                      Avg Scan / User
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-center">
+                <div className="bg-muted/50 rounded-lg p-4">
+                  <div className="flex items-center justify-center gap-1">
+                    <p className="text-sm font-bold text-foreground">
+                      {featureAdoption.scanExhaustedAndSubscribed ?? 0}
+                    </p>
+                    <UiTooltip content={AI_ADOPTION_DESCRIPTIONS.conversion} />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground uppercase">
+                    Konversi Sub
+                  </p>
+                </div>
+                <div className="bg-muted/50 rounded-lg p-4">
+                  <div className="flex items-center justify-center gap-1">
+                    <p className="text-sm font-bold text-foreground">
+                      {featureAdoption.powerUserConversionRate ?? 0}%
+                    </p>
+                    <UiTooltip
+                      content={AI_ADOPTION_DESCRIPTIONS.conversionRate}
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground uppercase">
+                    Rate Konversi
+                  </p>
+                </div>
+              </div>
             </div>
           </CardBody>
         </Card>
@@ -384,11 +573,28 @@ export default function Insights() {
 
       {/* User Growth */}
       <Card>
-        <CardHeader>
-          <SectionTitle>Pertumbuhan Pengguna</SectionTitle>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Registrasi baru per bulan (6 bulan terakhir)
-          </p>
+        <CardHeader className="flex items-start justify-between gap-3">
+          <div>
+            <SectionTitle>Pertumbuhan Pengguna</SectionTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {GRANULARITY_DESCRIPTIONS[granularity]}
+            </p>
+          </div>
+          <div className="flex bg-muted rounded-md p-0.5 flex-shrink-0">
+            {["monthly", "weekly", "daily"].map((g) => (
+              <button
+                key={g}
+                onClick={() => setGranularity(g)}
+                className={`px-2.5 py-1 text-[10px] font-bold uppercase rounded-sm transition-colors ${
+                  granularity === g
+                    ? "bg-white text-primary shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {GRANULARITY_LABELS[g]}
+              </button>
+            ))}
+          </div>
         </CardHeader>
         <CardBody>
           <ResponsiveContainer width="100%" height={220}>
@@ -481,90 +687,162 @@ export default function Insights() {
         </CardBody>
       </Card>
 
-      {/* Feature Adoption + Top Users */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {/* AI Scan Adoption */}
+      {/* Subscription Analytics */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        {/* Revenue Trend */}
         <Card>
           <CardHeader>
-            <SectionTitle>Adopsi Fitur AI Scan</SectionTitle>
+            <SectionTitle>Tren Pendapatan</SectionTitle>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Seberapa banyak user yang menggunakan scan struk
+              Total pembayaran paket langganan (6 bulan terakhir)
             </p>
           </CardHeader>
-          <CardBody className="space-y-5">
-            {/* Adopted */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="flex items-center gap-1.5 font-semibold text-foreground">
-                  <Scan className="h-3.5 w-3.5 text-primary" />
-                  Sudah Pakai Scan
-                </span>
-                <span className="text-muted-foreground">
-                  {featureAdoption.scanAdopted} / {kpis.totalUsers} (
-                  {featureAdoption.scanAdoptionRate}%)
-                </span>
-              </div>
-              <div className="h-3 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-700"
-                  style={{
-                    width: `${featureAdoption.scanAdoptionRate}%`,
-                    background: PRIMARY,
-                  }}
+          <CardBody>
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={data.revenueTrend}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis
+                  dataKey="period"
+                  tick={{ fontSize: 11 }}
+                  tickFormatter={periodLabel}
                 />
-              </div>
-            </div>
-
-            {/* Exhausted */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="flex items-center gap-1.5 font-semibold text-foreground">
-                  <Zap className="h-3.5 w-3.5 text-warning" />
-                  Kuota Habis (Power Users)
-                </span>
-                <span className="text-muted-foreground">
-                  {featureAdoption.scanExhausted} pengguna
-                </span>
-              </div>
-              <div className="h-3 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-700"
-                  style={{
-                    width: `${kpis.totalUsers > 0 ? Math.round((featureAdoption.scanExhausted / kpis.totalUsers) * 100) : 0}%`,
-                    background: WARNING,
-                  }}
+                <YAxis
+                  tick={{ fontSize: 11 }}
+                  tickFormatter={formatRpShort}
+                  width={60}
                 />
-              </div>
-            </div>
+                <Tooltip
+                  content={<ChartTooltip valueFormatter={formatRp} />}
+                  labelFormatter={periodLabel}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="total"
+                  name="Revenue"
+                  stroke={SUCCESS}
+                  strokeWidth={2.5}
+                  dot={{ r: 4, fill: SUCCESS }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardBody>
+        </Card>
 
-            {/* Not adopted */}
-            <div className="pt-3 border-t border-border">
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="bg-primary/5 rounded-lg p-3">
-                  <p className="text-lg font-black text-primary">
-                    {featureAdoption.scanAdoptionRate}%
-                  </p>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">
-                    Adopsi
-                  </p>
+        {/* Plan Distribution */}
+        <Card>
+          <CardHeader>
+            <SectionTitle>Distribusi Paket</SectionTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Pembagian subscriber berdasarkan paket yang dipilih
+            </p>
+          </CardHeader>
+          <CardBody className="flex flex-col md:flex-row items-center gap-6">
+            <div className="w-full h-[200px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={data.subscriptions.planDistribution}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="count"
+                    nameKey="plan"
+                  >
+                    {data.subscriptions.planDistribution.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={FUNNEL_COLORS[index % FUNNEL_COLORS.length]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    content={
+                      <ChartTooltip valueFormatter={(v) => `${v} subscriber`} />
+                    }
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex flex-col gap-2 w-full md:w-auto min-w-[150px]">
+              {data.subscriptions.planDistribution.map((entry, index) => (
+                <div
+                  key={entry.plan}
+                  className="flex items-center justify-between gap-4"
+                >
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{
+                        backgroundColor:
+                          FUNNEL_COLORS[index % FUNNEL_COLORS.length],
+                      }}
+                    />
+                    <span className="text-xs font-medium text-foreground">
+                      {entry.plan}
+                    </span>
+                  </div>
+                  <span className="text-xs text-muted-foreground font-bold">
+                    {entry.count}
+                  </span>
                 </div>
-                <div className="bg-warning/5 rounded-lg p-3">
-                  <p className="text-lg font-black text-warning">
-                    {featureAdoption.scanExhausted}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">
-                    Power Users
-                  </p>
-                </div>
-                <div className="bg-muted rounded-lg p-3">
-                  <p className="text-lg font-black text-foreground">
-                    {kpis.totalUsers - featureAdoption.scanAdopted}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">
-                    Belum Pakai
-                  </p>
-                </div>
-              </div>
+              ))}
+              {data.subscriptions.planDistribution.length === 0 && (
+                <p className="text-xs text-muted-foreground italic">
+                  Belum ada data subscriber
+                </p>
+              )}
+            </div>
+          </CardBody>
+        </Card>
+      </div>
+
+      {/* Rating Distribution + Top Users */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        {/* Rating Distribution */}
+        <Card>
+          <CardHeader>
+            <SectionTitle>Distribusi Rating</SectionTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {kpis.totalReviews} review · {kpis.avgRating} rata-rata bintang
+            </p>
+          </CardHeader>
+          <CardBody>
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={reviews.ratingDistribution} barCategoryGap="30%">
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis
+                  dataKey="rating"
+                  tick={{ fontSize: 11 }}
+                  tickFormatter={(v) => `${"★".repeat(v)}`}
+                />
+                <YAxis
+                  tick={{ fontSize: 11 }}
+                  allowDecimals={false}
+                  width={28}
+                />
+                <Tooltip
+                  content={
+                    <ChartTooltip valueFormatter={(v) => `${v} review`} />
+                  }
+                />
+                <Bar dataKey="count" name="Review" radius={[4, 4, 0, 0]}>
+                  {reviews.ratingDistribution.map((_, i) => (
+                    <Cell key={i} fill={STAR_COLORS[i]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+            <div className="mt-3 pt-3 border-t border-border flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">
+                Contact permission (leads)
+              </span>
+              <span className="font-bold text-foreground">
+                {reviews.contactPermissionCount} orang (
+                {reviews.contactPermissionRate}%)
+              </span>
             </div>
           </CardBody>
         </Card>
@@ -610,15 +888,15 @@ export default function Insights() {
                         onClick={() => navigate(`/users/${u.userId}`)}
                         className="text-sm font-semibold text-foreground hover:text-primary hover:underline underline-offset-2 transition-colors truncate block text-left w-full"
                       >
-                        {u.name}
+                        {u.name || "Unknown User"}
                       </button>
                       <p className="text-xs text-muted-foreground truncate">
-                        {u.email}
+                        {u.email || ""}
                       </p>
                     </div>
                     <span className="flex-shrink-0 inline-flex items-center gap-1 text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
                       <Receipt className="h-3 w-3" />
-                      {u.splitBillCount}
+                      {u.splitBillCount || 0}
                     </span>
                   </li>
                 ))}

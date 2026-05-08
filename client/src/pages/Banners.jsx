@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { usePageMeta } from "../lib/usePageMeta";
 import { Plus, Save, Trash, Image as ImageIcon, Upload } from "lucide-react";
 import { compressImage } from "../lib/imageUtils";
 import { apiFetch } from "../lib/api";
@@ -14,6 +15,10 @@ import {
 } from "../components/ui";
 
 export default function Banners() {
+  usePageMeta(
+    "Manajemen Banner",
+    "Atur konten promosi dan gambar banner yang tampil di aplikasi pengguna."
+  );
   const [banners, setBanners] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

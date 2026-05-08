@@ -10,16 +10,33 @@ import {
   Receipt,
   Package,
   BarChart2,
+  ShoppingBag,
 } from "lucide-react";
 import { ToastProvider } from "../components/ui";
 
-const navItems = [
-  { name: "Insight", href: "/insights", icon: BarChart2 },
-  { name: "Akun Pengguna", href: "/", icon: Users },
-  { name: "Split Bill", href: "/split-bills", icon: Receipt },
-  { name: "Reviews", href: "/reviews", icon: Star },
-  { name: "Banners", href: "/banners", icon: Image },
-  { name: "Subscription", href: "/subscription-packages", icon: Package },
+const navGroups = [
+  {
+    title: "Analitik & Bisnis",
+    items: [
+      { name: "Insight", href: "/insights", icon: BarChart2 },
+      { name: "Orders", href: "/orders", icon: ShoppingBag },
+      { name: "Split Bill", href: "/split-bills", icon: Receipt },
+    ],
+  },
+  {
+    title: "Manajemen Pengguna",
+    items: [
+      { name: "Akun Pengguna", href: "/", icon: Users },
+      { name: "Reviews", href: "/reviews", icon: Star },
+    ],
+  },
+  {
+    title: "Operasional & Konten",
+    items: [
+      { name: "Banners", href: "/banners", icon: Image },
+      { name: "Subscription", href: "/subscription-packages", icon: Package },
+    ],
+  },
 ];
 
 export default function DashboardLayout() {
@@ -72,38 +89,45 @@ export default function DashboardLayout() {
           </div>
 
           {/* Nav */}
-          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-            {navItems.map((item) => {
-              const isActive =
-                item.href === "/"
-                  ? location.pathname === "/"
-                  : location.pathname.startsWith(item.href);
-              return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  onClick={() => setSidebarOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-semibold transition-all duration-150 group ${
-                    isActive
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  }`}
-                >
-                  <item.icon
-                    className={`h-4.5 w-4.5 flex-shrink-0 transition-colors ${
-                      isActive
-                        ? "text-primary"
-                        : "text-muted-foreground group-hover:text-foreground"
-                    }`}
-                  />
-                  {item.name}
-                  {isActive && (
-                    <div className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />
-                  )}
-                </Link>
-              );
-            })}
+          <nav className="flex-1 px-3 py-4 space-y-6 overflow-y-auto">
+            {navGroups.map((group) => (
+              <div key={group.title}>
+                <p className="px-3 text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
+                  {group.title}
+                </p>
+                <div className="space-y-1">
+                  {group.items.map((item) => {
+                    const isActive =
+                      item.href === "/"
+                        ? location.pathname === "/"
+                        : location.pathname.startsWith(item.href);
+                    return (
+                      <Link
+                        key={item.name}
+                        to={item.href}
+                        onClick={() => setSidebarOpen(false)}
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-semibold transition-all duration-150 group ${
+                          isActive
+                            ? "bg-primary/10 text-primary"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        }`}
+                      >
+                        <item.icon
+                          className={`h-4.5 w-4.5 flex-shrink-0 transition-colors ${
+                            isActive
+                              ? "text-primary"
+                              : "text-muted-foreground group-hover:text-foreground"
+                          }`}
+                        />
+                        {item.name}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </nav>
+
 
           {/* Logout */}
           <div className="p-4 flex-shrink-0 border-t border-border">
@@ -153,7 +177,7 @@ export default function DashboardLayout() {
           </header>
 
           {/* Page content */}
-          <main className="flex-1 overflow-y-auto p-6">
+          <main className="flex-1 overflow-y-auto p-4">
             <Outlet />
           </main>
         </div>

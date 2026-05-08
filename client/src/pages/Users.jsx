@@ -1,22 +1,38 @@
 import { useState, useEffect, useCallback } from "react";
+import { usePageMeta } from "../lib/usePageMeta";
 import { User, CheckCircle, XCircle, Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
-  Card, CardHeader,
+  Card,
+  CardHeader,
   SearchInput,
-  Table, Thead, Tbody, Tr, Th, Td, TableSkeleton,
-  Avatar, EmptyState, Pagination,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
+  TableSkeleton,
+  Avatar,
+  EmptyState,
+  Pagination,
 } from "../components/ui";
 import { formatDateTime } from "../lib/utils";
 import { apiFetch } from "../lib/api";
 
 export default function Users() {
+  usePageMeta(
+    "Daftar Pengguna",
+    "Kelola data pengguna dan pantau aktivitas akun di platform Split Bill."
+  );
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [isVerified, setIsVerified] = useState("");
+  const [subscriptionStatus, setSubscriptionStatus] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
@@ -30,12 +46,14 @@ export default function Users() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const fetchUsers = useCallback(async (page, search) => {
+  const fetchUsers = useCallback(async (page, search, verified, subStatus) => {
     setLoading(true);
     setError("");
     try {
       const params = new URLSearchParams({ page, limit: 10 });
       if (search) params.set("search", search);
+      if (verified !== "") params.set("isVerified", verified);
+      if (subStatus !== "") params.set("subscriptionStatus", subStatus);
       const res = await apiFetch(`/api/users?${params}`);
       const data = await res.json();
       if (data.success) {
@@ -54,14 +72,22 @@ export default function Users() {
   }, []);
 
   useEffect(() => {
-    fetchUsers(currentPage, debouncedSearch);
-  }, [currentPage, debouncedSearch, fetchUsers]);
+    fetchUsers(currentPage, debouncedSearch, isVerified, subscriptionStatus);
+  }, [
+    currentPage,
+    debouncedSearch,
+    isVerified,
+    subscriptionStatus,
+    fetchUsers,
+  ]);
 
   return (
     <div className="space-y-6">
       {/* Page header */}
       <div>
-        <h1 className="text-xl font-bold text-foreground">Daftar Akun Pengguna</h1>
+        <h1 className="text-xl font-bold text-foreground">
+          Daftar Akun Pengguna
+        </h1>
         <p className="text-sm text-muted-foreground mt-0.5">
           Kelola data pengguna dan pantau aktivitas akun di platform Split Bill.
         </p>
@@ -69,13 +95,40 @@ export default function Users() {
 
       {/* Table card */}
       <Card className="overflow-hidden">
-        <CardHeader className="flex items-center justify-between gap-4 py-4">
+        <CardHeader className="flex flex-wrap items-center justify-between gap-4 py-4">
           <SearchInput
             value={searchQuery}
             onChange={setSearchQuery}
             placeholder="Cari nama atau email..."
             className="max-w-xs w-full"
           />
+          <div className="flex flex-wrap gap-2">
+            <select
+              className="px-3 py-2 rounded-sm border border-border text-xs"
+              value={isVerified}
+              onChange={(e) => {
+                setIsVerified(e.target.value);
+                setCurrentPage(1);
+              }}
+            >
+              <option value="">Semua Verifikasi</option>
+              <option value="true">Verified</option>
+              <option value="false">Unverified</option>
+            </select>
+            <select
+              className="px-3 py-2 rounded-sm border border-border text-xs"
+              value={subscriptionStatus}
+              onChange={(e) => {
+                setSubscriptionStatus(e.target.value);
+                setCurrentPage(1);
+              }}
+            >
+              <option value="">Semua Langganan</option>
+              <option value="active">Active</option>
+              <option value="none">Belum Langganan</option>
+              <option value="expired">Expired</option>
+            </select>
+          </div>
         </CardHeader>
 
         <Table>
@@ -96,7 +149,9 @@ export default function Users() {
           ) : error ? (
             <Tbody>
               <Tr className="hover:bg-transparent">
-                <Td colSpan={7} className="text-center py-12 text-destructive">{error}</Td>
+                <Td colSpan={7} className="text-center py-12 text-destructive">
+                  {error}
+                </Td>
               </Tr>
             </Tbody>
           ) : users.length === 0 ? (
@@ -106,7 +161,11 @@ export default function Users() {
                   <EmptyState
                     icon={User}
                     title="Tidak ada pengguna ditemukan"
-                    description={debouncedSearch ? "Coba ubah kata kunci pencarian." : "Belum ada pengguna terdaftar."}
+                    description={
+                      debouncedSearch
+                        ? "Coba ubah kata kunci pencarian."
+                        : "Belum ada pengguna terdaftar."
+                    }
                   />
                 </Td>
               </Tr>
@@ -144,8 +203,12 @@ export default function Users() {
                       {user.splitBillCount}
                     </span>
                   </Td>
-                  <Td className="text-muted-foreground text-xs">{formatDateTime(user.lastLogin)}</Td>
-                  <Td className="text-muted-foreground text-xs">{formatDateTime(user.createdAt)}</Td>
+                  <Td className="text-muted-foreground text-xs">
+                    {formatDateTime(user.lastLogin)}
+                  </Td>
+                  <Td className="text-muted-foreground text-xs">
+                    {formatDateTime(user.createdAt)}
+                  </Td>
                   <Td>
                     <button
                       onClick={() => navigate(`/users/${user._id}`)}

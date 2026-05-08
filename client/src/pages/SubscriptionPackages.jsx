@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { usePageMeta } from "../lib/usePageMeta";
 import { Plus, Pencil, Trash2, Package, CheckCircle, Eye } from "lucide-react";
 import {
   Card,
@@ -31,6 +32,10 @@ const formatRupiah = (value) =>
   }).format(Number(value) || 0);
 
 export default function SubscriptionPackages() {
+  usePageMeta(
+    "Subscription Package",
+    "Kelola paket berlangganan yang tersedia untuk pengguna Split Bill."
+  );
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

@@ -22,7 +22,7 @@ export default async function handleUserById(event, userId) {
     const { requireAdmin } = await import("../lib/middleware/auth.js");
     await requireAdmin(event);
 
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).populate("orderId", "orderId");
     if (!user) throw new HttpError(404, "User not found");
 
     const splitBills = await SplitBillRecord.find({ user: userId })

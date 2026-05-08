@@ -347,11 +347,18 @@ export default function UserDetail() {
                 <InfoRow label="Order ID">
                   {userData.orderId ? (
                     <button
-                      onClick={() => navigate(`/orders/${userData.orderId}`)}
+                      onClick={() =>
+                        navigate(
+                          `/orders/${
+                            userData.orderId.orderId || userData.orderId
+                          }`,
+                        )
+                      }
                       className="text-xs font-mono text-primary hover:underline underline-offset-2 flex items-center gap-1"
                     >
                       <ShoppingBag className="h-3 w-3" />
-                      {String(userData.orderId).slice(-10)}
+                      {userData.orderId.orderId ||
+                        String(userData.orderId).slice(-10)}
                     </button>
                   ) : (
                     <span className="text-muted-foreground">—</span>

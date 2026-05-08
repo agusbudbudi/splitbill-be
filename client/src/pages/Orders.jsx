@@ -182,7 +182,7 @@ export default function Orders() {
                   )}
                   <Td>
                     <span className="text-sm font-bold text-foreground">
-                      {formatCurrency(order.amount)}
+                      {formatCurrency(order.total_payment || order.amount)}
                     </span>
                   </Td>
                   <Td>

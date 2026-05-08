@@ -10,6 +10,9 @@ import {
   CheckCircle,
   XCircle,
   Users,
+  Package,
+  ShoppingBag,
+  AlertCircle,
 } from "lucide-react";
 import PageHero from "../components/PageHero";
 import { formatDate, formatDateTime } from "../lib/utils";
@@ -25,6 +28,7 @@ import {
   Th,
   Td,
   EmptyState,
+  CrownBadge,
 } from "../components/ui";
 
 const formatCurrency = (amount) =>
@@ -113,7 +117,14 @@ export default function UserDetail() {
     <div className="space-y-6">
       <PageHero
         onBack={() => navigate("/")}
-        title={userData.name}
+        title={
+          <span className="inline-flex items-center gap-2">
+            {userData.name}
+            {userData.subscriptionStatus === "active" && (
+              <CrownBadge size="lg" />
+            )}
+          </span>
+        }
         meta={
           <>
             <span className="flex items-center gap-1.5">
@@ -222,7 +233,12 @@ export default function UserDetail() {
             </h2>
             <div className="bg-white rounded-lg border border-border shadow-soft px-4">
               <InfoRow label="Nama">
-                <span>{userData.name}</span>
+                <span className="inline-flex items-center gap-1.5">
+                  {userData.name}
+                  {userData.subscriptionStatus === "active" && (
+                    <CrownBadge size="sm" />
+                  )}
+                </span>
               </InfoRow>
               <InfoRow label="Email">
                 <span className="break-all">{userData.email}</span>
@@ -256,11 +272,100 @@ export default function UserDetail() {
             </div>
           </section>
 
-          {/* Subscription / scan quota */}
+          {/* Subscription info */}
           <section className="space-y-3">
             <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
               <span className="h-4 w-0.5 rounded-full bg-warning" />
-              Subscription & Kuota
+              Informasi Langganan
+            </h2>
+            <div className="bg-white rounded-lg border border-border shadow-soft overflow-hidden">
+              {/* Status header banner */}
+              {userData.subscriptionStatus === "active" ? (
+                <div
+                  className="px-4 py-3 flex items-center gap-2"
+                  style={{
+                    background: "linear-gradient(135deg, #f5a623 0%, #ffe066 60%, #f5a623 100%)",
+                  }}
+                >
+                  <CrownBadge size="md" />
+                  <span className="text-sm font-bold text-white">Subscriber Aktif</span>
+                </div>
+              ) : userData.subscriptionStatus === "expired" ? (
+                <div className="px-4 py-3 flex items-center gap-2 bg-destructive/10">
+                  <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0" />
+                  <span className="text-sm font-bold text-destructive">Langganan Kadaluarsa</span>
+                </div>
+              ) : (
+                <div className="px-4 py-3 flex items-center gap-2 bg-muted">
+                  <Package className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <span className="text-sm font-bold text-muted-foreground">Belum Berlangganan</span>
+                </div>
+              )}
+
+              {/* Subscription details */}
+              <div className="px-4">
+                <InfoRow label="Status">
+                  {userData.subscriptionStatus === "active" ? (
+                    <Badge variant="success">Active</Badge>
+                  ) : userData.subscriptionStatus === "expired" ? (
+                    <Badge variant="danger">Expired</Badge>
+                  ) : (
+                    <Badge variant="neutral">Free</Badge>
+                  )}
+                </InfoRow>
+                <InfoRow label="Paket">
+                  <span className="font-semibold text-foreground">
+                    {userData.subscriptionPlan || "—"}
+                  </span>
+                </InfoRow>
+                <InfoRow label="Berlaku Sampai">
+                  {userData.subscriptionExpiry ? (
+                    <span className="flex items-center gap-1.5 justify-end">
+                      <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                      {formatDateTime(userData.subscriptionExpiry)}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </InfoRow>
+                {userData.subscriptionStatus === "active" && userData.subscriptionExpiry && (() => {
+                  const daysLeft = Math.ceil(
+                    (new Date(userData.subscriptionExpiry) - new Date()) / (1000 * 60 * 60 * 24)
+                  );
+                  return (
+                    <InfoRow label="Sisa Masa">
+                      <span
+                        className={`font-bold ${
+                          daysLeft <= 7 ? "text-destructive" : daysLeft <= 14 ? "text-warning" : "text-success"
+                        }`}
+                      >
+                        {daysLeft} hari
+                      </span>
+                    </InfoRow>
+                  );
+                })()}
+                <InfoRow label="Order ID">
+                  {userData.orderId ? (
+                    <button
+                      onClick={() => navigate(`/orders/${userData.orderId}`)}
+                      className="text-xs font-mono text-primary hover:underline underline-offset-2 flex items-center gap-1"
+                    >
+                      <ShoppingBag className="h-3 w-3" />
+                      {String(userData.orderId).slice(-10)}
+                    </button>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </InfoRow>
+              </div>
+            </div>
+          </section>
+
+          {/* Scan quota */}
+          <section className="space-y-3">
+            <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
+              <span className="h-4 w-0.5 rounded-full bg-primary" />
+              Kuota Scan AI
             </h2>
             <div className="bg-white rounded-lg border border-border shadow-soft p-4 space-y-4">
               <div className="flex items-center justify-between">
@@ -288,7 +393,8 @@ export default function UserDetail() {
               </div>
 
               <p className="text-xs text-muted-foreground text-center">
-                {userData.freeScanCount ?? 0} dari {TOTAL_FREE_SCAN_QUOTA} kuota scan tersisa
+                {userData.freeScanCount ?? 0} dari {TOTAL_FREE_SCAN_QUOTA} kuota
+                scan tersisa
               </p>
             </div>
           </section>

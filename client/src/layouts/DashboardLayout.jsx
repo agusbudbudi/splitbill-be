@@ -69,15 +69,15 @@ export default function DashboardLayout() {
           }`}
         >
           {/* Logo */}
-          <div className="flex items-center justify-between h-16 px-6 flex-shrink-0 border-b border-border">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between h-16 px-4 flex-shrink-0 border-b border-border">
+            <div className="flex items-center gap-2">
               <img
                 src="/img/logoSummary.png"
                 alt="Split Bill"
                 className="h-8 w-auto"
               />
               <span className="bg-primary/10 text-primary text-[10px] font-black px-2 py-0.5 rounded-sm uppercase tracking-wider">
-                Admin
+                New
               </span>
             </div>
             <button
@@ -127,7 +127,6 @@ export default function DashboardLayout() {
               </div>
             ))}
           </nav>
-
 
           {/* Logout */}
           <div className="p-4 flex-shrink-0 border-t border-border">

@@ -16,6 +16,7 @@ import {
   Avatar,
   EmptyState,
   Pagination,
+  CrownBadge,
 } from "../components/ui";
 import { formatDateTime } from "../lib/utils";
 import { apiFetch } from "../lib/api";
@@ -23,7 +24,7 @@ import { apiFetch } from "../lib/api";
 export default function Users() {
   usePageMeta(
     "Daftar Pengguna",
-    "Kelola data pengguna dan pantau aktivitas akun di platform Split Bill."
+    "Kelola data pengguna dan pantau aktivitas akun di platform Split Bill.",
   );
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
@@ -182,7 +183,12 @@ export default function Users() {
                           onClick={() => navigate(`/users/${user._id}`)}
                           className="text-sm font-semibold text-foreground hover:text-primary hover:underline underline-offset-2 transition-colors truncate block text-left w-full"
                         >
-                          {user.name}
+                          <span className="inline-flex items-center gap-1.5">
+                            {user.name}
+                            {user.subscriptionStatus === "active" && (
+                              <CrownBadge size="sm" />
+                            )}
+                          </span>
                         </button>
                         <p className="text-xs text-muted-foreground font-mono truncate">
                           {user._id.slice(-8)}

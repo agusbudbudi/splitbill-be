@@ -11,6 +11,7 @@ import {
 } from "../../lib/http.js";
 import { parseJsonBody } from "../../lib/parsers.js";
 import { HttpError, toHttpError } from "../../lib/errors.js";
+import { applyEmailRateLimit } from "../../lib/middleware/rateLimiter.js";
 
 dotenv.config();
 
@@ -33,6 +34,13 @@ export async function handleResendVerification(event) {
 
     if (!email) {
       throw new HttpError(400, "Email is required");
+    }
+
+    // Apply rate limiting by email
+    try {
+      applyEmailRateLimit(email);
+    } catch (error) {
+      return errorResponse(toHttpError(error), headers);
     }
 
     const user = await User.findOne({ email: email.toLowerCase().trim() });

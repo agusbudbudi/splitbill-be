@@ -13,6 +13,7 @@ import SubscriptionPackages from "./pages/SubscriptionPackages";
 import UserDetail from "./pages/UserDetail";
 import Insights from "./pages/Insights";
 import Campaigns from "./pages/Campaigns";
+import CampaignDetail from "./pages/CampaignDetail";
 
 function App() {
   return (
@@ -32,6 +33,7 @@ function App() {
           <Route path="/subscription-packages" element={<SubscriptionPackages />} />
           <Route path="/insights" element={<Insights />} />
           <Route path="/campaigns" element={<Campaigns />} />
+          <Route path="/campaigns/:id" element={<CampaignDetail />} />
         </Route>
       </Route>
 

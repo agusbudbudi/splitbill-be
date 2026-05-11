@@ -56,6 +56,7 @@ export async function handleAuthMe(event) {
           subscriptionStatus: user.subscriptionStatus,
           subscriptionPlan: user.subscriptionPlan,
           subscriptionExpiry: user.subscriptionExpiry,
+          hasClaimedReviewReward: user.hasClaimedReviewReward,
           order: orderInfo
         },
       },

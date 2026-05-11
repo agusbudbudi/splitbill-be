@@ -12,7 +12,7 @@ import {
 import { getQueryParams, parseJsonBody } from "../lib/parsers.js";
 import { toHttpError, HttpError } from "../lib/errors.js";
 
-const getSegmentQuery = async (segment) => {
+export const getSegmentQuery = async (segment) => {
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
@@ -87,7 +87,22 @@ export async function handleCampaigns(event) {
         ctaUrl,
         isTest,
         testEmail,
+        isDraft,
+        initializeDraft,
       } = body;
+
+      if (initializeDraft) {
+        const campaign = await Campaign.create({
+          status: "draft",
+          name: "Draft Campaign " + new Date().toISOString().split("T")[0],
+          segment: "unverified",
+        });
+        return jsonResponse(
+          201,
+          { success: true, data: campaign, message: "Draft initialized" },
+          headers,
+        );
+      }
 
       if (isTest) {
         if (!testEmail) throw new HttpError(400, "Test email required");
@@ -120,13 +135,25 @@ export async function handleCampaigns(event) {
         ctaText,
         ctaUrl,
         recipientCount,
-        status: "pending",
+        status: isDraft ? "draft" : "pending",
       });
 
-      // Batch sending logic (simulated asynchronously)
+      if (isDraft) {
+        return jsonResponse(
+          201,
+          {
+            success: true,
+            data: campaign,
+            message: "Campaign saved as draft",
+          },
+          headers,
+        );
+      }
+
+      // Batch sending logic to respect Resend's free tier rate limit (2 emails/sec)
+      // We process 2 emails concurrently, then wait 1 second.
       // Note: In serverless, we might hit timeout for very large lists.
-      // For MVP, we'll process in batch.
-      const batchSize = 50;
+      const batchSize = 2;
       let successCount = 0;
       let failCount = 0;
 
@@ -151,6 +178,7 @@ export async function handleCampaigns(event) {
           }),
         );
 
+        // Wait 1 second before sending the next batch
         if (i + batchSize < users.length) {
           await new Promise((resolve) => setTimeout(resolve, 1000));
         }

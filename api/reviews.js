@@ -128,6 +128,16 @@ async function createReview(event, headers) {
   }
 
   try {
+    const { requireUser } = await import("../lib/middleware/auth.js");
+    let user = null;
+    let rewardEarned = false;
+
+    try {
+      user = await requireUser(event);
+    } catch (e) {
+      // User not logged in, continue as anonymous
+    }
+
     const reviewData = {
       rating: parseInt(rating, 10),
       name: name?.trim() || "Anonim",
@@ -135,7 +145,15 @@ async function createReview(event, headers) {
       contactPermission: Boolean(contactPermission),
       email: contactPermission ? email?.toLowerCase().trim() : null,
       phone: contactPermission ? phone?.replace(/\s+/g, "") : null,
+      userId: user ? user._id : null,
     };
+
+    if (user && !user.hasClaimedReviewReward) {
+      user.freeScanCount = (user.freeScanCount || 0) + 5;
+      user.hasClaimedReviewReward = true;
+      await user.save();
+      rewardEarned = true;
+    }
 
     const newReview = new Review(reviewData);
     const savedReview = await newReview.save();
@@ -144,8 +162,11 @@ async function createReview(event, headers) {
       201,
       {
         success: true,
-        message: "Review berhasil disimpan",
+        message: rewardEarned
+          ? "Review berhasil disimpan! Kamu mendapatkan +5 kuota scan AI 🎁"
+          : "Review berhasil disimpan",
         data: savedReview,
+        rewardEarned,
       },
       headers,
     );

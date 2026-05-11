@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { usePageMeta } from "../lib/usePageMeta";
-import { Star, MessageSquare, Phone } from "lucide-react";
+import { Star, MessageSquare, Phone, Globe } from "lucide-react";
 import {
   Card, CardHeader,
   StatCard, SearchInput, Badge,
   Table, Thead, Tbody, Tr, Th, Td, TableSkeleton,
-  EmptyState, Pagination,
+  EmptyState, Pagination, useToast,
 } from "../components/ui";
 import { formatDateTime } from "../lib/utils";
 import { apiFetch } from "../lib/api";
@@ -30,6 +30,7 @@ export default function Reviews() {
     "Daftar Review",
     "Pantau feedback dan pengalaman pengguna untuk meningkatkan kualitas layanan."
   );
+  const toast = useToast();
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -81,6 +82,37 @@ export default function Reviews() {
       }
     } catch {
       // stats are non-critical, ignore errors
+    }
+  };
+
+  const handleToggleLanding = async (reviewId, currentStatus) => {
+    try {
+      const res = await apiFetch("/api/reviews", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: reviewId, showOnLanding: !currentStatus }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast({
+          message: `Review ${
+            !currentStatus ? "ditampilkan di" : "dihapus dari"
+          } landing page`,
+          type: "success",
+        });
+        setReviews(
+          reviews.map((r) =>
+            r._id === reviewId ? { ...r, showOnLanding: !currentStatus } : r
+          )
+        );
+      } else {
+        toast({
+          message: data.message || "Gagal memperbarui status",
+          type: "error",
+        });
+      }
+    } catch {
+      toast({ message: "Terjadi kesalahan koneksi", type: "error" });
     }
   };
 
@@ -140,25 +172,26 @@ export default function Reviews() {
           <Thead>
             <Tr className="hover:bg-transparent">
               <Th>Nama</Th>
-              <Th className="w-2/5">Review</Th>
+              <Th className="w-1/3">Review</Th>
               <Th>Rating</Th>
               <Th>Tanggal & Waktu</Th>
               <Th>Kontak</Th>
+              <Th className="text-center">Landing Page</Th>
             </Tr>
           </Thead>
 
           {loading ? (
-            <TableSkeleton cols={5} rows={8} />
+            <TableSkeleton cols={6} rows={8} />
           ) : error ? (
             <Tbody>
               <Tr className="hover:bg-transparent">
-                <Td colSpan={5} className="text-center py-12 text-destructive">{error}</Td>
+                <Td colSpan={6} className="text-center py-12 text-destructive">{error}</Td>
               </Tr>
             </Tbody>
           ) : filteredReviews.length === 0 ? (
             <Tbody>
               <Tr className="hover:bg-transparent">
-                <Td colSpan={5} className="p-0">
+                <Td colSpan={6} className="p-0">
                   <EmptyState
                     icon={MessageSquare}
                     title="Tidak ada review ditemukan"
@@ -169,8 +202,8 @@ export default function Reviews() {
             </Tbody>
           ) : (
             <Tbody>
-              {filteredReviews.map((review, index) => (
-                <Tr key={index}>
+              {filteredReviews.map((review) => (
+                <Tr key={review._id}>
                   <Td className="font-semibold whitespace-nowrap">{review.name}</Td>
                   <Td className="text-muted-foreground break-words">{review.review}</Td>
                   <Td>
@@ -191,6 +224,26 @@ export default function Reviews() {
                         </div>
                       )}
                     </div>
+                  </Td>
+                  <Td className="text-center">
+                    <button
+                      onClick={() =>
+                        handleToggleLanding(review._id, review.showOnLanding)
+                      }
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                        review.showOnLanding
+                          ? "bg-primary text-white hover:bg-primary/90"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      }`}
+                      title={
+                        review.showOnLanding
+                          ? "Hapus dari landing page"
+                          : "Tampilkan di landing page"
+                      }
+                    >
+                      <Globe className="h-3.5 w-3.5" />
+                      {review.showOnLanding ? "Aktif" : "Nonaktif"}
+                    </button>
                   </Td>
                 </Tr>
               ))}

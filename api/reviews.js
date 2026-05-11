@@ -36,6 +36,10 @@ export async function handleReviews(event, context, subresource) {
         return await (
           await import("../lib/middleware/auth.js")
         ).adminMiddleware(getReviews)(event, headers);
+      case "PATCH":
+        return await (
+          await import("../lib/middleware/auth.js")
+        ).adminMiddleware(updateReview)(event, headers);
       default:
         throw new HttpError(405, `Method ${method} not allowed`);
     }
@@ -43,6 +47,34 @@ export async function handleReviews(event, context, subresource) {
     console.error("Reviews handler error:", error);
     return errorResponse(toHttpError(error), headers);
   }
+}
+
+async function updateReview(event, headers) {
+  const { id, showOnLanding } = await parseJsonBody(event);
+
+  if (!id) {
+    throw new HttpError(400, "Review ID is required");
+  }
+
+  const updatedReview = await Review.findByIdAndUpdate(
+    id,
+    { showOnLanding: Boolean(showOnLanding) },
+    { new: true, runValidators: true },
+  );
+
+  if (!updatedReview) {
+    throw new HttpError(404, "Review not found");
+  }
+
+  return jsonResponse(
+    200,
+    {
+      success: true,
+      message: "Status landing page review berhasil diperbarui",
+      data: updatedReview,
+    },
+    headers,
+  );
 }
 
 async function createReview(event, headers) {
@@ -137,6 +169,10 @@ async function getReviews(event, headers, isPublicRequest = false) {
   const query = {};
   if (rating) {
     query.rating = parseInt(rating, 10);
+  }
+
+  if (isPublicRequest) {
+    query.showOnLanding = true;
   }
 
   const pageNum = Math.max(parseInt(page, 10) || 1, 1);

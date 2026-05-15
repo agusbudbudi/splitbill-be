@@ -12,6 +12,7 @@ import {
   BarChart2,
   ShoppingBag,
   Mail,
+  FileText,
 } from "lucide-react";
 import { ToastProvider } from "../components/ui";
 
@@ -35,6 +36,7 @@ const navGroups = [
     title: "Operasional & Konten",
     items: [
       { name: "Campaigns", href: "/campaigns", icon: Mail },
+      { name: "Blog", href: "/blogs", icon: FileText },
       { name: "Banners", href: "/banners", icon: Image },
       { name: "Subscription", href: "/subscription-packages", icon: Package },
     ],

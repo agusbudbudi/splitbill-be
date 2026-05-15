@@ -14,6 +14,8 @@ import UserDetail from "./pages/UserDetail";
 import Insights from "./pages/Insights";
 import Campaigns from "./pages/Campaigns";
 import CampaignDetail from "./pages/CampaignDetail";
+import Blogs from "./pages/Blogs";
+import BlogDetail from "./pages/BlogDetail";
 
 function App() {
   return (
@@ -34,6 +36,9 @@ function App() {
           <Route path="/insights" element={<Insights />} />
           <Route path="/campaigns" element={<Campaigns />} />
           <Route path="/campaigns/:id" element={<CampaignDetail />} />
+          <Route path="/blogs" element={<Blogs />} />
+          <Route path="/blogs/new" element={<BlogDetail />} />
+          <Route path="/blogs/:id" element={<BlogDetail />} />
         </Route>
       </Route>
 

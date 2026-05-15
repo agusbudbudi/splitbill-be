@@ -244,6 +244,17 @@ export async function handler(event, context) {
       }
     }
 
+    if (resource === "blogs") {
+      if (!subresource && rest.length === 0) {
+        const { default: h } = await import("../../api/blogs.js");
+        return h(event, context);
+      }
+      if (subresource && rest.length === 0) {
+        const { default: h } = await import("../../api/blog-by-id.js");
+        return h(event, subresource, context);
+      }
+    }
+
     if (resource === "pakasir-webhook" && !subresource && rest.length === 0) {
       const { default: h } = await import("../../api/pakasir-webhook.js");
       return h(event, context);

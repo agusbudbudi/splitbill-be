@@ -39,8 +39,8 @@ function ToastItem({ toast, onDismiss }) {
     <div
       className={cn(
         "flex items-start gap-3 px-4 py-3 bg-white rounded-sm shadow-soft border border-border",
-        "animate-in slide-in-from-right-4 fade-in duration-200",
-        "min-w-[280px] max-w-sm",
+        "animate-in slide-in-from-top-4 fade-in duration-300",
+        "min-w-[320px] max-w-md",
         className,
       )}
     >
@@ -74,10 +74,13 @@ export function ToastProvider({ children }) {
     [dismiss],
   );
 
+  // Hack to support both const { toast } = useToast() and const toast = useToast()
+  toast.toast = toast;
+
   return (
     <ToastContext.Provider value={toast}>
       {children}
-      <div className="fixed bottom-5 right-5 z-[100] flex flex-col gap-2 pointer-events-none">
+      <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 pointer-events-none items-center">
         {toasts.map((t) => (
           <div key={t.id} className="pointer-events-auto">
             <ToastItem toast={t} onDismiss={dismiss} />

@@ -47,6 +47,7 @@ const SEGMENT_OPTIONS = [
     label: "Belum Pernah Split Bill",
     color: "bg-pink-500",
   },
+  { id: "dynamic", label: "Segmen Dinamis", color: "bg-purple-500" },
 ];
 
 export default function Campaigns() {

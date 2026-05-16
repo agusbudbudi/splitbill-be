@@ -2,7 +2,7 @@ import Campaign from "../lib/models/Campaign.js";
 import User from "../lib/models/User.js";
 import { connectDatabase } from "../lib/db.js";
 import { sendCampaignEmail } from "../lib/email.js";
-import { getSegmentQuery } from "./campaigns.js";
+import { getSegmentQuery, getUsersForSegment } from "./campaigns.js";
 import {
   createCorsHeaders,
   errorResponse,
@@ -35,11 +35,9 @@ export default async function handleCampaignById(event, campaignId) {
         throw new HttpError(400, "Only draft campaigns can be edited");
       }
       const body = await parseJsonBody(event);
-      const { name, segment, subject, content, ctaText, ctaUrl } = body;
+      const { name, segment, subject, content, ctaText, ctaUrl, dynamicSegment } = body;
       
-      const segmentQuery = await getSegmentQuery(segment || campaign.segment);
-      if (!segmentQuery) throw new HttpError(400, "Invalid segment");
-      const users = await User.find(segmentQuery).select("_id");
+      const users = await getUsersForSegment(segment || campaign.segment, dynamicSegment || campaign.dynamicSegment);
       const recipientCount = users.length;
 
       campaign.name = name || campaign.name;
@@ -48,6 +46,11 @@ export default async function handleCampaignById(event, campaignId) {
       campaign.content = content || campaign.content;
       campaign.ctaText = ctaText !== undefined ? ctaText : campaign.ctaText;
       campaign.ctaUrl = ctaUrl !== undefined ? ctaUrl : campaign.ctaUrl;
+      if (segment === "dynamic") {
+        campaign.dynamicSegment = dynamicSegment || campaign.dynamicSegment;
+      } else if (segment) {
+        campaign.dynamicSegment = undefined;
+      }
       campaign.recipientCount = recipientCount;
 
       await campaign.save();
@@ -64,8 +67,7 @@ export default async function handleCampaignById(event, campaignId) {
       campaign.status = "pending";
       await campaign.save();
 
-      const segmentQuery = await getSegmentQuery(campaign.segment);
-      const users = await User.find(segmentQuery).select("email name");
+      const users = await getUsersForSegment(campaign.segment, campaign.dynamicSegment);
       
       campaign.recipientCount = users.length;
       await campaign.save();

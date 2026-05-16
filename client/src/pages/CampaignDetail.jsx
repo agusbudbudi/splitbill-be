@@ -22,6 +22,7 @@ import {
   useToast,
 } from "../components/ui";
 import { apiFetch } from "../lib/api";
+import DynamicSegmentBuilder from "../components/DynamicSegmentBuilder";
 
 const SEGMENT_OPTIONS = [
   { id: "all", label: "Semua User", color: "bg-blue-500" },
@@ -39,6 +40,7 @@ const SEGMENT_OPTIONS = [
     label: "Belum Pernah Split Bill",
     color: "bg-pink-500",
   },
+  { id: "dynamic", label: "Segmen Dinamis", color: "bg-purple-500" },
 ];
 
 export default function CampaignDetail() {
@@ -60,6 +62,7 @@ export default function CampaignDetail() {
     content: "",
     ctaText: "",
     ctaUrl: "",
+    dynamicSegment: { included: [], excluded: [] },
   });
 
   const [testEmail, setTestEmail] = useState("");
@@ -78,6 +81,7 @@ export default function CampaignDetail() {
           content: json.data.content || "",
           ctaText: json.data.ctaText || "",
           ctaUrl: json.data.ctaUrl || "",
+          dynamicSegment: json.data.dynamicSegment || { included: [], excluded: [] },
         });
       } else {
         toast({
@@ -103,9 +107,11 @@ export default function CampaignDetail() {
       if (!formData.segment) return;
       setPreviewLoading(true);
       try {
-        const res = await apiFetch(
-          `/api/campaigns/preview?segment=${formData.segment}`,
-        );
+        let url = `/api/campaigns/preview?segment=${formData.segment}`;
+        if (formData.segment === "dynamic") {
+          url += `&dynamicSegment=${encodeURIComponent(JSON.stringify(formData.dynamicSegment))}`;
+        }
+        const res = await apiFetch(url);
         const json = await res.json();
         if (json.success) {
           setPreviewCount(json.count);
@@ -119,7 +125,7 @@ export default function CampaignDetail() {
 
     const timer = setTimeout(fetchPreview, 500);
     return () => clearTimeout(timer);
-  }, [formData.segment]);
+  }, [formData.segment, formData.dynamicSegment]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -306,6 +312,15 @@ export default function CampaignDetail() {
                   </div>
                 </div>
 
+                {formData.segment === "dynamic" && (
+                  <div className="mt-4 border-t border-border pt-4">
+                    <DynamicSegmentBuilder
+                      value={formData.dynamicSegment}
+                      onChange={(val) => setFormData(prev => ({ ...prev, dynamicSegment: val }))}
+                    />
+                  </div>
+                )}
+
                 <Input
                   label="Subjek Email"
                   name="subject"
@@ -336,16 +351,35 @@ export default function CampaignDetail() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-sm font-medium text-foreground">
-                    Isi Pesan (HTML)
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="block text-sm font-medium text-foreground">
+                      Isi Pesan (HTML)
+                    </label>
+                    {isDraft && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            content: prev.content + "{{name}}",
+                          }));
+                        }}
+                        className="text-[10px] bg-primary/10 text-primary hover:bg-primary/20 px-2 py-1 rounded border border-primary/20 font-medium transition-colors flex items-center gap-1"
+                      >
+                        + Insert {"{{name}}"}
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mb-1">
+                    Gunakan variabel <code className="bg-muted px-1 py-0.5 rounded text-primary font-mono text-[10px]">{"{{name}}"}</code> untuk menyisipkan nama pengguna.
+                  </p>
                   <textarea
                     name="content"
                     rows={10}
                     value={formData.content}
                     onChange={handleInputChange}
                     disabled={!isDraft}
-                    className="w-full px-3 py-2 bg-input border border-border rounded-md text-sm font-mono focus:outline-none focus:border-primary resize-none"
+                    className="w-full px-3 py-2 bg-input border border-border rounded-md text-sm font-mono focus:outline-none focus:border-primary resize-none mt-1"
                     placeholder="<h1>Halo {{name}}</h1>..."
                   />
                 </div>

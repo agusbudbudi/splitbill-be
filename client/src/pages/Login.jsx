@@ -36,7 +36,7 @@ export default function Login() {
         localStorage.setItem("user", JSON.stringify(data.user));
       }
 
-      navigate("/");
+      navigate("/insights");
     } catch (err) {
       setError(err.message || "An error occurred during login");
     } finally {
@@ -50,17 +50,6 @@ export default function Login() {
       style={{ background: "var(--background)" }}
     >
       <div className="w-full max-w-md">
-        {/* Logo/Brand */}
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <img
-              src="/img/logoSummary.png"
-              alt="Split Bill"
-              className="h-12 w-auto"
-            />
-          </div>
-        </div>
-
         {/* Card */}
         <div
           className="p-8 space-y-6"
@@ -71,18 +60,20 @@ export default function Login() {
             boxShadow: "var(--shadow-soft)",
           }}
         >
-          <div>
-            <h2
-              className="text-xl font-semibold"
-              style={{ color: "var(--foreground)" }}
-            >
-              Login Admin
-            </h2>
+          {/* Logo/Brand */}
+          <div className="flex justify-center mb-4">
+            <img
+              src="/img/logoSummary.png"
+              alt="Split Bill"
+              className="h-10 w-auto"
+            />
+          </div>
+          <div className="text-center">
             <p
               className="text-sm mt-1"
               style={{ color: "var(--muted-foreground)" }}
             >
-              Masuk untuk mengelola Split Bill
+              Selamat Datang di Dashboard Split Bill
             </p>
           </div>
 
@@ -107,7 +98,7 @@ export default function Login() {
                   type="email"
                   autoComplete="email"
                   required
-                  className="w-full pl-10 pr-4 py-3 text-sm transition-all"
+                  className="w-full pl-10 pr-4 py-3 text-base transition-all"
                   style={{
                     background: "var(--input)",
                     border: "1px solid var(--border)",
@@ -141,7 +132,7 @@ export default function Login() {
                   type="password"
                   autoComplete="current-password"
                   required
-                  className="w-full pl-10 pr-4 py-3 text-sm transition-all"
+                  className="w-full pl-10 pr-4 py-3 text-base transition-all"
                   style={{
                     background: "var(--input)",
                     border: "1px solid var(--border)",
@@ -157,7 +148,7 @@ export default function Login() {
 
             {error && (
               <div
-                className="px-4 py-3 text-sm rounded-lg"
+                className="px-4 py-2 text-sm rounded-[8px]"
                 style={{
                   background: "rgba(239, 68, 68, 0.1)",
                   color: "var(--destructive)",

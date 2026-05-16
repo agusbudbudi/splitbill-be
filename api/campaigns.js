@@ -11,6 +11,7 @@ import {
 } from "../lib/http.js";
 import { getQueryParams, parseJsonBody } from "../lib/parsers.js";
 import { toHttpError, HttpError } from "../lib/errors.js";
+import { buildSegmentPipeline } from "../lib/utils/segmentEvaluator.js";
 
 export const getSegmentQuery = async (segment) => {
   const now = new Date();
@@ -43,6 +44,33 @@ export const getSegmentQuery = async (segment) => {
   }
 };
 
+export async function getUsersForSegment(segment, dynamicSegment) {
+  if (segment === "dynamic") {
+    if (!dynamicSegment) throw new HttpError(400, "dynamicSegment is required");
+    const pipeline = buildSegmentPipeline(dynamicSegment);
+    pipeline.push({ $project: { email: 1, name: 1 } });
+    return await User.aggregate(pipeline);
+  } else {
+    const segmentQuery = await getSegmentQuery(segment);
+    if (!segmentQuery) throw new HttpError(400, "Invalid segment");
+    return await User.find(segmentQuery).select("email name");
+  }
+}
+
+async function getSegmentUserCount(segment, dynamicSegment) {
+  if (segment === "dynamic") {
+    if (!dynamicSegment) throw new HttpError(400, "dynamicSegment is required");
+    const pipeline = buildSegmentPipeline(dynamicSegment);
+    pipeline.push({ $count: "count" });
+    const result = await User.aggregate(pipeline);
+    return result[0] ? result[0].count : 0;
+  } else {
+    const segmentQuery = await getSegmentQuery(segment);
+    if (!segmentQuery) throw new HttpError(400, "Invalid segment");
+    return await User.countDocuments(segmentQuery);
+  }
+}
+
 export async function handleCampaigns(event) {
   const headers = createCorsHeaders(event);
 
@@ -64,11 +92,17 @@ export async function handleCampaigns(event) {
       const url = event.url || "";
 
       if (path.includes("/preview") || url.includes("/preview")) {
-        const { segment } = query;
-        const segmentQuery = await getSegmentQuery(segment);
-        if (!segmentQuery) throw new HttpError(400, "Invalid segment");
-
-        const count = await User.countDocuments(segmentQuery);
+        const { segment, dynamicSegment: dynamicSegmentStr } = query;
+        let dynamicSegment = null;
+        if (dynamicSegmentStr) {
+          try {
+            dynamicSegment = JSON.parse(dynamicSegmentStr);
+          } catch (e) {
+            throw new HttpError(400, "Invalid dynamicSegment JSON");
+          }
+        }
+        
+        const count = await getSegmentUserCount(segment, dynamicSegment);
         return jsonResponse(200, { success: true, count }, headers);
       }
 
@@ -89,13 +123,15 @@ export async function handleCampaigns(event) {
         testEmail,
         isDraft,
         initializeDraft,
+        dynamicSegment,
       } = body;
 
       if (initializeDraft) {
         const campaign = await Campaign.create({
           status: "draft",
           name: "Draft Campaign " + new Date().toISOString().split("T")[0],
-          segment: "unverified",
+          segment: "dynamic",
+          dynamicSegment: { included: [], excluded: [] },
         });
         return jsonResponse(
           201,
@@ -121,15 +157,13 @@ export async function handleCampaigns(event) {
         );
       }
 
-      const segmentQuery = await getSegmentQuery(segment);
-      if (!segmentQuery) throw new HttpError(400, "Invalid segment");
-
-      const users = await User.find(segmentQuery).select("email name");
+      const users = await getUsersForSegment(segment, dynamicSegment);
       const recipientCount = users.length;
 
       const campaign = await Campaign.create({
         name,
         segment,
+        dynamicSegment: segment === "dynamic" ? dynamicSegment : undefined,
         subject,
         content,
         ctaText,
@@ -205,6 +239,7 @@ export async function handleCampaigns(event) {
 
     throw new HttpError(405, `Method ${method} not allowed`);
   } catch (error) {
+    import("fs").then(fs => fs.writeFileSync("/Users/agudbudiman/Documents/1 PERSONAL PROJECT/splitbill-be/error.log", error.stack || error.toString()));
     console.error("Campaigns handler error:", error);
     return errorResponse(toHttpError(error), headers);
   }

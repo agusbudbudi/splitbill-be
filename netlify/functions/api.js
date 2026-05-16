@@ -260,6 +260,11 @@ export async function handler(event, context) {
       return h(event, context);
     }
 
+    if (resource === "segment-variables" && !subresource && rest.length === 0) {
+      const { default: h } = await import("../../api/segment-variables.js");
+      return h(event, context);
+    }
+
     if (resource === "campaigns") {
       if ((!subresource || subresource === "preview") && rest.length === 0) {
         const { default: h } = await import("../../api/campaigns.js");

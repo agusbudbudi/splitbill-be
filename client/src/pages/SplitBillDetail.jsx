@@ -113,29 +113,36 @@ export default function SplitBillDetail() {
   }
 
   const participantName = (pid) =>
-    record.participants.find((p) => p.id === pid)?.name || "—";
+    record.participants.find((p) => p.id === pid)?.name || "-";
 
   return (
     <div className="space-y-6">
       <PageHero
         onBack={() => navigate("/split-bills")}
         badges={
-          user.isAdmin && record.owner ? (
-            <span className="px-2.5 py-1 rounded-full bg-white/15 text-xs font-medium">
-              Pemilik: <span className="font-bold">{record.owner.name}</span>
-            </span>
-          ) : null
+          <div className="flex items-center gap-2">
+            {user.isAdmin && record.owner && (
+              <span className="px-2.5 py-1 rounded-full bg-white/15 text-xs font-medium">
+                Pemilik: <span className="font-bold">{record.owner.name}</span>
+              </span>
+            )}
+            {record.status === "editable" && (
+              <span className="px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-bold border border-amber-500/30">
+                DRAFT / BELUM SELESAI
+              </span>
+            )}
+          </div>
         }
-        title={record.activityName}
+        title={record.activityName || "Aktivitas Tanpa Nama"}
         meta={
           <>
             <span className="flex items-center gap-1.5">
               <Calendar className="h-3.5 w-3.5" />
-              {formatDate(record.occurredAt)}
+              {record.occurredAt ? formatDate(record.occurredAt) : "Belum diatur"}
             </span>
             <span className="flex items-center gap-1.5">
               <Users className="h-3.5 w-3.5" />
-              {record.participants.length} Peserta
+              {(record.participants || []).length} Peserta
             </span>
             {record.owner && (
               user.isAdmin ? (
@@ -156,7 +163,7 @@ export default function SplitBillDetail() {
           </>
         }
         statLabel="Total Tagihan"
-        statValue={formatCurrency(record.summary.total)}
+        statValue={record.summary ? formatCurrency(record.summary.total) : "DRAFT (Belum Dihitung)"}
       />
 
       {/* Main content — full width 3+2 col grid */}
@@ -221,7 +228,7 @@ export default function SplitBillDetail() {
                           {item.description}
                         </p>
                         <p className="text-xs text-muted-foreground italic">
-                          Biaya Tambahan · {item.splitType}
+                          Biaya Tambahan · {item.splitType || "equally"}
                         </p>
                       </div>
                     </div>
@@ -241,10 +248,10 @@ export default function SplitBillDetail() {
             <SectionTitle accent="bg-warning">
               Pelunasan (Settlement)
             </SectionTitle>
-            {record.summary.settlements.length === 0 ? (
+            {!record.summary || !record.summary.settlements || record.summary.settlements.length === 0 ? (
               <div className="px-4 py-5 rounded-lg border border-border text-center">
                 <p className="text-sm text-muted-foreground italic">
-                  Tidak ada pelunasan yang diperlukan.
+                  {!record.summary ? "Pelunasan belum dihitung (Draft)." : "Tidak ada pelunasan yang diperlukan."}
                 </p>
               </div>
             ) : (
@@ -292,124 +299,132 @@ export default function SplitBillDetail() {
           <section className="space-y-3">
             <SectionTitle accent="bg-success">Ringkasan Peserta</SectionTitle>
             <div className="space-y-1.5">
-              {record.summary.perParticipant.map((p, idx) => {
-                const name = participantName(p.participantId);
-                const balanceVariant =
-                  p.balance > 0
-                    ? "success"
-                    : p.balance < 0
-                      ? "danger"
-                      : "neutral";
-                const balanceLabel =
-                  p.balance > 0
-                    ? "PIUTANG"
-                    : p.balance < 0
-                      ? "HUTANG"
-                      : "LUNAS";
-                return (
-                  <div
-                    key={idx}
-                    className="bg-white rounded-lg border border-border shadow-soft overflow-hidden"
-                  >
-                    <div className="flex items-center justify-between gap-3 px-4 py-3">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <p className="text-sm font-bold text-foreground truncate">
-                          {name}
-                        </p>
-                        <button
-                          onClick={() => toggleParticipant(idx)}
-                          className="p-0.5 rounded hover:bg-muted text-muted-foreground transition-colors flex-shrink-0"
-                        >
-                          {expandedParticipants[idx] ? (
-                            <ChevronUp size={13} />
-                          ) : (
-                            <ChevronDown size={13} />
-                          )}
-                        </button>
-                      </div>
-                      <Badge variant={balanceVariant}>{balanceLabel}</Badge>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-px bg-border">
-                      <div className="bg-white px-4 py-2.5">
-                        <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest">
-                          Membayar
-                        </p>
-                        <p className="text-sm font-bold text-foreground mt-0.5">
-                          {formatCurrency(p.paid)}
-                        </p>
-                      </div>
-                      <div className="bg-white px-4 py-2.5">
-                        <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest">
-                          Tagihan
-                        </p>
-                        <p className="text-sm font-bold text-foreground mt-0.5">
-                          {formatCurrency(p.owed)}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="px-4 py-2.5 border-t border-border bg-muted/30 space-y-1">
-                      {p.balance < 0 ? (
-                        record.summary.settlements
-                          .filter((s) => s.from === p.participantId)
-                          .map((s, i) => (
-                            <div
-                              key={i}
-                              className="flex justify-between items-center text-xs"
-                            >
-                              <span className="text-muted-foreground">
-                                →{" "}
-                                <span className="font-semibold text-foreground">
-                                  {participantName(s.to)}
-                                </span>
-                              </span>
-                              <span className="font-bold text-destructive">
-                                {formatCurrency(s.amount)}
-                              </span>
-                            </div>
-                          ))
-                      ) : p.balance > 0 ? (
-                        <div className="flex justify-between items-center text-xs">
-                          <span className="text-muted-foreground">
-                            Terima total
-                          </span>
-                          <span className="font-bold text-success">
-                            {formatCurrency(p.balance)}
-                          </span>
+              {!record.summary || !record.summary.perParticipant ? (
+                <div className="bg-white px-4 py-5 rounded-lg border border-border shadow-soft text-center">
+                  <p className="text-sm text-muted-foreground italic">
+                    Ringkasan per peserta belum tersedia (Draft).
+                  </p>
+                </div>
+              ) : (
+                record.summary.perParticipant.map((p, idx) => {
+                  const name = participantName(p.participantId);
+                  const balanceVariant =
+                    p.balance > 0
+                      ? "success"
+                      : p.balance < 0
+                        ? "danger"
+                        : "neutral";
+                  const balanceLabel =
+                    p.balance > 0
+                      ? "PIUTANG"
+                      : p.balance < 0
+                        ? "HUTANG"
+                        : "LUNAS";
+                  return (
+                    <div
+                      key={idx}
+                      className="bg-white rounded-lg border border-border shadow-soft overflow-hidden"
+                    >
+                      <div className="flex items-center justify-between gap-3 px-4 py-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <p className="text-sm font-bold text-foreground truncate">
+                            {name}
+                          </p>
+                          <button
+                            onClick={() => toggleParticipant(idx)}
+                            className="p-0.5 rounded hover:bg-muted text-muted-foreground transition-colors flex-shrink-0"
+                          >
+                            {expandedParticipants[idx] ? (
+                              <ChevronUp size={13} />
+                            ) : (
+                              <ChevronDown size={13} />
+                            )}
+                          </button>
                         </div>
-                      ) : (
-                        <p className="text-xs text-center text-muted-foreground italic py-0.5">
-                          Lunas
-                        </p>
+                        <Badge variant={balanceVariant}>{balanceLabel}</Badge>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-px bg-border">
+                        <div className="bg-white px-4 py-2.5">
+                          <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest">
+                            Membayar
+                          </p>
+                          <p className="text-sm font-bold text-foreground mt-0.5">
+                            {formatCurrency(p.paid)}
+                          </p>
+                        </div>
+                        <div className="bg-white px-4 py-2.5">
+                          <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest">
+                            Tagihan
+                          </p>
+                          <p className="text-sm font-bold text-foreground mt-0.5">
+                            {formatCurrency(p.owed)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="px-4 py-2.5 border-t border-border bg-muted/30 space-y-1">
+                        {p.balance < 0 ? (
+                          (record.summary.settlements || [])
+                            .filter((s) => s.from === p.participantId)
+                            .map((s, i) => (
+                              <div
+                                key={i}
+                                className="flex justify-between items-center text-xs"
+                              >
+                                <span className="text-muted-foreground">
+                                  →{" "}
+                                  <span className="font-semibold text-foreground">
+                                    {participantName(s.to)}
+                                  </span>
+                                </span>
+                                <span className="font-bold text-destructive">
+                                  {formatCurrency(s.amount)}
+                                </span>
+                              </div>
+                            ))
+                        ) : p.balance > 0 ? (
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-muted-foreground">
+                              Terima total
+                            </span>
+                            <span className="font-bold text-success">
+                              {formatCurrency(p.balance)}
+                            </span>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-center text-muted-foreground italic py-0.5">
+                            Lunas
+                          </p>
+                        )}
+                      </div>
+
+                      {expandedParticipants[idx] && p.owedItems?.length > 0 && (
+                        <div className="px-4 py-3 border-t border-border animate-in fade-in slide-in-from-top-1 duration-200">
+                          <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest mb-2">
+                            Item Detail
+                          </p>
+                          <div className="space-y-1.5">
+                            {p.owedItems.map((item, i) => (
+                              <div
+                                key={i}
+                                className="flex justify-between items-start gap-3"
+                              >
+                                <span className="text-xs text-muted-foreground italic leading-tight">
+                                  {item.description}
+                                </span>
+                                <span className="text-xs font-semibold text-foreground whitespace-nowrap">
+                                  {formatCurrency(item.amount)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       )}
                     </div>
-
-                    {expandedParticipants[idx] && p.owedItems?.length > 0 && (
-                      <div className="px-4 py-3 border-t border-border animate-in fade-in slide-in-from-top-1 duration-200">
-                        <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest mb-2">
-                          Item Detail
-                        </p>
-                        <div className="space-y-1.5">
-                          {p.owedItems.map((item, i) => (
-                            <div
-                              key={i}
-                              className="flex justify-between items-start gap-3"
-                            >
-                              <span className="text-xs text-muted-foreground italic leading-tight">
-                                {item.description}
-                              </span>
-                              <span className="text-xs font-semibold text-foreground whitespace-nowrap">
-                                {formatCurrency(item.amount)}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </section>
 

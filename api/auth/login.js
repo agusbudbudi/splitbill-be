@@ -42,7 +42,7 @@ export async function handleAuthLogin(event) {
 
     await connectDatabase();
 
-    const { email, password, requiredRole } = await parseJsonBody(event);
+    const { email, password, requiredRole, draftId } = await parseJsonBody(event);
 
     if (!email || !password) {
       throw new HttpError(400, "Email and password are required");
@@ -120,6 +120,20 @@ export async function handleAuthLogin(event) {
 
     // Reset login attempts on successful login
     await user.resetLoginAttempts();
+
+    // Auto-associate guest draft with the authenticated user (AC-04)
+    if (draftId) {
+      try {
+        const SplitBillRecord = (await import("../../lib/models/SplitBillRecord.js")).default;
+        await SplitBillRecord.findOneAndUpdate(
+          { _id: draftId, user: null, status: "editable" },
+          { $set: { user: user._id } }
+        );
+      } catch (draftErr) {
+        // Non-fatal: log and continue
+        console.warn("Draft association failed on login:", draftErr);
+      }
+    }
 
     const { accessToken, refreshToken } = generateTokens(user._id);
 

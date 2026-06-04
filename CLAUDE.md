@@ -103,6 +103,9 @@ Account lockout: 5 failed login attempts → 15-minute lock (`User.incLoginAttem
 | POST | `/api/auth/resend-verification` | — | `api/auth/resend-verification.js` |
 | GET/POST | `/api/split-bills` | user | `api/split-bills/index.js` |
 | GET/PUT/DELETE | `/api/split-bills/:recordId` | user | `api/split-bills/[recordId].js` |
+| POST | `/api/split-bills/drafts` | optional | `api/split-bills/drafts/index.js` |
+| GET/PUT | `/api/split-bills/drafts/:draftId` | optional | `api/split-bills/drafts/[draftId].js` |
+| POST | `/api/split-bills/drafts/:draftId/finalize` | user | `api/split-bills/drafts/[draftId].js` |
 | GET/POST | `/api/participants` | user | `api/participants/index.js` |
 | DELETE | `/api/participants/:participantId` | user | `api/participants/[participantId].js` |
 | POST | `/api/gemini-scan` | user | `api/gemini-scan.js` |
@@ -118,7 +121,7 @@ Account lockout: 5 failed login attempts → 15-minute lock (`User.incLoginAttem
 ## Data Models Summary
 
 - **User**: name, email (unique), password (bcrypt/12), isVerified, isAdmin, freeScanCount (default 10), loginAttempts, lockUntil, verificationToken
-- **SplitBillRecord**: user (ref), activityName, occurredAt, participants[], expenses[], additionalExpenses[], paymentMethodSnapshots[], summary (total, perParticipant, settlements), status (locked|editable)
+- **SplitBillRecord**: user (ref, nullable for guest drafts), activityName, occurredAt, participants[], expenses[], additionalExpenses[], paymentMethodSnapshots[], summary (total, perParticipant, settlements), status (locked=FINALIZED|editable=DRAFT), last_step (STEP_1|STEP_2|STEP_3|FINALIZED)
 - **Participant**: name, user (ref) — unique per user (case-insensitive)
 - **Payment**: paymentId (unique), name, phone, amount, status (pending|paid|expired), expiresAt — has TTL index for auto-expiry
 - **Review**: rating (1-5), name, review, contactPermission, email?, phone?

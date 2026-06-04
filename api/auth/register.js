@@ -42,7 +42,7 @@ export async function handleAuthRegister(event) {
 
     await connectDatabase();
 
-    const { name, email, password } = await parseJsonBody(event);
+    const { name, email, password, draftId } = await parseJsonBody(event);
 
     if (!name || !email || !password) {
       throw new HttpError(400, "Name, email, and password are required");
@@ -91,6 +91,20 @@ export async function handleAuthRegister(event) {
     });
 
     await user.save();
+
+    // Auto-associate guest draft with the newly registered user (AC-04)
+    if (draftId) {
+      try {
+        const SplitBillRecord = (await import("../../lib/models/SplitBillRecord.js")).default;
+        await SplitBillRecord.findOneAndUpdate(
+          { _id: draftId, user: null, status: "editable" },
+          { $set: { user: user._id } }
+        );
+      } catch (draftErr) {
+        // Non-fatal: log and continue
+        console.warn("Draft association failed on register:", draftErr);
+      }
+    }
 
     // Send verification email
     try {

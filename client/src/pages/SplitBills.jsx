@@ -67,7 +67,7 @@ export default function SplitBills() {
     fetchSplitBills(currentPage, debouncedSearch);
   }, [currentPage, debouncedSearch, fetchSplitBills]);
 
-  const colSpan = user.isAdmin ? 6 : 5;
+  const colSpan = user.isAdmin ? 7 : 6;
 
   return (
     <div className="space-y-6">
@@ -97,6 +97,7 @@ export default function SplitBills() {
               <Th>Tanggal</Th>
               <Th>Peserta</Th>
               {user.isAdmin && <Th>Pemilik</Th>}
+              <Th>Status</Th>
               <Th>Total Tagihan</Th>
               <Th className="text-right">Aksi</Th>
             </Tr>
@@ -134,7 +135,7 @@ export default function SplitBills() {
                           onClick={() => navigate(`/split-bills/${record.id}`)}
                           className="text-sm font-semibold text-foreground hover:text-primary hover:underline underline-offset-2 transition-colors truncate text-left"
                         >
-                          {record.activityName}
+                          {record.activityName || "Aktivitas Tanpa Nama"}
                         </button>
                         <p className="text-xs text-muted-foreground font-mono">
                           #{record.id.slice(-6)}
@@ -145,24 +146,35 @@ export default function SplitBills() {
                   <Td className="text-muted-foreground">
                     <div className="flex items-center gap-1.5 text-xs">
                       <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
-                      {formatDate(record.occurredAt)}
+                      {record.occurredAt ? formatDate(record.occurredAt) : "-"}
                     </div>
                   </Td>
                   <Td>
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <Users className="h-3.5 w-3.5 flex-shrink-0" />
-                      {record.participants.length} Orang
+                      {(record.participants || []).length} Orang
                     </div>
                   </Td>
                   {user.isAdmin && (
                     <Td>
-                      <p className="text-sm font-medium text-foreground">{record.owner?.name || "—"}</p>
+                      <p className="text-sm font-medium text-foreground">{record.owner?.name || "-"}</p>
                       <p className="text-xs text-muted-foreground">{record.owner?.email || ""}</p>
                     </Td>
                   )}
                   <Td>
+                    {record.status === "editable" ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-600 border border-amber-200">
+                        DRAFT
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200">
+                        FINALIZED
+                      </span>
+                    )}
+                  </Td>
+                  <Td>
                     <span className="text-sm font-bold text-foreground">
-                      {formatCurrency(record.summary.total)}
+                      {formatCurrency(record.summary?.total || 0)}
                     </span>
                   </Td>
                   <Td className="text-right">

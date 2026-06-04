@@ -10,6 +10,7 @@ import {
 } from "../../lib/http.js";
 import { parseJsonBody } from "../../lib/parsers.js";
 import { HttpError, toHttpError } from "../../lib/errors.js";
+export { mapDraft } from "./drafts/utils.js";
 
 export function mapRecord(record) {
   const doc = record.toObject({ versionKey: false });
@@ -351,7 +352,19 @@ export async function handleSplitBills(event) {
       const search = url.searchParams.get("search") || "";
       const searchRegex = search ? { $regex: search, $options: "i" } : null;
 
-      let query = user.isAdmin ? {} : { user: user._id };
+      // status filter: default to 'all' for admins (to show drafts too), and 'locked' for regular users
+      const statusParam = url.searchParams.get("status") || (user.isAdmin ? "all" : "locked");
+      const statusFilter =
+        statusParam === "all"
+          ? {}
+          : statusParam === "editable"
+          ? { status: "editable" }
+          : { status: "locked" };
+
+      let query = user.isAdmin
+        ? { ...statusFilter }
+        : { user: user._id, ...statusFilter };
+
       if (searchRegex) {
         const searchConditions = [
           { activityName: searchRegex },
@@ -366,8 +379,8 @@ export async function handleSplitBills(event) {
           }
         }
         query = user.isAdmin
-          ? { $or: searchConditions }
-          : { user: user._id, $or: searchConditions };
+          ? { ...statusFilter, $or: searchConditions }
+          : { user: user._id, ...statusFilter, $or: searchConditions };
       }
 
       const totalItems = await SplitBillRecord.countDocuments(query);

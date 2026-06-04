@@ -198,11 +198,31 @@ export async function handler(event, context) {
     }
 
     if (resource === "split-bills") {
+      // Draft flow: /api/split-bills/drafts[/:draftId[/:action]]
+      if (subresource === "drafts") {
+        const [draftId, action] = rest;
+        if (!draftId && rest.length === 0) {
+          // POST /api/split-bills/drafts — create draft
+          const { default: h } = await import("../../api/split-bills/drafts/index.js");
+          return h(event, context);
+        }
+        if (draftId && rest.length === 1) {
+          // GET/PUT /api/split-bills/drafts/:draftId — fetch or update draft
+          const { default: h } = await import("../../api/split-bills/drafts/[draftId].js");
+          return h(event, draftId, null, context);
+        }
+        if (draftId && action && rest.length === 2) {
+          // POST /api/split-bills/drafts/:draftId/finalize
+          const { default: h } = await import("../../api/split-bills/drafts/[draftId].js");
+          return h(event, draftId, action, context);
+        }
+      }
+      // Finalized records: /api/split-bills[/:recordId]
       if (!subresource && rest.length === 0) {
         const { default: h } = await import("../../api/split-bills/index.js");
         return h(event, context);
       }
-      if (subresource && rest.length === 0) {
+      if (subresource && subresource !== "drafts" && rest.length === 0) {
         const { default: h } = await import("../../api/split-bills/[recordId].js");
         return h(event, subresource, context);
       }

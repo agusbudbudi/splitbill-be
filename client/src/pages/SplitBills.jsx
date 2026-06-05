@@ -67,7 +67,7 @@ export default function SplitBills() {
     fetchSplitBills(currentPage, debouncedSearch);
   }, [currentPage, debouncedSearch, fetchSplitBills]);
 
-  const colSpan = user.isAdmin ? 7 : 6;
+  const colSpan = user.isAdmin ? 8 : 7;
 
   return (
     <div className="space-y-6">
@@ -99,6 +99,7 @@ export default function SplitBills() {
               {user.isAdmin && <Th>Pemilik</Th>}
               <Th>Status</Th>
               <Th>Total Tagihan</Th>
+              <Th>Last Step</Th>
               <Th className="text-right">Aksi</Th>
             </Tr>
           </Thead>
@@ -175,6 +176,16 @@ export default function SplitBills() {
                   <Td>
                     <span className="text-sm font-bold text-foreground">
                       {formatCurrency(record.summary?.total || 0)}
+                    </span>
+                  </Td>
+                  <Td>
+                    <span className="text-xs font-mono bg-muted px-2 py-0.5 rounded text-muted-foreground font-semibold">
+                      {(() => {
+                        const step = record.last_step || (record.status === "locked" ? "FINALIZED" : "");
+                        if (!step) return "—";
+                        if (step === "FINALIZED") return "Finalized";
+                        return step.replace("_", " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+                      })()}
                     </span>
                   </Td>
                   <Td className="text-right">

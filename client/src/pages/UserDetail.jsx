@@ -70,7 +70,7 @@ export default function UserDetail() {
         setUserData(data.data.user);
         setSplitBills(data.data.splitBills);
       } else {
-        setError(data.message || "Gagal mengambil data pengguna");
+        setError(data.error || data.message || "Gagal mengambil data pengguna");
       }
     } catch {
       setError("Terjadi kesalahan saat mengambil data");
@@ -173,19 +173,19 @@ export default function UserDetail() {
                   </Thead>
                   <Tbody>
                     {splitBills.map((bill) => (
-                      <Tr key={bill._id}>
+                      <Tr key={bill.id}>
                         <Td>
                           <div>
                             <button
                               onClick={() =>
-                                navigate(`/split-bills/${bill._id}`)
+                                navigate(`/split-bills/${bill.id}`)
                               }
                               className="text-sm font-semibold text-primary hover:underline text-left leading-snug"
                             >
-                              {bill.activityName}
+                              {bill.activityName || "Aktivitas Tanpa Nama"}
                             </button>
                             <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
-                              {bill._id.slice(-10)}
+                              #{bill.id.slice(-6)}
                             </p>
                           </div>
                         </Td>

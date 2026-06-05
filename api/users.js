@@ -64,7 +64,9 @@ export async function handleUsers(event) {
     ]);
 
     const splitBillCountMap = Object.fromEntries(
-      splitBillCounts.map(({ _id, count }) => [_id.toString(), count])
+      splitBillCounts
+        .filter(({ _id }) => _id !== null && _id !== undefined)
+        .map(({ _id, count }) => [_id.toString(), count])
     );
 
     const usersWithCounts = users.map((u) => ({

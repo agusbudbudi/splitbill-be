@@ -23,17 +23,25 @@ export default async function handleUserById(event, userId) {
     const { requireAdmin } = await import("../lib/middleware/auth.js");
     await requireAdmin(event);
 
-    const user = await User.findById(userId).populate("orderId", "orderId");
+    let user;
+    try {
+      user = await User.findById(userId).populate("orderId", "orderId");
+    } catch (populateErr) {
+      console.warn("Failed to populate orderId for user, querying without populate:", populateErr);
+      user = await User.findById(userId);
+    }
     if (!user) throw new HttpError(404, "User not found");
 
+    const { mapRecord } = await import("./split-bills/index.js");
     const splitBills = await SplitBillRecord.find({ user: userId })
       .sort({ occurredAt: -1 })
-      .select("_id activityName occurredAt participants summary createdAt")
-      .lean();
+      .populate("user", "name email");
+
+    const mappedSplitBills = splitBills.map(mapRecord);
 
     return jsonResponse(
       200,
-      { success: true, data: { user, splitBills } },
+      { success: true, data: { user, splitBills: mappedSplitBills } },
       headers,
     );
   } catch (error) {

@@ -49,6 +49,7 @@ export function mapRecord(record) {
     paymentMethodSnapshots: doc.paymentMethodSnapshots || [],
     summary: doc.summary,
     status: doc.status,
+    last_step: doc.last_step,
     createdAt:
       record.createdAt instanceof Date
         ? record.createdAt.toISOString()
@@ -386,7 +387,7 @@ export async function handleSplitBills(event) {
       const totalItems = await SplitBillRecord.countDocuments(query);
 
       let recordsQuery = SplitBillRecord.find(query)
-        .sort({ createdAt: -1 })
+        .sort({ updatedAt: -1 })
         .skip(skip)
         .limit(limit);
 

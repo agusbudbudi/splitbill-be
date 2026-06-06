@@ -116,13 +116,12 @@ function sanitizeSummary(summary) {
  * Resolve optional auth. Returns user or null (for guests).
  */
 async function tryGetUser(event) {
-  try {
-    const { requireUser } = await import("../../../lib/middleware/auth.js");
-    return await requireUser(event);
-  } catch (err) {
-    if (err.statusCode === 401) return null;
-    throw err;
-  }
+  // Check if Authorization header is present
+  const authorization = event?.headers?.authorization || event?.headers?.Authorization;
+  if (!authorization) return null; // No token header -> guest user
+
+  const { requireUser } = await import("../../../lib/middleware/auth.js");
+  return await requireUser(event); // Let token validation/expiration errors bubble up
 }
 
 /**

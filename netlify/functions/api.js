@@ -150,6 +150,10 @@ export async function handler(event, context) {
           const { default: h } = await import("../../api/auth/resend-verification.js");
           return h(event, context);
         }
+        case "google": {
+          const { default: h } = await import("../../api/auth/google.js");
+          return h(event, context);
+        }
         default:
           break;
       }

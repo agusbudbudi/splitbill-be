@@ -80,6 +80,15 @@ export async function handleAuthLogin(event) {
       );
     }
 
+    // If this account was created via Google and has no password set,
+    // guide the user to sign in with Google instead
+    if (!user.password || user.provider === "google") {
+      throw new HttpError(
+        400,
+        "Masuk dengan Google untuk melanjutkan",
+      );
+    }
+
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
       // Increment login attempts

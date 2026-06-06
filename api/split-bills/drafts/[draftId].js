@@ -116,8 +116,16 @@ function sanitizeSummary(summary) {
  * Resolve optional auth. Returns user or null (for guests).
  */
 async function tryGetUser(event) {
-  // Check if Authorization header is present
-  const authorization = event?.headers?.authorization || event?.headers?.Authorization;
+  // Read the Authorization header robustly. In Netlify Functions v2 `event.headers`
+  // is a `Headers` object (use `.get()`); in v1 it's a plain object (property access).
+  const rawHeaders = event?.headers;
+  let authorization = null;
+  if (rawHeaders && typeof rawHeaders.get === "function") {
+    authorization = rawHeaders.get("authorization") || rawHeaders.get("Authorization");
+  } else if (rawHeaders) {
+    authorization = rawHeaders.authorization || rawHeaders.Authorization;
+  }
+
   if (!authorization) return null; // No token header -> guest user
 
   const { requireUser } = await import("../../../lib/middleware/auth.js");
@@ -217,6 +225,12 @@ export async function handleDraftById(event, draftId, action, context) {
 
       assertDraftAccess(draft, user?._id);
 
+      // Auto-associate guest draft with authenticated user on first access
+      if (user && (draft.user === null || draft.user === undefined)) {
+        draft.user = user._id;
+        await draft.save();
+      }
+
       return jsonResponse(
         200,
         {
@@ -233,6 +247,11 @@ export async function handleDraftById(event, draftId, action, context) {
       const draft = await SplitBillRecord.findById(draftId);
 
       assertDraftAccess(draft, user?._id);
+
+      // Auto-associate guest draft with authenticated user on first write
+      if (user && (draft.user === null || draft.user === undefined)) {
+        draft.user = user._id;
+      }
 
       if (draft.status === "locked") {
         throw new HttpError(409, "Draft ini sudah difinalisasi dan tidak dapat diubah");

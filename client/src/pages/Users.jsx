@@ -227,7 +227,7 @@ export default function Users() {
                     </span>
                   </Td>
                   <Td className="text-muted-foreground text-xs">
-                    {formatDateTime(user.lastLogin)}
+                    {formatDateTime(user.lastLoginAt)}
                   </Td>
                   <Td className="text-muted-foreground text-xs">
                     {formatDateTime(user.createdAt)}

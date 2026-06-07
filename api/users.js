@@ -58,7 +58,7 @@ export async function handleUsers(event) {
       User.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limitNum),
       User.countDocuments(filter),
       User.countDocuments({ isVerified: true }),
-      User.countDocuments({ lastLogin: { $gte: threeMonthsAgo } }),
+      User.countDocuments({ lastLoginAt: { $gte: threeMonthsAgo } }),
       SplitBillRecord.distinct("user").then((ids) => ids.length),
       SplitBillRecord.aggregate([{ $group: { _id: "$user", count: { $sum: 1 } } }]),
     ]);

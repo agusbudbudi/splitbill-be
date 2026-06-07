@@ -33,8 +33,8 @@ export const getSegmentQuery = async (segment) => {
     case "inactive_30d":
       return {
         $or: [
-          { lastLogin: { $lt: thirtyDaysAgo } },
-          { lastLogin: null, createdAt: { $lt: thirtyDaysAgo } },
+          { lastLoginAt: { $lt: thirtyDaysAgo } },
+          { lastLoginAt: null, createdAt: { $lt: thirtyDaysAgo } },
         ],
       };
     case "premium":

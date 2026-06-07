@@ -152,7 +152,7 @@ export async function handleInsights(event) {
       User.countDocuments({ isVerified: true }),
 
       // 3. active last 30 days
-      User.countDocuments({ lastLogin: { $gte: thirtyDaysAgo } }),
+      User.countDocuments({ lastLoginAt: { $gte: thirtyDaysAgo } }),
 
       // 4. scan adopted (used at least 1 scan: freeScanCount < 5)
       User.countDocuments({ freeScanCount: { $lt: 5 } }),

@@ -266,7 +266,7 @@ export default function UserDetail() {
               <InfoRow label="Last Login">
                 <span className="flex items-center gap-1.5 justify-end">
                   <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                  {formatDateTime(userData.lastLogin)}
+                  {formatDateTime(userData.lastLoginAt)}
                 </span>
               </InfoRow>
             </div>

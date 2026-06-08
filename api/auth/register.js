@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+import mongoose from "mongoose";
 
 import User from "../../lib/models/User.js";
 import { connectDatabase } from "../../lib/db.js";
@@ -90,20 +91,35 @@ export async function handleAuthRegister(event) {
       verificationTokenExpires,
     });
 
-    await user.save();
+    // Perform atomic user creation and draft association (Non-blocking)
+    let draftAssociated = false;
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        await user.save({ session });
 
-    // Auto-associate guest draft with the newly registered user (AC-04)
-    if (draftId) {
-      try {
-        const SplitBillRecord = (await import("../../lib/models/SplitBillRecord.js")).default;
-        await SplitBillRecord.findOneAndUpdate(
-          { _id: draftId, user: null, status: "editable" },
-          { $set: { user: user._id } }
-        );
-      } catch (draftErr) {
-        // Non-fatal: log and continue
-        console.warn("Draft association failed on register:", draftErr);
-      }
+        // Auto-associate guest draft with the newly registered user (AC-04)
+        if (draftId) {
+          const SplitBillRecord = (await import("../../lib/models/SplitBillRecord.js")).default;
+          const result = await SplitBillRecord.findOneAndUpdate(
+            { _id: draftId, user: null, status: "editable" },
+            { $set: { user: user._id } },
+            { session }
+          );
+          
+          if (result) {
+            draftAssociated = true;
+            console.log("Draft successfully associated with user during registration");
+          } else {
+            console.warn("Draft association skipped: not found or already owned");
+          }
+        }
+      });
+    } catch (txErr) {
+      console.error("Transaction failed during registration draft association:", txErr);
+      // Non-blocking: continue register success even if association fails
+    } finally {
+      await session.endSession();
     }
 
     // Send verification email
@@ -111,7 +127,6 @@ export async function handleAuthRegister(event) {
       await sendVerificationEmail(user.email, user.name, verificationToken);
     } catch (emailError) {
       console.error("Failed to send verification email:", emailError);
-      // We still return 201 as user is created, but maybe inform them or have a retry
     }
 
     const logger = await import("../../lib/logger.js");
@@ -126,6 +141,7 @@ export async function handleAuthRegister(event) {
         success: true,
         message:
           "User registered successfully. Please check your email to verify your account.",
+        draftAssociated, // <--- New indicator
         user: {
           id: user._id,
           name: user.name,

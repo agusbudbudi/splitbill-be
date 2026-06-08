@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+import mongoose from "mongoose";
 
 import User from "../../lib/models/User.js";
 import { generateTokens } from "../../lib/middleware/auth.js";
@@ -130,18 +131,33 @@ export async function handleAuthLogin(event) {
     // Reset login attempts on successful login
     await user.resetLoginAttempts();
 
-    // Auto-associate guest draft with the authenticated user (AC-04)
-    if (draftId) {
-      try {
-        const SplitBillRecord = (await import("../../lib/models/SplitBillRecord.js")).default;
-        await SplitBillRecord.findOneAndUpdate(
-          { _id: draftId, user: null, status: "editable" },
-          { $set: { user: user._id } }
-        );
-      } catch (draftErr) {
-        // Non-fatal: log and continue
-        console.warn("Draft association failed on login:", draftErr);
-      }
+    // Perform atomic login and draft association (Non-blocking)
+    let draftAssociated = false;
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        // Associate draft if draftId provided
+        if (draftId) {
+          const SplitBillRecord = (await import("../../lib/models/SplitBillRecord.js")).default;
+          const result = await SplitBillRecord.findOneAndUpdate(
+            { _id: draftId, user: null, status: "editable" },
+            { $set: { user: user._id } },
+            { session }
+          );
+          
+          if (result) {
+            draftAssociated = true;
+            console.log("Draft successfully associated with user during login");
+          } else {
+            console.warn("Draft association skipped: not found or already owned");
+          }
+        }
+      });
+    } catch (txErr) {
+      console.error("Transaction failed during login draft association:", txErr);
+      // Non-blocking: continue login even if association fails
+    } finally {
+      await session.endSession();
     }
 
     const { accessToken, refreshToken } = generateTokens(user._id);
@@ -157,6 +173,7 @@ export async function handleAuthLogin(event) {
       {
         success: true,
         message: "Login successful",
+        draftAssociated, // <--- New indicator
         user: {
           id: user._id,
           name: user.name,

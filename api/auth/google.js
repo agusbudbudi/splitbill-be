@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+import mongoose from "mongoose";
 
 import User from "../../lib/models/User.js";
 import { generateTokens } from "../../lib/middleware/auth.js";
@@ -134,19 +135,32 @@ export async function handleAuthGoogle(event) {
     }
 
     // Auto-associate guest draft with the authenticated user (same as login flow)
-    if (draftId) {
-      try {
-        const SplitBillRecord = (
-          await import("../../lib/models/SplitBillRecord.js")
-        ).default;
-        await SplitBillRecord.findOneAndUpdate(
-          { _id: draftId, user: null, status: "editable" },
-          { $set: { user: user._id } }
-        );
-      } catch (draftErr) {
-        // Non-fatal: log and continue
-        console.warn("Draft association failed on Google login:", draftErr);
-      }
+    let draftAssociated = false;
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        if (draftId) {
+          const SplitBillRecord = (
+            await import("../../lib/models/SplitBillRecord.js")
+          ).default;
+          const result = await SplitBillRecord.findOneAndUpdate(
+            { _id: draftId, user: null, status: "editable" },
+            { $set: { user: user._id } },
+            { session }
+          );
+
+          if (result) {
+            draftAssociated = true;
+            console.log("Draft successfully associated with user during Google login");
+          } else {
+            console.warn("Draft association skipped: not found or already owned");
+          }
+        }
+      });
+    } catch (txErr) {
+      console.error("Transaction failed during Google login draft association:", txErr);
+    } finally {
+      await session.endSession();
     }
 
     const { accessToken, refreshToken } = generateTokens(user._id);
@@ -157,6 +171,7 @@ export async function handleAuthGoogle(event) {
         success: true,
         message: isNewUser ? "Account created via Google" : "Login successful via Google",
         isNewUser,
+        draftAssociated,
         user: {
           id: user._id,
           name: user.name,

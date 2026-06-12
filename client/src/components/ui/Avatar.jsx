@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { cn } from "../../lib/utils";
 
 const sizes = {
@@ -7,17 +8,21 @@ const sizes = {
 };
 
 export default function Avatar({ name = "?", src, size = "md", className }) {
+  const [hasError, setHasError] = useState(false);
+
   const initials = name
     .split(" ")
     .slice(0, 2)
     .map((w) => w[0]?.toUpperCase() || "")
     .join("");
 
-  if (src) {
+  if (src && !hasError) {
     return (
       <img
         src={src}
         alt={name}
+        referrerPolicy="no-referrer"
+        onError={() => setHasError(true)}
         className={cn("rounded-full object-cover flex-shrink-0", sizes[size], className)}
       />
     );

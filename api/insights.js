@@ -126,6 +126,7 @@ export async function handleInsights(event) {
       totalScansRaw,
       userGrowthRaw,
       billStats,
+      newBillsToday,
       billTrendRaw,
       activatedUsers,
       engagedUsers,
@@ -135,10 +136,18 @@ export async function handleInsights(event) {
       topUsersRaw,
       scanExhaustedAndSubscribed,
       totalSubscribers,
+      expiredSubscribers,
       pendingOrders,
       revenueMTD,
       planDistribution,
       revenueTrendRaw,
+      providerDistributionRaw,
+      splitBillStatusRaw,
+      popularPaymentMethodsRaw,
+      draftDropOffRaw,
+      peakDaysRaw,
+      groupSizesRaw,
+      splitTypesRaw,
     ] = await Promise.all([
       // 1. total users
       User.countDocuments({}),
@@ -224,6 +233,11 @@ export async function handleInsights(event) {
         },
       ]),
 
+      // 7.1 new bills today (Jakarta TZ)
+      SplitBillRecord.countDocuments({
+        createdAt: { $gte: startOfTodayJkt },
+      }),
+
       // 8. split bill trend per month (last 6 months, Jakarta TZ)
       SplitBillRecord.aggregate([
         { $match: { createdAt: { $gte: startOfSixMonthsAgoJkt } } },
@@ -301,6 +315,9 @@ export async function handleInsights(event) {
       // 16. total active subscribers
       User.countDocuments({ subscriptionStatus: "active" }),
 
+      // 16.1 total expired subscribers
+      User.countDocuments({ subscriptionStatus: "expired" }),
+
       // 17. pending orders
       Order.countDocuments({ status: "pending" }),
 
@@ -341,6 +358,100 @@ export async function handleInsights(event) {
           },
         },
         { $sort: { "_id.year": 1, "_id.month": 1 } },
+      ]),
+
+      // 21. provider distribution (normalize null/"" → "local")
+      User.aggregate([
+        {
+          $group: {
+            _id: {
+              $cond: [{ $eq: ["$provider", "google"] }, "google", "local"],
+            },
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+
+
+      // 22. split bill status distribution
+      SplitBillRecord.aggregate([
+        { $group: { _id: "$status", count: { $sum: 1 } } },
+      ]),
+
+      // 23. popular payment methods
+      SplitBillRecord.aggregate([
+        { $unwind: "$paymentMethodSnapshots" },
+        { $group: { _id: "$paymentMethodSnapshots.provider", count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 10 },
+      ]),
+
+      // 24. all last_step distribution (drafts + finalized)
+      SplitBillRecord.aggregate([
+        { $match: { last_step: { $ne: null } } },
+        { $group: { _id: "$last_step", count: { $sum: 1 } } },
+        { $sort: { _id: 1 } },
+      ]),
+
+      // 25. Peak activity days (day of week)
+      SplitBillRecord.aggregate([
+        {
+          $group: {
+            _id: { $dayOfWeek: { date: "$createdAt", timezone: TIMEZONE } },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
+
+      // 26. Group size distribution
+      SplitBillRecord.aggregate([
+        {
+          $project: {
+            size: { $size: { $ifNull: ["$participants", []] } },
+          },
+        },
+        {
+          $group: {
+            _id: {
+              $cond: [
+                { $eq: ["$size", 2] },
+                "2 Orang",
+                {
+                  $cond: [
+                    { $and: [{ $gte: ["$size", 3] }, { $lte: ["$size", 5] }] },
+                    "3-5 Orang",
+                    {
+                      $cond: [
+                        { $and: [{ $gte: ["$size", 6] }, { $lte: ["$size", 10] }] },
+                        "6-10 Orang",
+                        {
+                          $cond: [
+                            { $gt: ["$size", 10] },
+                            ">10 Orang",
+                            "Lainnya"
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+
+      // 27. Additional expense split type distribution
+      SplitBillRecord.aggregate([
+        { $unwind: "$additionalExpenses" },
+        {
+          $group: {
+            _id: { $ifNull: ["$additionalExpenses.splitType", "equally"] },
+            count: { $sum: 1 },
+          },
+        },
       ]),
     ]);
 
@@ -406,6 +517,29 @@ export async function handleInsights(event) {
     const rs = reviewStats[0] ?? { avgRating: 0, totalReviews: 0 };
 
     const totalReviews = rs.totalReviews ?? 0;
+
+    // Normalize peak days
+    const dayNames = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+    const peakDaysMap = Object.fromEntries(peakDaysRaw.map(({ _id, count }) => [_id, count]));
+    const peakDaysOrder = [2, 3, 4, 5, 6, 7, 1]; // Senin to Minggu
+    const peakDays = peakDaysOrder.map((dayNum) => ({
+      day: dayNames[dayNum - 1],
+      count: peakDaysMap[dayNum] ?? 0,
+    }));
+
+    // Normalize group sizes
+    const groupSizesMap = Object.fromEntries(groupSizesRaw.map(({ _id, count }) => [_id, count]));
+    const groupSizes = ["2 Orang", "3-5 Orang", "6-10 Orang", ">10 Orang", "Lainnya"].map((label) => ({
+      label,
+      count: groupSizesMap[label] ?? 0,
+    }));
+
+    // Normalize additional split types
+    const splitTypesMap = Object.fromEntries(splitTypesRaw.map(({ _id, count }) => [_id, count]));
+    const additionalSplitTypes = [
+      { type: "Sama Rata", count: splitTypesMap["equally"] ?? 0 },
+      { type: "Proporsional", count: splitTypesMap["proportionally"] ?? 0 },
+    ];
     const totalScans = totalScansRaw[0]?.total ?? 0;
 
     return jsonResponse(
@@ -420,12 +554,14 @@ export async function handleInsights(event) {
             verifiedRate: totalUsers > 0 ? Math.round((verifiedUsers / totalUsers) * 100) : 0,
             activeUsers,
             totalBills: bs.totalBills,
+            newBillsToday,
             totalValue: Math.round(bs.totalValue),
             avgBillSize: bs.totalBills > 0 ? Math.round(bs.totalValue / bs.totalBills) : 0,
             avgParticipants: Math.round((bs.avgParticipants ?? 0) * 10) / 10,
             avgRating: rs.avgRating ? Math.round(rs.avgRating * 10) / 10 : 0,
             totalReviews,
             totalSubscribers,
+            expiredSubscribers,
             pendingOrders,
             revenueMTD: revenueMTD[0]?.total ?? 0,
           },
@@ -465,13 +601,32 @@ export async function handleInsights(event) {
             scanExhaustedAndSubscribed,
             powerUserConversionRate: scanExhausted > 0 ? Math.round((scanExhaustedAndSubscribed / scanExhausted) * 100) : 0,
           },
-          reviews: {
+           reviews: {
             ratingDistribution,
             contactPermissionCount,
             contactPermissionRate:
               totalReviews > 0 ? Math.round((contactPermissionCount / totalReviews) * 100) : 0,
           },
           topUsers: topUsersRaw,
+          providers: providerDistributionRaw.map((p) => ({
+            provider: p._id || "local",
+            count: p.count,
+          })),
+          splitBillStatuses: splitBillStatusRaw.map((s) => ({
+            status: s._id,
+            count: s.count,
+          })),
+          paymentMethods: popularPaymentMethodsRaw.map((pm) => ({
+            provider: pm._id,
+            count: pm.count,
+          })),
+          draftDropOff: draftDropOffRaw.map((d) => ({
+            step: d._id,
+            count: d.count,
+          })),
+          peakDays,
+          groupSizes,
+          additionalSplitTypes,
         },
       },
       headers,

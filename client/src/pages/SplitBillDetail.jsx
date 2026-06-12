@@ -118,17 +118,17 @@ export default function SplitBillDetail() {
   return (
     <div className="space-y-6">
       <PageHero
-        onBack={() => navigate("/split-bills")}
+        onBack={() => navigate(-1)}
+        backLabel="Back"
         badges={
           <div className="flex items-center gap-2">
-            {user.isAdmin && record.owner && (
-              <span className="px-2.5 py-1 rounded-full bg-white/15 text-xs font-medium">
-                Pemilik: <span className="font-bold">{record.owner.name}</span>
-              </span>
-            )}
-            {record.status === "editable" && (
-              <span className="px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-medium border border-amber-500/30">
+            {record.status === "editable" ? (
+              <span className="px-2.5 py-1 rounded-full bg-amber-500 text-white text-xs font-bold border border-amber-600">
                 DRAFT
+              </span>
+            ) : (
+              <span className="px-2.5 py-1 rounded-full bg-emerald-500 text-white text-xs font-bold border border-emerald-600">
+                FINALIZE
               </span>
             )}
           </div>
@@ -333,7 +333,7 @@ export default function SplitBillDetail() {
           <section className="space-y-3">
             <SectionTitle accent="bg-success">Ringkasan Peserta</SectionTitle>
             <div className="space-y-1.5">
-              {!record.summary || !record.summary.perParticipant ? (
+              {!record.summary || !record.summary.perParticipant || record.summary.perParticipant.length === 0 ? (
                 <div className="bg-white px-4 py-5 rounded-lg border border-border shadow-soft text-center">
                   <p className="text-sm text-muted-foreground italic">
                     Ringkasan per peserta belum tersedia (Draft).

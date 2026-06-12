@@ -22,13 +22,18 @@ export default function PageHero({
 
       <div className="relative z-10 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 mb-4">
             {onBack && (
               <button
                 onClick={onBack}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/20 hover:bg-white/30 text-xs font-bold transition-colors"
+                className={
+                  backLabel
+                    ? "inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/20 hover:bg-white/30 text-xs font-bold transition-colors"
+                    : "inline-flex items-center justify-center p-1.5 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+                }
+                title={backLabel || "Kembali"}
               >
-                <ChevronLeft className="h-3.5 w-3.5" />
+                <ChevronLeft className="h-4 w-4" />
                 {backLabel}
               </button>
             )}
@@ -44,12 +49,12 @@ export default function PageHero({
 
         {(statLabel || statValue) && (
           <div className="shrink-0 flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-4 sm:gap-0">
-             <div className="flex flex-col sm:items-end">
-                <div className="text-[11px] text-white/70 font-semibold uppercase tracking-widest">
-                  {statLabel}
-                </div>
-                <p className="text-2xl sm:text-3xl font-black">{statValue}</p>
-             </div>
+            <div className="flex flex-col sm:items-end">
+              <div className="text-[11px] text-white/70 font-semibold uppercase tracking-widest">
+                {statLabel}
+              </div>
+              <p className="text-2xl sm:text-3xl font-black">{statValue}</p>
+            </div>
           </div>
         )}
       </div>

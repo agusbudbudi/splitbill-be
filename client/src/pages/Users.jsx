@@ -177,7 +177,7 @@ export default function Users() {
                 <Tr key={user._id}>
                   <Td>
                     <div className="flex items-center gap-3">
-                      <Avatar name={user.name} size="sm" />
+                      <Avatar name={user.name} src={user.image} size="sm" />
                       <div className="min-w-0">
                         <button
                           onClick={() => navigate(`/users/${user._id}`)}

@@ -29,6 +29,7 @@ import {
   Td,
   EmptyState,
   CrownBadge,
+  Avatar,
 } from "../components/ui";
 
 const formatCurrency = (amount) =>
@@ -116,13 +117,34 @@ export default function UserDetail() {
   return (
     <div className="space-y-6">
       <PageHero
-        onBack={() => navigate("/")}
+        onBack={() => navigate(-1)}
+        backLabel="Back"
         title={
-          <span className="inline-flex items-center gap-2">
-            {userData.name}
-            {userData.subscriptionStatus === "active" && (
-              <CrownBadge size="lg" />
-            )}
+          <span className="inline-flex items-center gap-3">
+            <Avatar name={userData.name} src={userData.image} size="md" className="ring-2 ring-white/20" />
+            <span className="inline-flex items-center gap-2">
+              {userData.name}
+              {userData.subscriptionStatus === "active" && (
+                <CrownBadge size="lg" />
+              )}
+              {userData.provider === "google" && (
+                <span
+                  title="Daftar via Google"
+                  className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-white border border-slate-200 shrink-0"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="w-3 h-3"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.63-.63z" fill="#FBBC05" />
+                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335" />
+                  </svg>
+                </span>
+              )}
+            </span>
           </span>
         }
         meta={
@@ -168,6 +190,8 @@ export default function UserDetail() {
                       <Th>Aktivitas</Th>
                       <Th>Tanggal</Th>
                       <Th className="text-center">Peserta</Th>
+                      <Th>Status</Th>
+                      <Th>Last Step</Th>
                       <Th className="text-right">Total Tagihan</Th>
                     </Tr>
                   </Thead>
@@ -196,6 +220,27 @@ export default function UserDetail() {
                           <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                             <Users className="h-3 w-3" />
                             {bill.participants?.length ?? 0}
+                          </span>
+                        </Td>
+                        <Td>
+                          {bill.status === "editable" ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-600 border border-amber-200">
+                              Draft
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200">
+                              Finalize
+                            </span>
+                          )}
+                        </Td>
+                        <Td>
+                          <span className="text-xs font-mono bg-muted px-2 py-0.5 rounded text-muted-foreground font-semibold">
+                            {(() => {
+                              const step = bill.last_step || (bill.status === "locked" ? "FINALIZED" : "");
+                              if (!step) return "—";
+                              if (step === "FINALIZED") return "Finalized";
+                              return step.replace("_", " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+                            })()}
                           </span>
                         </Td>
                         <Td className="text-right font-semibold text-sm text-foreground whitespace-nowrap">
@@ -257,6 +302,13 @@ export default function UserDetail() {
                   <Badge variant="neutral">User</Badge>
                 )}
               </InfoRow>
+              <InfoRow label="Reward Review">
+                {userData.hasClaimedReviewReward ? (
+                  <Badge variant="success">Sudah Klaim</Badge>
+                ) : (
+                  <Badge variant="neutral">Belum Klaim</Badge>
+                )}
+              </InfoRow>
               <InfoRow label="Tanggal Daftar">
                 <span className="flex items-center gap-1.5 justify-end">
                   <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
@@ -313,57 +365,61 @@ export default function UserDetail() {
                     <Badge variant="neutral">Free</Badge>
                   )}
                 </InfoRow>
-                <InfoRow label="Paket">
-                  <span className="font-semibold text-foreground">
-                    {userData.subscriptionPlan || "—"}
-                  </span>
-                </InfoRow>
-                <InfoRow label="Berlaku Sampai">
-                  {userData.subscriptionExpiry ? (
-                    <span className="flex items-center gap-1.5 justify-end">
-                      <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                      {formatDateTime(userData.subscriptionExpiry)}
-                    </span>
-                  ) : (
-                    <span className="text-muted-foreground">—</span>
-                  )}
-                </InfoRow>
-                {userData.subscriptionStatus === "active" && userData.subscriptionExpiry && (() => {
-                  const daysLeft = Math.ceil(
-                    (new Date(userData.subscriptionExpiry) - new Date()) / (1000 * 60 * 60 * 24)
-                  );
-                  return (
-                    <InfoRow label="Sisa Masa">
-                      <span
-                        className={`font-bold ${
-                          daysLeft <= 7 ? "text-destructive" : daysLeft <= 14 ? "text-warning" : "text-success"
-                        }`}
-                      >
-                        {daysLeft} hari
+                {userData.subscriptionStatus !== "free" && (
+                  <>
+                    <InfoRow label="Paket">
+                      <span className="font-semibold text-foreground">
+                        {userData.subscriptionPlan || "—"}
                       </span>
                     </InfoRow>
-                  );
-                })()}
-                <InfoRow label="Order ID">
-                  {userData.orderId ? (
-                    <button
-                      onClick={() =>
-                        navigate(
-                          `/orders/${
-                            userData.orderId.orderId || userData.orderId
-                          }`,
-                        )
-                      }
-                      className="text-xs font-mono text-primary hover:underline underline-offset-2 flex items-center gap-1"
-                    >
-                      <ShoppingBag className="h-3 w-3" />
-                      {userData.orderId.orderId ||
-                        String(userData.orderId).slice(-10)}
-                    </button>
-                  ) : (
-                    <span className="text-muted-foreground">—</span>
-                  )}
-                </InfoRow>
+                    <InfoRow label="Berlaku Sampai">
+                      {userData.subscriptionExpiry ? (
+                        <span className="flex items-center gap-1.5 justify-end">
+                          <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                          {formatDateTime(userData.subscriptionExpiry)}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </InfoRow>
+                    {userData.subscriptionStatus === "active" && userData.subscriptionExpiry && (() => {
+                      const daysLeft = Math.ceil(
+                        (new Date(userData.subscriptionExpiry) - new Date()) / (1000 * 60 * 60 * 24)
+                      );
+                      return (
+                        <InfoRow label="Sisa Masa">
+                          <span
+                            className={`font-bold ${
+                              daysLeft <= 7 ? "text-destructive" : daysLeft <= 14 ? "text-warning" : "text-success"
+                            }`}
+                          >
+                            {daysLeft} hari
+                          </span>
+                        </InfoRow>
+                      );
+                    })()}
+                    <InfoRow label="Order ID">
+                      {userData.orderId ? (
+                        <button
+                          onClick={() =>
+                            navigate(
+                              `/orders/${
+                                userData.orderId.orderId || userData.orderId
+                              }`,
+                            )
+                          }
+                          className="text-xs font-mono text-primary hover:underline underline-offset-2 flex items-center gap-1"
+                        >
+                          <ShoppingBag className="h-3 w-3" />
+                          {userData.orderId.orderId ||
+                            String(userData.orderId).slice(-10)}
+                        </button>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </InfoRow>
+                  </>
+                )}
               </div>
             </div>
           </section>

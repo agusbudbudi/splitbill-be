@@ -49,33 +49,53 @@ export async function handleGeminiScan(event) {
       throw new HttpError(405, `Method ${method} not allowed`);
     }
 
-    // Require authentication
-    const { requireUser } = await import("../lib/middleware/auth.js");
-    const { connectDatabase } = await import("../lib/db.js");
+    // Check if token exists in headers to determine if we should authenticate
+    let user = null;
+    const authHeader = event?.headers?.authorization || event?.headers?.Authorization;
+    const hasToken = authHeader && authHeader.startsWith("Bearer ");
 
-    await connectDatabase();
-    const user = await requireUser(event);
-
-    // Check quota: Allow if subscription is active OR if they have free scans left
-    const isSubscribed = user.subscriptionStatus === "active";
-    if (!isSubscribed && user.freeScanCount <= 0) {
-      throw new HttpError(
-        403,
-        "Kuota scan gratis Anda telah habis. Silakan berlangganan premium untuk scan sepuasnya!",
-        "scanExhaustedAndSubscribe"
-      );
+    if (hasToken) {
+      const { requireUser } = await import("../lib/middleware/auth.js");
+      const { connectDatabase } = await import("../lib/db.js");
+      await connectDatabase();
+      user = await requireUser(event);
     }
 
-    // Apply rate limiting per user
-    try {
-      const { applyGeminiRateLimit } =
-        await import("../lib/middleware/rateLimiter.js");
-      applyGeminiRateLimit(user._id.toString());
-    } catch (rateLimitError) {
-      if (rateLimitError.statusCode === 429) {
-        throw rateLimitError;
+    let isSubscribed = false;
+    if (user) {
+      // Check quota: Allow if subscription is active OR if they have free scans left
+      isSubscribed = user.subscriptionStatus === "active";
+      if (!isSubscribed && user.freeScanCount <= 0) {
+        throw new HttpError(
+          403,
+          "Kuota scan gratis Anda telah habis. Silakan berlangganan premium untuk scan sepuasnya!",
+          "scanExhaustedAndSubscribe"
+        );
       }
-      console.warn("Rate limiter not available:", rateLimitError);
+
+      // Apply rate limiting per user
+      try {
+        const { applyGeminiRateLimit } =
+          await import("../lib/middleware/rateLimiter.js");
+        applyGeminiRateLimit(user._id.toString());
+      } catch (rateLimitError) {
+        if (rateLimitError.statusCode === 429) {
+          throw rateLimitError;
+        }
+        console.warn("Rate limiter not available:", rateLimitError);
+      }
+    } else {
+      // Apply rate limiting for guests (max 2 per day per IP)
+      try {
+        const { applyGeminiGuestRateLimit } =
+          await import("../lib/middleware/rateLimiter.js");
+        applyGeminiGuestRateLimit(event);
+      } catch (rateLimitError) {
+        if (rateLimitError.statusCode === 429) {
+          throw rateLimitError;
+        }
+        console.warn("Guest rate limiter not available:", rateLimitError);
+      }
     }
 
     const apiKey = process.env.GEMINI_API_KEY;
@@ -158,16 +178,16 @@ export async function handleGeminiScan(event) {
 
       const parsed = JSON.parse(jsonMatch[0]);
 
-      // Decrement free scan count only for non-subscribed users
-      if (!isSubscribed) {
+      // Decrement free scan count only for logged-in, non-subscribed users
+      if (user && !isSubscribed) {
         user.freeScanCount = Math.max(0, user.freeScanCount - 1);
         await user.save();
       }
 
       const logger = await import("../lib/logger.js");
       logger.info("Gemini scan completed", {
-        userId: user._id,
-        email: user.email,
+        userId: user ? user._id : "guest",
+        email: user ? user.email : "guest",
       });
 
       return jsonResponse(200, parsed, headers);

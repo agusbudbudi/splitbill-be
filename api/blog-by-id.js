@@ -136,6 +136,10 @@ async function updateBlog(event, id, headers) {
     }
   }
 
+  if (event.user) {
+    blog.updatedBy = event.user._id;
+  }
+
   await blog.save();
 
   return jsonResponse(200, { success: true, data: blog }, headers);

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { usePageMeta } from "../lib/usePageMeta";
 import { useNavigate } from "react-router-dom";
 import { Lock, Mail, Loader2 } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
   usePageMeta("Login", "Masuk ke dashboard admin Split Bill.");
@@ -10,6 +11,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -31,10 +33,7 @@ export default function Login() {
         throw new Error(data?.error || data?.message || "Login failed");
       }
 
-      localStorage.setItem("token", data.accessToken);
-      if (data.user) {
-        localStorage.setItem("user", JSON.stringify(data.user));
-      }
+      login(data.accessToken, data.user || {});
 
       navigate("/insights");
     } catch (err) {

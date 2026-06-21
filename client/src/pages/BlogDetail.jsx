@@ -283,6 +283,10 @@ export default function BlogDetail() {
             metaDescription: b.metaDescription || "",
             canonicalUrl: b.canonicalUrl || "",
             status: b.status || "draft",
+            createdAt: b.createdAt || "",
+            createdBy: b.createdBy || "",
+            updatedAt: b.updatedAt || "",
+            updatedBy: b.updatedBy || "",
           };
           setForm(loadedForm);
           setSlugEdited(true);
@@ -377,7 +381,7 @@ export default function BlogDetail() {
     }
   };
 
-  // ─── Derived SEO values ─────────────────────────────────────────────────────
+  // Derived SEO values
   const serpTitle = form.metaTitle || form.title;
   const serpDesc = form.metaDescription || form.excerpt;
 
@@ -686,6 +690,21 @@ export default function BlogDetail() {
               description={serpDesc}
             />
           </div>
+
+          {/* Audit Trail */}
+          {!isNew && (
+            <div className="bg-white border border-border rounded-lg p-5 space-y-3 text-xs text-muted-foreground">
+              <SectionLabel icon={FileText} label="Audit Trail" />
+              <div className="space-y-1 font-mono text-[11px]">
+                <div>Dibuat: {form.createdAt ? new Date(form.createdAt).toLocaleString("id-ID") : "—"}</div>
+                {form.createdBy && <div>Oleh: {form.createdBy}</div>}
+                <div className="border-t border-border my-2 pt-2">
+                  Terakhir Diubah: {form.updatedAt ? new Date(form.updatedAt).toLocaleString("id-ID") : "—"}
+                </div>
+                {form.updatedBy && <div>Oleh: {form.updatedBy}</div>}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

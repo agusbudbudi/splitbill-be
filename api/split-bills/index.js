@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import SplitBillRecord from "../../lib/models/SplitBillRecord.js";
 import User from "../../lib/models/User.js";
 import { requireUser } from "../../lib/middleware/auth.js";
@@ -353,6 +354,19 @@ export async function handleSplitBills(event) {
       const search = url.searchParams.get("search") || "";
       const searchRegex = search ? { $regex: search, $options: "i" } : null;
 
+      // Date range filter on occurredAt
+      const startDate = url.searchParams.get("startDate") || "";
+      const endDate = url.searchParams.get("endDate") || "";
+      const dateFilter = {};
+      if (startDate) dateFilter.$gte = new Date(startDate);
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        dateFilter.$lte = end;
+      }
+      const occurredAtFilter =
+        Object.keys(dateFilter).length > 0 ? { occurredAt: dateFilter } : {};
+
       // status filter: default to 'all' for admins (to show drafts too), and 'locked' for regular users
       const statusParam = url.searchParams.get("status") || (user.isAdmin ? "all" : "locked");
       const statusFilter =
@@ -363,14 +377,20 @@ export async function handleSplitBills(event) {
           : { status: "locked" };
 
       let query = user.isAdmin
-        ? { ...statusFilter }
-        : { user: user._id, ...statusFilter };
+        ? { ...statusFilter, ...occurredAtFilter }
+        : { user: user._id, ...statusFilter, ...occurredAtFilter };
 
       if (searchRegex) {
         const searchConditions = [
           { activityName: searchRegex },
           { "participants.name": searchRegex },
         ];
+
+        // Search by full 24-char ObjectId
+        if (mongoose.Types.ObjectId.isValid(search) && search.length === 24) {
+          searchConditions.push({ _id: new mongoose.Types.ObjectId(search) });
+        }
+
         if (user.isAdmin) {
           const matchingUsers = await User.find({
             $or: [{ name: searchRegex }, { email: searchRegex }],
@@ -380,36 +400,44 @@ export async function handleSplitBills(event) {
           }
         }
         query = user.isAdmin
-          ? { ...statusFilter, $or: searchConditions }
-          : { user: user._id, ...statusFilter, $or: searchConditions };
+          ? { ...statusFilter, ...occurredAtFilter, $or: searchConditions }
+          : { user: user._id, ...statusFilter, ...occurredAtFilter, $or: searchConditions };
       }
 
-      const totalItems = await SplitBillRecord.countDocuments(query);
+      // Run count, records fetch, and aggregate total in parallel
+      const [totalItems, recordDocs, aggregateResult] = await Promise.all([
+        SplitBillRecord.countDocuments(query),
+        (() => {
+          let q = SplitBillRecord.find(query)
+            .sort({ updatedAt: -1 })
+            .skip(skip)
+            .limit(limit);
+          if (user.isAdmin) q = q.populate("user", "name email");
+          return q;
+        })(),
+        SplitBillRecord.aggregate([
+          { $match: { ...query, "summary.total": { $exists: true } } },
+          { $group: { _id: null, totalAmount: { $sum: "$summary.total" } } },
+        ]),
+      ]);
 
-      let recordsQuery = SplitBillRecord.find(query)
-        .sort({ updatedAt: -1 })
-        .skip(skip)
-        .limit(limit);
-
-      if (user.isAdmin) {
-        recordsQuery = recordsQuery.populate("user", "name email");
-      }
-
-      const records = await recordsQuery;
-      
       const totalPages = Math.ceil(totalItems / limit);
-      
+      const totalAmount = aggregateResult[0]?.totalAmount ?? 0;
+
       return jsonResponse(
         200,
         {
           success: true,
           data: {
-            records: records.map(mapRecord),
+            records: recordDocs.map(mapRecord),
             pagination: {
               totalItems,
               totalPages,
               currentPage: page,
               limit,
+            },
+            aggregate: {
+              totalAmount,
             },
           },
         },

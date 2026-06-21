@@ -24,7 +24,8 @@ function App() {
 
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardLayout />}>
-          <Route path="/" element={<Users />} />
+          <Route path="/" element={<Navigate to="/insights" replace />} />
+          <Route path="/users" element={<Users />} />
           <Route path="/reviews" element={<Reviews />} />
           <Route path="/banners" element={<Banners />} />
           <Route path="/split-bills" element={<SplitBills />} />
@@ -42,7 +43,7 @@ function App() {
         </Route>
       </Route>
 
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to="/insights" replace />} />
     </Routes>
   );
 }

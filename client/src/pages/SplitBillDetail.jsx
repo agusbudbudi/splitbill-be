@@ -9,12 +9,18 @@ import {
   Info,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   User,
+  ExternalLink,
+  Copy,
+  HelpCircle,
 } from "lucide-react";
-import { formatDate } from "../lib/utils";
+import { formatDate, formatDateTime } from "../lib/utils";
 import { apiFetch } from "../lib/api";
-import { Badge, Button, Spinner, useToast } from "../components/ui";
+import { Badge, Button, Spinner, useToast, Avatar } from "../components/ui";
 import PageHero from "../components/PageHero";
+import { useAuth } from "../context/AuthContext";
 
 const formatCurrency = (amount) =>
   new Intl.NumberFormat("id-ID", {
@@ -32,6 +38,27 @@ function SectionTitle({ children, accent = "bg-primary" }) {
   );
 }
 
+// Map of last_step values to human-readable labels for admin reference
+const LAST_STEP_LABELS = {
+  add_participants: "Tambah Peserta",
+  add_expenses: "Tambah Pengeluaran",
+  add_payment_methods: "Tambah Metode Bayar",
+  calculate: "Kalkulasi Tagihan",
+  review: "Review Ringkasan",
+  share: "Bagikan Split Bill",
+  finalize: "Finalisasi",
+};
+
+const LAST_STEP_DESCRIPTIONS = {
+  add_participants: "User sedang di step input daftar peserta split bill.",
+  add_expenses: "User sedang di step input pengeluaran / item tagihan.",
+  add_payment_methods: "User sedang di step mengatur metode pembayaran.",
+  calculate: "Split bill sudah dihitung dan menunggu konfirmasi.",
+  review: "User sedang mereview ringkasan sebelum dibagikan.",
+  share: "Split bill sudah dibagikan ke peserta.",
+  finalize: "Split bill telah difinalisasi oleh pemilik.",
+};
+
 export default function SplitBillDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -39,7 +66,9 @@ export default function SplitBillDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [expandedParticipants, setExpandedParticipants] = useState({});
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const [adjacent, setAdjacent] = useState({ prev: null, next: null });
+  const [showStepTooltip, setShowStepTooltip] = useState(false);
+  const { user } = useAuth();
   const toast = useToast();
 
   const copyToClipboard = async (text) => {
@@ -64,10 +93,6 @@ export default function SplitBillDetail() {
   const toggleParticipant = (idx) =>
     setExpandedParticipants((prev) => ({ ...prev, [idx]: !prev[idx] }));
 
-  useEffect(() => {
-    fetchDetail();
-  }, [id]);
-
   const fetchDetail = useCallback(async () => {
     setLoading(true);
     try {
@@ -84,6 +109,23 @@ export default function SplitBillDetail() {
       setLoading(false);
     }
   }, [id]);
+
+  const fetchAdjacent = useCallback(async () => {
+    try {
+      const res = await apiFetch(`/api/split-bills/${id}/adjacent`);
+      const data = await res.json();
+      if (data.success) {
+        setAdjacent({ prev: data.prev, next: data.next });
+      }
+    } catch {
+      // silently ignore — navigation is non-critical
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchDetail();
+    fetchAdjacent();
+  }, [id, fetchDetail, fetchAdjacent]);
 
   if (loading) {
     return (
@@ -117,6 +159,32 @@ export default function SplitBillDetail() {
 
   return (
     <div className="space-y-6">
+      {/* Prev / Next navigation bar */}
+      {(adjacent.prev || adjacent.next) && (
+        <div className="flex items-center justify-between gap-3 px-1">
+          <button
+            onClick={() => navigate(`/split-bills/${adjacent.prev.id}`)}
+            disabled={!adjacent.prev}
+            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors group"
+          >
+            <ChevronLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
+            <span className="max-w-[160px] truncate">
+              {adjacent.prev?.activityName || "Sebelumnya"}
+            </span>
+          </button>
+          <button
+            onClick={() => navigate(`/split-bills/${adjacent.next.id}`)}
+            disabled={!adjacent.next}
+            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors group"
+          >
+            <span className="max-w-[160px] truncate">
+              {adjacent.next?.activityName || "Berikutnya"}
+            </span>
+            <ChevronRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
+          </button>
+        </div>
+      )}
+
       <PageHero
         onBack={() => navigate(-1)}
         backLabel="Back"
@@ -131,6 +199,15 @@ export default function SplitBillDetail() {
                 FINALIZE
               </span>
             )}
+            <a
+              href={`${import.meta.env.VITE_PUBLIC_APP_URL || "https://splitbill.my.id"}/history/split-bill/${id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/20 hover:bg-white/30 text-white text-xs font-bold transition-colors border border-white/10"
+            >
+              <ExternalLink className="h-3 w-3" />
+              Lihat Halaman Publik
+            </a>
           </div>
         }
         title={record.activityName || "Aktivitas Tanpa Nama"}
@@ -176,16 +253,17 @@ export default function SplitBillDetail() {
             <div className="bg-white rounded-lg border border-border shadow-soft p-4">
               <div className="flex flex-wrap gap-2">
                 {(record.participants || []).map((p) => {
-                  // Check if participant is a user or has an avatar
-                  const initialName = p.name ? p.name.charAt(0).toUpperCase() : "?";
                   return (
                     <div
                       key={p.id}
-                      className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full border border-border bg-muted/20 hover:bg-muted/40 transition-colors"
+                      className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border border-border bg-muted/20 hover:bg-muted/40 transition-colors"
                     >
-                      <div className="h-6 w-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold uppercase shrink-0">
-                        {initialName}
-                      </div>
+                      <Avatar
+                        name={p.name}
+                        src={p.image || p.avatar}
+                        size="sm"
+                        className="h-6 w-6 text-[10px]"
+                      />
                       <span className="text-xs font-semibold text-foreground truncate max-w-[120px]">
                         {p.name}
                       </span>
@@ -524,15 +602,7 @@ export default function SplitBillDetail() {
                           className="p-1 rounded border border-border hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
                           title="Salin"
                         >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="11"
-                            height="11"
-                            fill="currentColor"
-                            viewBox="0 0 256 256"
-                          >
-                            <path d="M216,32H88a8,8,0,0,0-8,8V80H40a8,8,0,0,0-8,8V216a8,8,0,0,0,8,8H168a8,8,0,0,0,8-8V176h40a8,8,0,0,0,8-8V40A8,8,0,0,0,216,32ZM160,208H48V96H160Zm48-48H176V88a8,8,0,0,0-8-8H96V48H208Z" />
-                          </svg>
+                          <Copy className="h-3 w-3" />
                         </button>
                       </div>
                     </div>
@@ -543,6 +613,94 @@ export default function SplitBillDetail() {
           </section>
         </div>
       </div>
+
+      {/* Tracking Info Section */}
+      <section className="space-y-3 border-t border-border pt-6">
+        <SectionTitle accent="bg-slate-400">Informasi Tracking</SectionTitle>
+        <div className="bg-white rounded-lg border border-border shadow-soft p-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="space-y-1">
+              <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
+                Split Bill ID
+              </p>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-mono font-bold text-foreground break-all" title={record.id}>
+                  {record.id}
+                </span>
+                <button
+                  onClick={() => copyToClipboard(record.id)}
+                  className="p-1 rounded border border-border hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                  title="Salin ID"
+                >
+                  <Copy className="h-3 w-3" />
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex items-center gap-1">
+                <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
+                  Last Step
+                </p>
+                <div className="relative">
+                  <button
+                    onMouseEnter={() => setShowStepTooltip(true)}
+                    onMouseLeave={() => setShowStepTooltip(false)}
+                    onFocus={() => setShowStepTooltip(true)}
+                    onBlur={() => setShowStepTooltip(false)}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label="Informasi Last Step"
+                  >
+                    <HelpCircle className="h-3 w-3" />
+                  </button>
+                  {showStepTooltip && (
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-56 rounded-lg border border-border bg-white shadow-lg p-3 text-left">
+                      <p className="text-xs font-bold text-foreground mb-1.5">Panduan Last Step</p>
+                      <ul className="space-y-1">
+                        {Object.entries(LAST_STEP_LABELS).map(([key, label]) => (
+                          <li key={key} className="text-[10px] text-muted-foreground">
+                            <span className="font-semibold text-foreground">{label}</span>
+                            {" — "}{LAST_STEP_DESCRIPTIONS[key]}
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-border" />
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div>
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-primary/10 text-primary">
+                  {LAST_STEP_LABELS[record.last_step] || record.last_step || "N/A"}
+                </span>
+                {record.last_step && LAST_STEP_DESCRIPTIONS[record.last_step] && (
+                  <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">
+                    {LAST_STEP_DESCRIPTIONS[record.last_step]}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
+                Created At
+              </p>
+              <p className="text-xs font-medium text-foreground">
+                {record.createdAt ? formatDateTime(record.createdAt) : "-"}
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
+                Updated At
+              </p>
+              <p className="text-xs font-medium text-foreground">
+                {record.updatedAt ? formatDateTime(record.updatedAt) : "-"}
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

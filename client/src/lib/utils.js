@@ -31,3 +31,28 @@ export function formatDateTime(dateString) {
 
   return `${formattedDate} ${formattedTime}`;
 }
+
+const LAST_STEP_MAP = {
+  add_participants: "Tambah Peserta",
+  add_expenses: "Tambah Pengeluaran",
+  add_payment_methods: "Tambah Metode Bayar",
+  calculate: "Kalkulasi Tagihan",
+  review: "Review Ringkasan",
+  share: "Bagikan",
+  finalize: "Finalisasi",
+};
+
+/**
+ * Returns a human-readable Indonesian label for a split bill's last_step value.
+ * Falls back to a title-cased version of the raw value if not in the map.
+ */
+export function formatLastStep(last_step, status) {
+  if (!last_step) {
+    return status === "locked" ? "Finalisasi" : "—";
+  }
+  return (
+    LAST_STEP_MAP[last_step] ||
+    last_step.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+  );
+}
+

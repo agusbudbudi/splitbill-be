@@ -205,8 +205,8 @@ function SectionTitle({ children }) {
 
 const TABS = [
   { id: "overview", label: "Ringkasan" },
-  { id: "revenue", label: "Pendapatan & Langganan" },
   { id: "features", label: "Fitur & Funnel" },
+  { id: "revenue", label: "Pendapatan & Langganan" },
   { id: "reviews", label: "Ulasan & Feedback" },
 ];
 
@@ -1030,79 +1030,7 @@ export default function Insights() {
           </div>
 
           {/* New Metrics Row */}
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-            {/* Split Bill Completion Status */}
-            <Card>
-              <CardHeader>
-                <SectionTitle>Status Penyelesaian</SectionTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Tagihan selesai (locked) vs masih draf (editable)
-                </p>
-              </CardHeader>
-              <CardBody className="flex flex-col items-center justify-center gap-4">
-                {splitBillStatuses.length > 0 ? (
-                  <>
-                    <div className="w-full h-[140px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={splitBillStatuses}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={45}
-                            outerRadius={65}
-                            paddingAngle={0}
-                            dataKey="count"
-                            nameKey="status"
-                          >
-                            {splitBillStatuses.map((entry) => (
-                              <Cell
-                                key={entry.status}
-                                fill={entry.status === "locked" ? SUCCESS : DANGER}
-                              />
-                            ))}
-                          </Pie>
-                          <Tooltip
-                            content={
-                              <ChartTooltip valueFormatter={(v) => `${v} tagihan`} />
-                            }
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="flex flex-col gap-2 w-full text-xs">
-                      {splitBillStatuses.map((entry) => {
-                        const total = splitBillStatuses.reduce((a, b) => a + b.count, 0);
-                        return (
-                          <div
-                            key={entry.status}
-                            className="flex items-center justify-between border-b border-border/50 pb-1.5 last:border-0 last:pb-0"
-                          >
-                            <div className="flex items-center gap-2">
-                              <div
-                                className="w-2.5 h-2.5 rounded-full"
-                                style={{
-                                  backgroundColor: entry.status === "locked" ? "#22c55e" : "#ef4444",
-                                }}
-                              />
-                              <span className="font-medium text-foreground">
-                                {entry.status === "locked" ? "Finalized" : "Draft"}
-                              </span>
-                            </div>
-                            <span className="text-muted-foreground font-bold">
-                              {entry.count} ({total > 0 ? Math.round((entry.count / total) * 100) : 0}%)
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </>
-                ) : (
-                  <p className="text-xs text-muted-foreground italic text-center py-8">Belum ada data</p>
-                )}
-              </CardBody>
-            </Card>
-
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             {/* Step Funnel Chart */}
             <Card>
               <CardHeader>
@@ -1231,8 +1159,80 @@ export default function Insights() {
             </Card>
           </div>
 
-          {/* New row for group sizes and additional split types */}
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          {/* New row for group sizes, split types, and completion status */}
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+            {/* Split Bill Completion Status */}
+            <Card>
+              <CardHeader>
+                <SectionTitle>Status Penyelesaian</SectionTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Tagihan selesai (locked) vs masih draf (editable)
+                </p>
+              </CardHeader>
+              <CardBody className="flex flex-col items-center justify-center gap-4">
+                {splitBillStatuses.length > 0 ? (
+                  <>
+                    <div className="w-full h-[140px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={splitBillStatuses}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={45}
+                            outerRadius={65}
+                            paddingAngle={0}
+                            dataKey="count"
+                            nameKey="status"
+                          >
+                            {splitBillStatuses.map((entry) => (
+                              <Cell
+                                key={entry.status}
+                                fill={entry.status === "locked" ? SUCCESS : DANGER}
+                              />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            content={
+                              <ChartTooltip valueFormatter={(v) => `${v} tagihan`} />
+                            }
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="flex flex-col gap-2 w-full text-xs">
+                      {splitBillStatuses.map((entry) => {
+                        const total = splitBillStatuses.reduce((a, b) => a + b.count, 0);
+                        return (
+                          <div
+                            key={entry.status}
+                            className="flex items-center justify-between border-b border-border/50 pb-1.5 last:border-0 last:pb-0"
+                          >
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-2.5 h-2.5 rounded-full"
+                                style={{
+                                  backgroundColor: entry.status === "locked" ? "#22c55e" : "#ef4444",
+                                }}
+                              />
+                              <span className="font-medium text-foreground">
+                                {entry.status === "locked" ? "Finalized" : "Draft"}
+                              </span>
+                            </div>
+                            <span className="text-muted-foreground font-bold">
+                              {entry.count} ({total > 0 ? Math.round((entry.count / total) * 100) : 0}%)
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground italic text-center py-8">Belum ada data</p>
+                )}
+              </CardBody>
+            </Card>
+
             {/* Group Size Distribution */}
             <Card>
               <CardHeader>

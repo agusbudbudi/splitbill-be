@@ -23,6 +23,8 @@ import {
   Td,
   EmptyState,
   useToast,
+  Modal,
+  ModalFooter,
 } from "../components/ui";
 import { apiFetch } from "../lib/api";
 import { formatDateTime } from "../lib/utils";
@@ -85,8 +87,16 @@ export default function Blogs() {
     fetchBlogs();
   }, [fetchBlogs]);
 
-  const handleDelete = async (id, title) => {
-    if (!confirm(`Hapus artikel "${title}"?`)) return;
+  const [deleteTarget, setDeleteTarget] = useState(null);
+
+  const handleDelete = (id, title) => {
+    setDeleteTarget({ id, title });
+  };
+
+  const confirmDeleteBlog = async () => {
+    if (!deleteTarget) return;
+    const { id } = deleteTarget;
+    setDeleteTarget(null);
     setDeleting(id);
     try {
       const res = await apiFetch(`/api/blogs/${id}`, { method: "DELETE" });
@@ -327,6 +337,32 @@ export default function Blogs() {
           </Tbody>
         </Table>
       </Card>
+
+      {/* Delete confirmation modal */}
+      <Modal
+        isOpen={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        title="Hapus Artikel Blog"
+        size="sm"
+      >
+        <div className="px-6 py-5">
+          <p className="text-sm text-muted-foreground">
+            Apakah Anda yakin ingin menghapus artikel berjudul <strong>"{deleteTarget?.title}"</strong> secara permanen? Tindakan ini tidak dapat dibatalkan.
+          </p>
+        </div>
+        <ModalFooter>
+          <Button
+            variant="ghost"
+            size="md"
+            onClick={() => setDeleteTarget(null)}
+          >
+            Batal
+          </Button>
+          <Button variant="danger" size="md" onClick={confirmDeleteBlog}>
+            Hapus Artikel
+          </Button>
+        </ModalFooter>
+      </Modal>
     </div>
   );
 }

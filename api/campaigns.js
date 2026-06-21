@@ -39,17 +39,30 @@ export const getSegmentQuery = async (segment) => {
       };
     case "premium":
       return { subscriptionStatus: "active" };
+    case "specific_emails":
+      return null; // handled separately in getUsersForSegment
     default:
       return null;
   }
 };
 
-export async function getUsersForSegment(segment, dynamicSegment) {
+export async function getUsersForSegment(segment, dynamicSegment, specificEmails) {
   if (segment === "dynamic") {
     if (!dynamicSegment) throw new HttpError(400, "dynamicSegment is required");
     const pipeline = buildSegmentPipeline(dynamicSegment);
     pipeline.push({ $project: { email: 1, name: 1 } });
     return await User.aggregate(pipeline);
+  } else if (segment === "specific_emails") {
+    if (!specificEmails || specificEmails.length === 0)
+      throw new HttpError(400, "specificEmails is required for this segment");
+    const emails = specificEmails
+      .map((e) => (typeof e === "string" ? e.trim().toLowerCase() : ""))
+      .filter(Boolean);
+    // Look up existing users to get their names
+    const existingUsers = await User.find({ email: { $in: emails } }).select("email name");
+    const existingEmailMap = new Map(existingUsers.map((u) => [u.email, u]));
+    // Return all input emails (registered or not)
+    return emails.map((email) => existingEmailMap.get(email) || { email, name: email.split("@")[0] });
   } else {
     const segmentQuery = await getSegmentQuery(segment);
     if (!segmentQuery) throw new HttpError(400, "Invalid segment");
@@ -57,8 +70,14 @@ export async function getUsersForSegment(segment, dynamicSegment) {
   }
 }
 
-async function getSegmentUserCount(segment, dynamicSegment) {
-  if (segment === "dynamic") {
+async function getSegmentUserCount(segment, dynamicSegment, specificEmails) {
+  if (segment === "specific_emails") {
+    if (!specificEmails) return 0;
+    const emails = specificEmails
+      .map((e) => (typeof e === "string" ? e.trim().toLowerCase() : ""))
+      .filter(Boolean);
+    return emails.length;
+  } else if (segment === "dynamic") {
     if (!dynamicSegment) throw new HttpError(400, "dynamicSegment is required");
     const pipeline = buildSegmentPipeline(dynamicSegment);
     pipeline.push({ $count: "count" });
@@ -92,8 +111,9 @@ export async function handleCampaigns(event) {
       const url = event.url || "";
 
       if (path.includes("/preview") || url.includes("/preview")) {
-        const { segment, dynamicSegment: dynamicSegmentStr } = query;
+        const { segment, dynamicSegment: dynamicSegmentStr, specificEmails: specificEmailsStr } = query;
         let dynamicSegment = null;
+        let specificEmails = null;
         if (dynamicSegmentStr) {
           try {
             dynamicSegment = JSON.parse(dynamicSegmentStr);
@@ -101,8 +121,16 @@ export async function handleCampaigns(event) {
             throw new HttpError(400, "Invalid dynamicSegment JSON");
           }
         }
+        if (specificEmailsStr) {
+          try {
+            specificEmails = JSON.parse(specificEmailsStr);
+          } catch (e) {
+            // treat as comma-separated string fallback
+            specificEmails = specificEmailsStr.split(",").map((e) => e.trim()).filter(Boolean);
+          }
+        }
         
-        const count = await getSegmentUserCount(segment, dynamicSegment);
+        const count = await getSegmentUserCount(segment, dynamicSegment, specificEmails);
         return jsonResponse(200, { success: true, count }, headers);
       }
 
@@ -124,14 +152,16 @@ export async function handleCampaigns(event) {
         isDraft,
         initializeDraft,
         dynamicSegment,
+        specificEmails,
       } = body;
 
       if (initializeDraft) {
         const campaign = await Campaign.create({
           status: "draft",
-          name: "Draft Campaign " + new Date().toISOString().split("T")[0],
-          segment: "dynamic",
-          dynamicSegment: { included: [], excluded: [] },
+          name: body.name || "Draft Campaign " + new Date().toISOString().split("T")[0],
+          segment: body.segment || "dynamic",
+          dynamicSegment: body.dynamicSegment || { included: [], excluded: [] },
+          specificEmails: body.specificEmails || [],
         });
         return jsonResponse(
           201,
@@ -157,18 +187,20 @@ export async function handleCampaigns(event) {
         );
       }
 
-      const users = await getUsersForSegment(segment, dynamicSegment);
+      const users = await getUsersForSegment(segment, dynamicSegment, specificEmails);
       const recipientCount = users.length;
 
       const campaign = await Campaign.create({
         name,
         segment,
         dynamicSegment: segment === "dynamic" ? dynamicSegment : undefined,
+        specificEmails: segment === "specific_emails" ? (specificEmails || []) : undefined,
         subject,
         content,
         ctaText,
         ctaUrl,
         recipientCount,
+        recipientsList: isDraft ? undefined : users.map(u => ({ email: u.email, name: u.name })),
         status: isDraft ? "draft" : "pending",
       });
 
@@ -219,6 +251,15 @@ export async function handleCampaigns(event) {
       }
 
       campaign.status = failCount === 0 ? "sent" : "failed";
+      campaign.stats = {
+        sentCount: successCount,
+        failedCount: failCount,
+      };
+      if (failCount > 0) {
+        campaign.failureReason = `${failCount} email gagal dikirim. Silakan periksa log pengiriman/koneksi provider email Resend Anda.`;
+      } else {
+        campaign.failureReason = undefined;
+      }
       campaign.sentAt = new Date();
       await campaign.save();
 

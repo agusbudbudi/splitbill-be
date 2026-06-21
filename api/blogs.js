@@ -153,6 +153,8 @@ async function createBlog(event, headers) {
   const readTime = estimateReadTime(content);
   const publishedAt = status === "published" ? new Date() : undefined;
 
+  const adminUser = event.user;
+
   const blog = await Blog.create({
     title: title.trim(),
     slug,
@@ -160,7 +162,8 @@ async function createBlog(event, headers) {
     content: content || "",
     thumbnail,
     thumbnailAlt,
-    author,
+    author: author || adminUser?.name || "Admin",
+    authorId: adminUser?._id || null,
     category,
     tags: Array.isArray(tags) ? tags.filter(Boolean) : [],
     metaTitle,
@@ -169,6 +172,8 @@ async function createBlog(event, headers) {
     status,
     publishedAt,
     readTime,
+    createdBy: adminUser?._id || null,
+    updatedBy: adminUser?._id || null,
   });
 
   return jsonResponse(201, { success: true, data: blog }, headers);

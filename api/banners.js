@@ -72,11 +72,12 @@ async function upsertBanners(event, headers) {
       }
 
       let banner;
+      const adminUserId = event.user?._id || null;
       if (_id) {
         // Update existing banner
         banner = await Banner.findByIdAndUpdate(
           _id,
-          { image: image, route: route.trim(), updatedAt: Date.now() },
+          { image: image, route: route.trim(), updatedAt: Date.now(), updatedBy: adminUserId },
           { new: true, runValidators: true, session },
         );
         if (!banner) {
@@ -84,7 +85,7 @@ async function upsertBanners(event, headers) {
         }
       } else {
         // Create new banner
-        banner = new Banner({ image: image, route: route.trim() });
+        banner = new Banner({ image: image, route: route.trim(), createdBy: adminUserId, updatedBy: adminUserId });
         await banner.save({ session });
       }
       processedBannerIds.push(banner._id);

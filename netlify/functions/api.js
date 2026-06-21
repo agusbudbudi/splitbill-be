@@ -230,6 +230,11 @@ export async function handler(event, context) {
         const { default: h } = await import("../../api/split-bills/[recordId].js");
         return h(event, subresource, context);
       }
+      // /api/split-bills/:recordId/adjacent
+      if (subresource && subresource !== "drafts" && rest.length === 1 && rest[0] === "adjacent") {
+        const { handleSplitBillAdjacent } = await import("../../api/split-bills/[recordId].js");
+        return handleSplitBillAdjacent(event, subresource, context);
+      }
     }
 
     if (resource === "payment") {
@@ -294,9 +299,10 @@ export async function handler(event, context) {
         const { default: h } = await import("../../api/campaigns.js");
         return h(event, context);
       }
-      if (subresource && subresource !== "preview" && rest.length === 0) {
+      if (subresource && subresource !== "preview") {
+        const action = rest[0];
         const { default: h } = await import("../../api/campaign-by-id.js");
-        return h(event, subresource, context);
+        return h(event, subresource, action, context);
       }
     }
 

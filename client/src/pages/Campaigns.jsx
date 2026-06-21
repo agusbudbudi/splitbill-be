@@ -12,6 +12,7 @@ import {
   Edit,
   Trash2,
   Eye,
+  Copy,
 } from "lucide-react";
 import {
   Card,
@@ -27,6 +28,10 @@ import {
   Td,
   EmptyState,
   useToast,
+  Modal,
+  ModalFooter,
+  SearchInput,
+  Select,
 } from "../components/ui";
 import { apiFetch } from "../lib/api";
 import { formatDateTime } from "../lib/utils";
@@ -48,6 +53,7 @@ const SEGMENT_OPTIONS = [
     color: "bg-pink-500",
   },
   { id: "dynamic", label: "Segmen Dinamis", color: "bg-purple-500" },
+  { id: "specific_emails", label: "Email Spesifik", color: "bg-indigo-500" },
 ];
 
 export default function Campaigns() {
@@ -62,7 +68,10 @@ export default function Campaigns() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
-
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [duplicatingId, setDuplicatingId] = useState(null);
+  
   const fetchCampaigns = useCallback(async () => {
     setLoading(true);
     try {
@@ -83,6 +92,46 @@ export default function Campaigns() {
   useEffect(() => {
     fetchCampaigns();
   }, [fetchCampaigns]);
+
+  const handleDuplicate = async (id) => {
+    setDuplicatingId(id);
+    try {
+      const res = await apiFetch(`/api/campaigns/${id}/duplicate`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast({
+          title: "Berhasil",
+          message: "Kampanye berhasil diduplikasi",
+          type: "success",
+        });
+        fetchCampaigns();
+      } else {
+        toast({
+          title: "Gagal",
+          message: json.error || "Gagal menduplikasi kampanye",
+          type: "error",
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "Error",
+        message: "Kesalahan jaringan saat menduplikasi",
+        type: "error",
+      });
+    } finally {
+      setDuplicatingId(null);
+    }
+  };
+
+  const filteredCampaigns = campaigns.filter((c) => {
+    const matchesSearch =
+      (c.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (c.subject || "").toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === "all" || c.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   const handleCreateDraft = async () => {
     setCreating(true);
@@ -116,8 +165,16 @@ export default function Campaigns() {
     navigate(`/campaigns/${id}`);
   };
 
-  const handleDeleteDraft = async (id) => {
-    if (!confirm("Hapus draft ini?")) return;
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [confirmSendId, setConfirmSendId] = useState(null);
+
+  const handleDeleteDraft = (id) => {
+    setConfirmDeleteId(id);
+  };
+
+  const confirmDeleteDraft = async () => {
+    const id = confirmDeleteId;
+    setConfirmDeleteId(null);
     try {
       const res = await apiFetch(`/api/campaigns/${id}`, { method: "DELETE" });
       const json = await res.json();
@@ -138,8 +195,13 @@ export default function Campaigns() {
     }
   };
 
-  const handleSendDraft = async (id) => {
-    if (!confirm("Kirim draft ini sekarang?")) return;
+  const handleSendDraft = (id) => {
+    setConfirmSendId(id);
+  };
+
+  const confirmSendDraft = async () => {
+    const id = confirmSendId;
+    setConfirmSendId(null);
     try {
       const res = await apiFetch(`/api/campaigns/${id}`, { method: "POST" });
       const json = await res.json();
@@ -185,7 +247,7 @@ export default function Campaigns() {
       </div>
 
       <Card className="overflow-hidden">
-        <CardHeader className="flex flex-row items-center justify-between border-b border-border py-4">
+        <CardHeader className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border py-4 bg-muted/15">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
               <Clock size={16} className="text-primary" />
@@ -199,15 +261,34 @@ export default function Campaigns() {
               </p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={fetchCampaigns}
-            className="text-muted-foreground hover:text-primary"
-          >
-            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-            <span className="ml-2 text-xs">Refresh</span>
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <SearchInput
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Cari kampanye..."
+              className="max-w-[200px]"
+            />
+            <Select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-[130px]"
+            >
+              <option value="all">Semua Status</option>
+              <option value="draft">Draft</option>
+              <option value="pending">Pending</option>
+              <option value="sent">Terkirim</option>
+              <option value="failed">Gagal</option>
+            </Select>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={fetchCampaigns}
+              className="text-muted-foreground hover:text-primary"
+            >
+              <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+              <span className="ml-2 text-xs">Refresh</span>
+            </Button>
+          </div>
         </CardHeader>
         <Table>
           <Thead>
@@ -221,18 +302,22 @@ export default function Campaigns() {
             </Tr>
           </Thead>
           <Tbody>
-            {campaigns.length === 0 ? (
+            {filteredCampaigns.length === 0 ? (
               <Tr className="hover:bg-transparent">
                 <Td colSpan={6} className="p-0">
                   <EmptyState
                     icon={Mail}
-                    title="Belum ada kampanye"
-                    description="Kampanye yang Anda kirim akan muncul riwayatnya di sini."
+                    title="Tidak ada kampanye ditemukan"
+                    description={
+                      searchQuery || statusFilter !== "all"
+                        ? "Coba ubah kata kunci pencarian atau filter status."
+                        : "Kampanye yang Anda kirim akan muncul riwayatnya di sini."
+                    }
                   />
                 </Td>
               </Tr>
             ) : (
-              campaigns.map((c) => (
+              filteredCampaigns.map((c) => (
                 <Tr key={c._id}>
                   <Td>
                     <div className="font-bold text-sm text-foreground">
@@ -280,47 +365,60 @@ export default function Campaigns() {
                     {c.sentAt ? formatDateTime(c.sentAt) : "-"}
                   </Td>
                   <Td className="text-right">
-                    {c.status === "draft" ? (
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleSendDraft(c._id)}
-                          className="h-8 px-2 text-primary"
-                          title="Kirim"
-                        >
-                          <Send size={14} className="mr-1" /> Kirim
-                        </Button>
+                    <div className="flex items-center justify-end gap-1">
+                      {c.status === "draft" ? (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleSendDraft(c._id)}
+                            className="h-8 px-2 text-primary"
+                            title="Kirim"
+                          >
+                            <Send size={14} className="mr-1" /> Kirim
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(c._id)}
+                            className="h-8 px-2 text-amber-500"
+                            title="Edit"
+                          >
+                            <Edit size={14} className="mr-1" /> Edit
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteDraft(c._id)}
+                            className="h-8 px-2 text-red-500"
+                            title="Hapus"
+                          >
+                            <Trash2 size={14} className="mr-1" /> Hapus
+                          </Button>
+                        </>
+                      ) : (
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => handleEdit(c._id)}
-                          className="h-8 px-2 text-amber-500"
-                          title="Edit"
+                          className="h-8 px-2 text-muted-foreground hover:text-foreground"
+                          title="Lihat Detail"
                         >
-                          <Edit size={14} className="mr-1" /> Edit
+                          <Eye size={14} className="mr-1" /> View
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteDraft(c._id)}
-                          className="h-8 px-2 text-red-500"
-                          title="Hapus"
-                        >
-                          <Trash2 size={14} className="mr-1" /> Hapus
-                        </Button>
-                      </div>
-                    ) : (
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleEdit(c._id)}
-                        className="h-8 px-2 text-muted-foreground hover:text-foreground"
-                        title="Lihat Detail"
+                        disabled={duplicatingId !== null}
+                        isLoading={duplicatingId === c._id}
+                        onClick={() => handleDuplicate(c._id)}
+                        className="h-8 px-2 text-indigo-600"
+                        title="Duplikasi"
                       >
-                        <Eye size={14} className="mr-1" /> View
+                        <Copy size={14} className="mr-1" /> Duplicate
                       </Button>
-                    )}
+                    </div>
                   </Td>
                 </Tr>
               ))
@@ -328,6 +426,58 @@ export default function Campaigns() {
           </Tbody>
         </Table>
       </Card>
+
+      {/* Delete draft confirmation modal */}
+      <Modal
+        isOpen={confirmDeleteId !== null}
+        onClose={() => setConfirmDeleteId(null)}
+        title="Hapus Draft Kampanye"
+        size="sm"
+      >
+        <div className="px-6 py-5">
+          <p className="text-sm text-muted-foreground">
+            Apakah Anda yakin ingin menghapus draft kampanye ini secara permanen? Tindakan ini tidak dapat dibatalkan.
+          </p>
+        </div>
+        <ModalFooter>
+          <Button
+            variant="ghost"
+            size="md"
+            onClick={() => setConfirmDeleteId(null)}
+          >
+            Batal
+          </Button>
+          <Button variant="danger" size="md" onClick={confirmDeleteDraft}>
+            Hapus Draft
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Send draft confirmation modal */}
+      <Modal
+        isOpen={confirmSendId !== null}
+        onClose={() => setConfirmSendId(null)}
+        title="Kirim Kampanye Sekarang"
+        size="sm"
+      >
+        <div className="px-6 py-5">
+          <p className="text-sm text-muted-foreground">
+            Apakah Anda yakin ingin langsung mengirim draf kampanye email ini ke semua penerima yang ditargetkan sekarang?
+          </p>
+        </div>
+        <ModalFooter>
+          <Button
+            variant="ghost"
+            size="md"
+            onClick={() => setConfirmSendId(null)}
+          >
+            Batal
+          </Button>
+          <Button variant="primary" size="md" onClick={confirmSendDraft}>
+            Kirim Sekarang
+          </Button>
+        </ModalFooter>
+      </Modal>
     </div>
   );
 }

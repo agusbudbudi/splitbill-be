@@ -9,10 +9,10 @@ import {
   jsonResponse,
   noContentResponse,
 } from "../lib/http.js";
-import { parseJsonBody } from "../lib/parsers.js";
+import { parseJsonBody, getQueryParams } from "../lib/parsers.js";
 import { HttpError, toHttpError } from "../lib/errors.js";
 
-export default async function handleCampaignById(event, campaignId) {
+export default async function handleCampaignById(event, campaignId, action) {
   const headers = createCorsHeaders(event);
   const method = event?.httpMethod || event?.method || "GET";
 
@@ -26,7 +26,36 @@ export default async function handleCampaignById(event, campaignId) {
     const campaign = await Campaign.findById(campaignId);
     if (!campaign) throw new HttpError(404, "Campaign not found");
 
+    if (method === "POST" && action === "duplicate") {
+      const duplicated = await Campaign.create({
+        name: campaign.name + " (Salinan)",
+        segment: campaign.segment,
+        dynamicSegment: campaign.dynamicSegment,
+        specificEmails: campaign.specificEmails,
+        subject: campaign.subject,
+        content: campaign.content,
+        ctaText: campaign.ctaText,
+        ctaUrl: campaign.ctaUrl,
+        recipientCount: campaign.recipientCount,
+        recipientsList: campaign.status === "draft" ? [] : (campaign.recipientsList || []),
+        status: "draft",
+      });
+      return jsonResponse(201, { success: true, data: duplicated }, headers);
+    }
+
     if (method === "GET") {
+      const query = getQueryParams(event);
+      if (query?.recipients === "true") {
+        if (campaign.status !== "draft") {
+          return jsonResponse(200, { success: true, data: campaign.recipientsList || [] }, headers);
+        }
+        const users = await getUsersForSegment(
+          campaign.segment,
+          campaign.dynamicSegment,
+          campaign.specificEmails,
+        );
+        return jsonResponse(200, { success: true, data: users }, headers);
+      }
       return jsonResponse(200, { success: true, data: campaign }, headers);
     }
 
@@ -35,9 +64,13 @@ export default async function handleCampaignById(event, campaignId) {
         throw new HttpError(400, "Only draft campaigns can be edited");
       }
       const body = await parseJsonBody(event);
-      const { name, segment, subject, content, ctaText, ctaUrl, dynamicSegment } = body;
+      const { name, segment, subject, content, ctaText, ctaUrl, dynamicSegment, specificEmails } = body;
       
-      const users = await getUsersForSegment(segment || campaign.segment, dynamicSegment || campaign.dynamicSegment);
+      const users = await getUsersForSegment(
+        segment || campaign.segment,
+        dynamicSegment || campaign.dynamicSegment,
+        specificEmails || campaign.specificEmails,
+      );
       const recipientCount = users.length;
 
       campaign.name = name || campaign.name;
@@ -50,6 +83,11 @@ export default async function handleCampaignById(event, campaignId) {
         campaign.dynamicSegment = dynamicSegment || campaign.dynamicSegment;
       } else if (segment) {
         campaign.dynamicSegment = undefined;
+      }
+      if (segment === "specific_emails") {
+        campaign.specificEmails = specificEmails || campaign.specificEmails;
+      } else if (segment) {
+        campaign.specificEmails = [];
       }
       campaign.recipientCount = recipientCount;
 
@@ -67,9 +105,14 @@ export default async function handleCampaignById(event, campaignId) {
       campaign.status = "pending";
       await campaign.save();
 
-      const users = await getUsersForSegment(campaign.segment, campaign.dynamicSegment);
+      const users = await getUsersForSegment(
+        campaign.segment,
+        campaign.dynamicSegment,
+        campaign.specificEmails,
+      );
       
       campaign.recipientCount = users.length;
+      campaign.recipientsList = users.map((u) => ({ email: u.email, name: u.name }));
       await campaign.save();
 
       const batchSize = 2;
@@ -103,6 +146,15 @@ export default async function handleCampaignById(event, campaignId) {
       }
 
       campaign.status = failCount === 0 ? "sent" : "failed";
+      campaign.stats = {
+        sentCount: successCount,
+        failedCount: failCount,
+      };
+      if (failCount > 0) {
+        campaign.failureReason = `${failCount} email gagal dikirim. Silakan periksa log pengiriman/koneksi provider email Resend Anda.`;
+      } else {
+        campaign.failureReason = undefined;
+      }
       campaign.sentAt = new Date();
       await campaign.save();
 

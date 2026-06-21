@@ -1,18 +1,25 @@
 import { useState, useEffect, useCallback } from "react";
 import { usePageMeta } from "../lib/usePageMeta";
-import { Receipt, Calendar, Users, ChevronRight } from "lucide-react";
+import { Receipt, Calendar, Users, ChevronRight, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   Card, CardHeader,
-  SearchInput,
+  SearchInput, Select,
   Table, Thead, Tbody, Tr, Th, Td, TableSkeleton,
   Avatar, Button, EmptyState, Pagination,
 } from "../components/ui";
-import { formatDate } from "../lib/utils";
+import { formatDate, formatLastStep } from "../lib/utils";
 import { apiFetch } from "../lib/api";
+import { useAuth } from "../context/AuthContext";
 
 const formatCurrency = (amount) =>
   new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(amount);
+
+const STATUS_OPTIONS = [
+  { value: "all", label: "Semua Status" },
+  { value: "editable", label: "Draft" },
+  { value: "locked", label: "Finalized" },
+];
 
 export default function SplitBills() {
   usePageMeta(
@@ -24,14 +31,18 @@ export default function SplitBills() {
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [totalAmount, setTotalAmount] = useState(0);
   const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const { user } = useAuth();
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
-  // Debounce: reset page to 1 and apply search after 400ms idle
+  // Debounce search
   useEffect(() => {
     const timer = setTimeout(() => {
       setCurrentPage(1);
@@ -40,12 +51,20 @@ export default function SplitBills() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const fetchSplitBills = useCallback(async (page, search) => {
+  // Reset page on filter change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, startDate, endDate]);
+
+  const fetchSplitBills = useCallback(async (page, search, status, start, end) => {
     setLoading(true);
     setError("");
     try {
       const params = new URLSearchParams({ page, limit: 10 });
       if (search) params.set("search", search);
+      if (status && status !== "all") params.set("status", status);
+      if (start) params.set("startDate", start);
+      if (end) params.set("endDate", end);
       const res = await apiFetch(`/api/split-bills?${params}`);
       const data = await res.json();
       if (data.success) {
@@ -53,6 +72,7 @@ export default function SplitBills() {
         setCurrentPage(data.data.pagination.currentPage);
         setTotalPages(data.data.pagination.totalPages);
         setTotalItems(data.data.pagination.totalItems);
+        setTotalAmount(data.data.aggregate?.totalAmount ?? 0);
       } else {
         setError(data.message || "Gagal memuat data split bill");
       }
@@ -64,10 +84,18 @@ export default function SplitBills() {
   }, []);
 
   useEffect(() => {
-    fetchSplitBills(currentPage, debouncedSearch);
-  }, [currentPage, debouncedSearch, fetchSplitBills]);
+    fetchSplitBills(currentPage, debouncedSearch, statusFilter, startDate, endDate);
+  }, [currentPage, debouncedSearch, statusFilter, startDate, endDate, fetchSplitBills]);
 
   const colSpan = user.isAdmin ? 8 : 7;
+  const hasActiveFilters = statusFilter !== "all" || startDate || endDate;
+
+  const clearFilters = () => {
+    setStatusFilter("all");
+    setStartDate("");
+    setEndDate("");
+    setSearchQuery("");
+  };
 
   return (
     <div className="space-y-6">
@@ -81,14 +109,63 @@ export default function SplitBills() {
 
       {/* Table card */}
       <Card className="overflow-hidden">
-        <CardHeader className="py-4">
-          <SearchInput
-            value={searchQuery}
-            onChange={setSearchQuery}
-            placeholder="Cari aktivitas, peserta, atau pemilik..."
-            className="max-w-xs w-full"
-          />
+        <CardHeader className="py-3">
+          <div className="flex items-center gap-3 overflow-x-auto scrollbar-none min-w-0">
+            <SearchInput
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Cari aktivitas, peserta, pemilik, atau ID..."
+              className="w-56 shrink-0"
+            />
+
+            {/* Status filter */}
+            <Select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="shrink-0"
+            >
+              {STATUS_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </Select>
+
+            {/* Divider */}
+            <div className="h-5 w-px bg-border shrink-0" />
+
+            {/* Date range filter */}
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Tanggal:</span>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="text-sm py-2 px-3 border border-border rounded-sm bg-input text-foreground focus:outline-none focus:border-primary transition-all w-36"
+                title="Dari tanggal"
+              />
+              <span className="text-xs text-muted-foreground">—</span>
+              <input
+                type="date"
+                value={endDate}
+                min={startDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="text-sm py-2 px-3 border border-border rounded-sm bg-input text-foreground focus:outline-none focus:border-primary transition-all w-36"
+                title="Sampai tanggal"
+              />
+            </div>
+
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors shrink-0 ml-auto"
+              >
+                <X className="h-3.5 w-3.5" />
+                Reset
+              </button>
+            )}
+          </div>
         </CardHeader>
+
+
 
         <Table>
           <Thead>
@@ -119,7 +196,11 @@ export default function SplitBills() {
                   <EmptyState
                     icon={Receipt}
                     title="Tidak ada data split bill"
-                    description={debouncedSearch ? "Coba ubah kata kunci pencarian." : "Belum ada split bill tercatat."}
+                    description={
+                      debouncedSearch || hasActiveFilters
+                        ? "Coba ubah kata kunci atau hapus filter yang aktif."
+                        : "Belum ada split bill tercatat."
+                    }
                   />
                 </Td>
               </Tr>
@@ -180,12 +261,7 @@ export default function SplitBills() {
                   </Td>
                   <Td>
                     <span className="text-xs font-mono bg-muted px-2 py-0.5 rounded text-muted-foreground font-semibold">
-                      {(() => {
-                        const step = record.last_step || (record.status === "locked" ? "FINALIZED" : "");
-                        if (!step) return "—";
-                        if (step === "FINALIZED") return "Finalized";
-                        return step.replace("_", " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
-                      })()}
+                      {formatLastStep(record.last_step, record.status)}
                     </span>
                   </Td>
                   <Td className="text-right">
@@ -200,6 +276,22 @@ export default function SplitBills() {
                   </Td>
                 </Tr>
               ))}
+
+              {/* Aggregate total row */}
+              <Tr className="hover:bg-muted/20 bg-muted/10 border-t-2 border-border">
+                <Td colSpan={user.isAdmin ? 5 : 4} className="py-3">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Total keseluruhan ({totalItems} split bill
+                    {hasActiveFilters || debouncedSearch ? ", filter aktif" : ""})
+                  </span>
+                </Td>
+                <Td className="py-3">
+                  <span className="text-sm font-bold text-primary">
+                    {formatCurrency(totalAmount)}
+                  </span>
+                </Td>
+                <Td colSpan={2} />
+              </Tr>
             </Tbody>
           )}
         </Table>

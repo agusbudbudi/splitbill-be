@@ -13,6 +13,69 @@ import { HttpError, toHttpError } from "../../lib/errors.js";
 
 import { mapRecord } from "./index.js";
 
+export async function handleSplitBillAdjacent(event, recordId) {
+  const headers = createCorsHeaders(event);
+  if ((event?.httpMethod || event?.method || "GET") === "OPTIONS") {
+    return noContentResponse(headers);
+  }
+
+  try {
+    if (!mongoose.Types.ObjectId.isValid(recordId)) {
+      throw new HttpError(400, "ID split bill tidak valid");
+    }
+
+    await connectDatabase();
+    const user = await requireUser(event);
+
+    // Only admins can use this endpoint; regular users don't need cross-record navigation
+    const baseQuery = user.isAdmin ? {} : { user: user._id };
+
+    const current = await SplitBillRecord.findOne({ _id: recordId, ...baseQuery }).select("updatedAt").lean();
+    if (!current) {
+      throw new HttpError(404, "Split bill tidak ditemukan");
+    }
+
+    const currentDate = current.updatedAt;
+
+    // Records are listed updatedAt DESC, so:
+    // "previous" = updated LATER than current (i.e. appears BEFORE in list)
+    // "next"     = updated EARLIER than current (i.e. appears AFTER in list)
+    const [prevRecord, nextRecord] = await Promise.all([
+      SplitBillRecord.findOne({
+        ...baseQuery,
+        updatedAt: { $gt: currentDate },
+      })
+        .sort({ updatedAt: 1 })
+        .select("_id activityName")
+        .lean(),
+      SplitBillRecord.findOne({
+        ...baseQuery,
+        updatedAt: { $lt: currentDate },
+      })
+        .sort({ updatedAt: -1 })
+        .select("_id activityName")
+        .lean(),
+    ]);
+
+    return jsonResponse(
+      200,
+      {
+        success: true,
+        prev: prevRecord
+          ? { id: prevRecord._id.toString(), activityName: prevRecord.activityName }
+          : null,
+        next: nextRecord
+          ? { id: nextRecord._id.toString(), activityName: nextRecord.activityName }
+          : null,
+      },
+      headers
+    );
+  } catch (error) {
+    console.error("Split bill adjacent handler error:", error);
+    return errorResponse(toHttpError(error), headers);
+  }
+}
+
 export async function handleSplitBillById(event, recordId) {
   const headers = createCorsHeaders(event);
   const method = event?.httpMethod || event?.method || "GET";

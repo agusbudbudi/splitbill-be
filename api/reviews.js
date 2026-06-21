@@ -25,11 +25,17 @@ export async function handleReviews(event, context, subresource) {
     await connectDatabase();
 
     const isPublic = subresource === "public" || event.path?.includes("/public") || event.rawUrl?.includes("/public");
+    const isStats = subresource === "stats" || event.path?.includes("/stats") || event.rawUrl?.includes("/stats");
 
     switch (method) {
       case "POST":
         return await createReview(event, headers);
       case "GET":
+        if (isStats) {
+          return await (
+            await import("../lib/middleware/auth.js")
+          ).adminMiddleware(getReviewStats)(event, headers);
+        }
         if (isPublic) {
           return await getReviews(event, headers, true);
         }
@@ -184,17 +190,63 @@ async function createReview(event, headers) {
   }
 }
 
+async function getReviewStats(event, headers) {
+  // BUG #1 FIX: Hitung aggregate stats langsung dari DB, bukan fetch semua data
+  const [statsResult, contactableCount] = await Promise.all([
+    Review.aggregate([
+      {
+        $group: {
+          _id: null,
+          avgRating: { $avg: "$rating" },
+          totalCount: { $sum: 1 },
+        },
+      },
+    ]),
+    Review.countDocuments({ contactPermission: true }),
+  ]);
+
+  const stats = statsResult[0] || { avgRating: 0, totalCount: 0 };
+
+  return jsonResponse(
+    200,
+    {
+      success: true,
+      data: {
+        avgRating: parseFloat((stats.avgRating || 0).toFixed(2)),
+        totalCount: stats.totalCount || 0,
+        contactableCount,
+      },
+    },
+    headers,
+  );
+}
+
 async function getReviews(event, headers, isPublicRequest = false) {
-  const { page = 1, limit = 10, rating } = getQueryParams(event);
+  const { page = 1, limit = 10, rating, search, showOnLanding } = getQueryParams(event);
 
   const query = {};
   if (rating) {
     query.rating = parseInt(rating, 10);
   }
 
+  // Filter by showOnLanding: "true" = only landing reviews, "false" = only non-landing
+  if (!isPublicRequest && showOnLanding !== undefined && showOnLanding !== "") {
+    query.showOnLanding = showOnLanding === "true";
+  }
+
+  // BUG #4 FIX: Server-side search — bukan filter di frontend
+  if (search && search.trim()) {
+    const searchRegex = new RegExp(search.trim(), "i");
+    query.$or = [
+      { name: searchRegex },
+      { review: searchRegex },
+    ];
+  }
+
   if (isPublicRequest) {
     query.showOnLanding = true;
   }
+
 
   const pageNum = Math.max(parseInt(page, 10) || 1, 1);
   const limitNum = Math.max(parseInt(limit, 10) || 10, 1);

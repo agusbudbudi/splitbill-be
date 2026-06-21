@@ -242,8 +242,27 @@ async function getOrders(event, headers) {
   const limit = parseInt(url.searchParams.get("limit") || "10", 10);
   const skip = (page - 1) * limit;
   const search = url.searchParams.get("search") || "";
+  const status = url.searchParams.get("status") || "";
+  const startDate = url.searchParams.get("startDate") || "";
+  const endDate = url.searchParams.get("endDate") || "";
 
   let query = user.isAdmin ? {} : { userId: user._id };
+
+  if (status) {
+    query.status = status;
+  }
+
+  if (startDate || endDate) {
+    query.createdAt = {};
+    if (startDate) {
+      query.createdAt.$gte = new Date(startDate);
+    }
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      query.createdAt.$lte = end;
+    }
+  }
 
   if (search) {
     const searchRegex = { $regex: search, $options: "i" };
@@ -265,6 +284,14 @@ async function getOrders(event, headers) {
 
   const totalItems = await Order.countDocuments(query);
   const totalPages = Math.ceil(totalItems / limit);
+
+  // Calculate total revenue from matching PAID orders
+  const revenueQuery = { ...query, status: "paid" };
+  const revenueResult = await Order.aggregate([
+    { $match: revenueQuery },
+    { $group: { _id: null, total: { $sum: "$amount" } } }
+  ]);
+  const totalRevenue = revenueResult[0]?.total || 0;
 
   let ordersQuery = Order.find(query)
     .sort({ createdAt: -1 })
@@ -305,7 +332,8 @@ async function getOrders(event, headers) {
           totalPages,
           currentPage: page,
           limit,
-        }
+        },
+        totalRevenue
       },
     },
     headers

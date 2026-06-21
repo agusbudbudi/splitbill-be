@@ -29,6 +29,7 @@ import {
   Avatar,
 } from "../components/ui";
 import PageHero from "../components/PageHero";
+import { useAuth } from "../context/AuthContext";
 
 const formatCurrency = (amount) =>
   new Intl.NumberFormat("id-ID", {
@@ -103,7 +104,7 @@ export default function OrderDetail() {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const { user } = useAuth();
   const toast = useToast();
 
   const fetchDetail = useCallback(async () => {
@@ -330,7 +331,7 @@ export default function OrderDetail() {
               <CardBody className="p-4">
                 {order.user ? (
                   <div className="flex items-center gap-4">
-                    <Avatar name={order.user.name} size="lg" />
+                    <Avatar name={order.user.name} src={order.user.image || order.user.avatar} size="lg" />
                     <div className="min-w-0">
                       <a
                         href={`/users/${order.user.id}`}

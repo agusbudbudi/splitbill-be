@@ -30,6 +30,8 @@ import {
   EmptyState,
   CrownBadge,
   Avatar,
+  useToast,
+  Pagination,
 } from "../components/ui";
 
 const formatCurrency = (amount) =>
@@ -59,17 +61,34 @@ export default function UserDetail() {
   const navigate = useNavigate();
   const [userData, setUserData] = useState(null);
   const [splitBills, setSplitBills] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [totalTagihan, setTotalTagihan] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
+  const toast = useToast();
 
-  const fetchUser = useCallback(async () => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+
+  const fetchUser = useCallback(async (page = 1) => {
     setLoading(true);
     try {
-      const res = await apiFetch(`/api/users/${id}`);
+      const res = await apiFetch(`/api/users/${id}?splitBillsPage=${page}&splitBillsLimit=5`);
       const data = await res.json();
       if (data.success) {
         setUserData(data.data.user);
         setSplitBills(data.data.splitBills);
+        setTotalTagihan(data.data.totalTagihan ?? 0);
+        setOrders(data.data.orders || []);
+
+        const pag = data.data.splitBillsPagination;
+        if (pag) {
+          setCurrentPage(pag.currentPage);
+          setTotalPages(pag.totalPages);
+          setTotalItems(pag.totalItems);
+        }
       } else {
         setError(data.error || data.message || "Gagal mengambil data pengguna");
       }
@@ -81,8 +100,32 @@ export default function UserDetail() {
   }, [id]);
 
   useEffect(() => {
-    fetchUser();
-  }, [fetchUser]);
+    fetchUser(currentPage);
+  }, [currentPage, fetchUser]);
+
+  const handleAdminAction = async (action) => {
+    if (!window.confirm(`Apakah Anda yakin ingin melakukan aksi ini?`)) return;
+
+    setActionLoading(true);
+    try {
+      const res = await apiFetch(`/api/users/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast({ message: data.message, type: "success" });
+        fetchUser(currentPage);
+      } else {
+        toast({ message: data.message || "Gagal melakukan aksi", type: "error" });
+      }
+    } catch {
+      toast({ message: "Terjadi kesalahan sistem", type: "error" });
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -102,17 +145,12 @@ export default function UserDetail() {
         <p className="text-destructive font-semibold">
           {error || "Data tidak ditemukan"}
         </p>
-        <Button variant="ghost" onClick={() => navigate("/")}>
+        <Button variant="ghost" onClick={() => navigate("/users")}>
           Kembali ke Daftar
         </Button>
       </div>
     );
   }
-
-  const totalTagihan = splitBills.reduce(
-    (sum, r) => sum + (r.summary?.total ?? 0),
-    0,
-  );
 
   return (
     <div className="space-y-6">
@@ -164,13 +202,14 @@ export default function UserDetail() {
           </>
         }
         statLabel="Total Split Bill"
-        statValue={`${splitBills.length} aktivitas`}
+        statValue={`${totalItems} aktivitas`}
       />
 
       {/* Content grid */}
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
-        {/* Left: Split bill history */}
+        {/* Left: Split bill history & Order history */}
         <div className="xl:col-span-3 space-y-6">
+          {/* Split Bill History */}
           <section className="space-y-3">
             <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
               <span className="h-4 w-0.5 rounded-full bg-primary" />
@@ -184,72 +223,82 @@ export default function UserDetail() {
                   description="Pengguna ini belum membuat aktivitas split bill."
                 />
               ) : (
-                <Table>
-                  <Thead>
-                    <Tr className="hover:bg-transparent">
-                      <Th>Aktivitas</Th>
-                      <Th>Tanggal</Th>
-                      <Th className="text-center">Peserta</Th>
-                      <Th>Status</Th>
-                      <Th>Last Step</Th>
-                      <Th className="text-right">Total Tagihan</Th>
-                    </Tr>
-                  </Thead>
-                  <Tbody>
-                    {splitBills.map((bill) => (
-                      <Tr key={bill.id}>
-                        <Td>
-                          <div>
-                            <button
-                              onClick={() =>
-                                navigate(`/split-bills/${bill.id}`)
-                              }
-                              className="text-sm font-semibold text-primary hover:underline text-left leading-snug"
-                            >
-                              {bill.activityName || "Aktivitas Tanpa Nama"}
-                            </button>
-                            <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
-                              #{bill.id.slice(-6)}
-                            </p>
-                          </div>
-                        </Td>
-                        <Td className="text-muted-foreground text-xs whitespace-nowrap">
-                          {formatDate(bill.occurredAt)}
-                        </Td>
-                        <Td className="text-center">
-                          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                            <Users className="h-3 w-3" />
-                            {bill.participants?.length ?? 0}
-                          </span>
-                        </Td>
-                        <Td>
-                          {bill.status === "editable" ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-600 border border-amber-200">
-                              Draft
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200">
-                              Finalize
-                            </span>
-                          )}
-                        </Td>
-                        <Td>
-                          <span className="text-xs font-mono bg-muted px-2 py-0.5 rounded text-muted-foreground font-semibold">
-                            {(() => {
-                              const step = bill.last_step || (bill.status === "locked" ? "FINALIZED" : "");
-                              if (!step) return "—";
-                              if (step === "FINALIZED") return "Finalized";
-                              return step.replace("_", " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
-                            })()}
-                          </span>
-                        </Td>
-                        <Td className="text-right font-semibold text-sm text-foreground whitespace-nowrap">
-                          {formatCurrency(bill.summary?.total)}
-                        </Td>
+                <>
+                  <Table>
+                    <Thead>
+                      <Tr className="hover:bg-transparent">
+                        <Th>Aktivitas</Th>
+                        <Th>Tanggal</Th>
+                        <Th className="text-center">Peserta</Th>
+                        <Th>Status</Th>
+                        <Th>Last Step</Th>
+                        <Th className="text-right">Total Tagihan</Th>
                       </Tr>
-                    ))}
-                  </Tbody>
-                </Table>
+                    </Thead>
+                    <Tbody>
+                      {splitBills.map((bill) => (
+                        <Tr key={bill.id}>
+                          <Td>
+                            <div>
+                              <button
+                                onClick={() =>
+                                  navigate(`/split-bills/${bill.id}`)
+                                }
+                                className="text-sm font-semibold text-primary hover:underline text-left leading-snug"
+                              >
+                                {bill.activityName || "Aktivitas Tanpa Nama"}
+                              </button>
+                              <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                                #{bill.id.slice(-6)}
+                              </p>
+                            </div>
+                          </Td>
+                          <Td className="text-muted-foreground text-xs whitespace-nowrap">
+                            {formatDate(bill.occurredAt)}
+                          </Td>
+                          <Td className="text-center">
+                            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                              <Users className="h-3 w-3" />
+                              {bill.participants?.length ?? 0}
+                            </span>
+                          </Td>
+                          <Td>
+                            {bill.status === "editable" ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-600 border border-amber-200">
+                                Draft
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200">
+                                Finalize
+                              </span>
+                            )}
+                          </Td>
+                          <Td>
+                            <span className="text-xs font-mono bg-muted px-2 py-0.5 rounded text-muted-foreground font-semibold">
+                              {(() => {
+                                const step = bill.last_step || (bill.status === "locked" ? "FINALIZED" : "");
+                                if (!step) return "—";
+                                if (step === "FINALIZED") return "Finalized";
+                                return step.replace("_", " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+                              })()}
+                            </span>
+                          </Td>
+                          <Td className="text-right font-semibold text-sm text-foreground whitespace-nowrap">
+                            {formatCurrency(bill.summary?.total)}
+                          </Td>
+                        </Tr>
+                      ))}
+                    </Tbody>
+                  </Table>
+
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                    totalItems={totalItems}
+                    itemName="aktivitas"
+                  />
+                </>
               )}
             </div>
 
@@ -257,7 +306,7 @@ export default function UserDetail() {
               <div className="flex justify-end">
                 <div className="text-right">
                   <p className="text-[11px] text-muted-foreground uppercase tracking-widest font-semibold">
-                    Total Keseluruhan
+                    Total Keseluruhan Tagihan
                   </p>
                   <p className="text-lg font-black text-foreground">
                     {formatCurrency(totalTagihan)}
@@ -266,9 +315,89 @@ export default function UserDetail() {
               </div>
             )}
           </section>
+
+          {/* Order History */}
+          <section className="space-y-3">
+            <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
+              <span className="h-4 w-0.5 rounded-full bg-warning" />
+              Riwayat Pembelian & Transaksi
+            </h2>
+            <div className="bg-white rounded-lg border border-border shadow-soft overflow-hidden">
+              {orders.length === 0 ? (
+                <EmptyState
+                  icon={ShoppingBag}
+                  title="Belum ada transaksi"
+                  description="Pengguna ini belum memiliki riwayat pembelian paket langganan."
+                />
+              ) : (
+                <Table>
+                  <Thead>
+                    <Tr className="hover:bg-transparent">
+                      <Th>Order ID</Th>
+                      <Th>Tanggal</Th>
+                      <Th>Tipe</Th>
+                      <Th>Total</Th>
+                      <Th>Status</Th>
+                      <Th className="text-right">Aksi</Th>
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    {orders.map((order) => (
+                      <Tr key={order.id}>
+                        <Td>
+                          <div>
+                            <button
+                              onClick={() => navigate(`/orders/${order.orderId}`)}
+                              className="text-sm font-semibold text-primary hover:underline text-left leading-snug"
+                            >
+                              {order.orderId}
+                            </button>
+                            <p className="text-[10px] text-muted-foreground uppercase mt-0.5">
+                              {order.snapshot?.name || "Subscription"}
+                            </p>
+                          </div>
+                        </Td>
+                        <Td className="text-muted-foreground text-xs whitespace-nowrap">
+                          {formatDate(order.createdAt)}
+                        </Td>
+                        <Td>
+                          <span className="text-xs font-medium text-muted-foreground capitalize">
+                            {order.type}
+                          </span>
+                        </Td>
+                        <Td className="font-semibold text-sm text-foreground whitespace-nowrap">
+                          {formatCurrency(order.total_payment || order.amount)}
+                        </Td>
+                        <Td>
+                          {order.status === "paid" ? (
+                            <Badge variant="success">Paid</Badge>
+                          ) : order.status === "pending" ? (
+                            <Badge variant="warning">Pending</Badge>
+                          ) : order.status === "expired" ? (
+                            <Badge variant="neutral">Expired</Badge>
+                          ) : (
+                            <Badge variant="danger">Failed</Badge>
+                          )}
+                        </Td>
+                        <Td className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => navigate(`/orders/${order.orderId}`)}
+                          >
+                            Detail
+                          </Button>
+                        </Td>
+                      </Tr>
+                    ))}
+                  </Tbody>
+                </Table>
+              )}
+            </div>
+          </section>
         </div>
 
-        {/* Right: User info + Subscription */}
+        {/* Right: User info + Subscription + Scan Quota + Admin Actions */}
         <div className="xl:col-span-2 space-y-6">
           {/* User info card */}
           <section className="space-y-3">
@@ -389,9 +518,8 @@ export default function UserDetail() {
                       return (
                         <InfoRow label="Sisa Masa">
                           <span
-                            className={`font-bold ${
-                              daysLeft <= 7 ? "text-destructive" : daysLeft <= 14 ? "text-warning" : "text-success"
-                            }`}
+                            className={`font-bold ${daysLeft <= 7 ? "text-destructive" : daysLeft <= 14 ? "text-warning" : "text-success"
+                              }`}
                           >
                             {daysLeft} hari
                           </span>
@@ -403,8 +531,7 @@ export default function UserDetail() {
                         <button
                           onClick={() =>
                             navigate(
-                              `/orders/${
-                                userData.orderId.orderId || userData.orderId
+                              `/orders/${userData.orderId.orderId || userData.orderId
                               }`,
                             )
                           }
@@ -455,10 +582,61 @@ export default function UserDetail() {
                 </div>
               </div>
 
-              <p className="text-xs text-muted-foreground text-center">
-                {userData.freeScanCount ?? 0} dari {TOTAL_FREE_SCAN_QUOTA} kuota
-                scan tersisa
-              </p>
+              {/* Progress bar */}
+              <div className="space-y-1">
+                <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-primary h-full rounded-full transition-all duration-300"
+                    style={{ width: `${((userData.freeScanCount ?? 0) / TOTAL_FREE_SCAN_QUOTA) * 100}%` }}
+                  />
+                </div>
+                <div className="flex justify-between text-[10px] text-muted-foreground font-semibold">
+                  <span>0 Kuota</span>
+                  <span>{TOTAL_FREE_SCAN_QUOTA} Kuota</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Admin Actions */}
+          <section className="space-y-3">
+            <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
+              <span className="h-4 w-0.5 rounded-full bg-destructive" />
+              Aksi Admin
+            </h2>
+            <div className="bg-white rounded-lg border border-border shadow-soft p-4 space-y-3">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start text-xs font-semibold gap-2 border-border text-foreground hover:bg-muted"
+                onClick={() => handleAdminAction("reset-password")}
+                disabled={actionLoading}
+              >
+                <Clock className="h-3.5 w-3.5" />
+                Reset Password Pengguna
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start text-xs font-semibold gap-2 border-border text-foreground hover:bg-muted"
+                onClick={() => handleAdminAction("toggle-verify")}
+                disabled={actionLoading}
+              >
+                <CheckCircle className="h-3.5 w-3.5 text-success" />
+                {userData.isVerified ? "Batalkan Verifikasi Email" : "Verifikasi Email Pengguna"}
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start text-xs font-semibold gap-2 border-border text-primary hover:bg-primary/10"
+                onClick={() => handleAdminAction("reset-scan-quota")}
+                disabled={actionLoading}
+              >
+                <Scan className="h-3.5 w-3.5 text-primary" />
+                Reset Kuota Scan AI ke 5
+              </Button>
             </div>
           </section>
         </div>

@@ -7,9 +7,9 @@ import {
 import { parseJsonBody } from "../lib/parsers.js";
 import { HttpError, toHttpError } from "../lib/errors.js";
 
-// Use latest stable Gemini 1.5 Flash endpoint compatible with v1beta generateContent
+// Use Gemini 2.5 Flash-Lite (stable) for cost efficiency
 const GOOGLE_API_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent";
 
 const PROMPT = `
 Analyze this bill/receipt image and extract the following information in JSON format:
@@ -35,6 +35,37 @@ Analyze this bill/receipt image and extract the following information in JSON fo
 }
 Please extract as much information as possible. Respond with ONLY the JSON.
 `;
+
+/**
+ * Calls Gemini API with exponential backoff retry on 503 (high demand / overloaded).
+ * @param {string} url - Full API URL including key query param
+ * @param {object} payload - JSON payload to send
+ * @param {AbortSignal} signal - AbortController signal for timeout
+ * @param {number} retries - Max number of retry attempts
+ */
+async function callGemini(url, payload, signal, retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal,
+    });
+
+    if (response.status === 503) {
+      const waitMs = Math.pow(2, i) * 1000; // 1s, 2s, 4s
+      console.warn(
+        `Gemini returned 503 (high demand). Retrying in ${waitMs}ms... (attempt ${i + 1}/${retries})`
+      );
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+      continue;
+    }
+
+    return response;
+  }
+
+  throw new HttpError(503, "Gemini API unavailable after multiple retries");
+}
 
 export async function handleGeminiScan(event) {
   const headers = createCorsHeaders(event);
@@ -143,12 +174,11 @@ export async function handleGeminiScan(event) {
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
     try {
-      const response = await fetch(`${GOOGLE_API_URL}?key=${apiKey}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      });
+      const response = await callGemini(
+        `${GOOGLE_API_URL}?key=${apiKey}`,
+        payload,
+        controller.signal
+      );
 
       clearTimeout(timeoutId);
 

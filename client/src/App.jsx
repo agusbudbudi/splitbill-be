@@ -16,6 +16,8 @@ import Campaigns from "./pages/Campaigns";
 import CampaignDetail from "./pages/CampaignDetail";
 import Blogs from "./pages/Blogs";
 import BlogDetail from "./pages/BlogDetail";
+import AdCampaigns from "./pages/AdCampaigns";
+import AdCampaignDetail from "./pages/AdCampaignDetail";
 
 function App() {
   return (
@@ -40,6 +42,9 @@ function App() {
           <Route path="/blogs" element={<Blogs />} />
           <Route path="/blogs/new" element={<BlogDetail />} />
           <Route path="/blogs/:id" element={<BlogDetail />} />
+          <Route path="/ad-campaigns" element={<AdCampaigns />} />
+          <Route path="/ad-campaigns/new" element={<AdCampaignDetail />} />
+          <Route path="/ad-campaigns/:id" element={<AdCampaignDetail />} />
         </Route>
       </Route>
 

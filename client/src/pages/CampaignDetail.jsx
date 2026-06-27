@@ -118,10 +118,8 @@ export default function CampaignDetail() {
   }, [id, toast]);
 
   useEffect(() => {
-    if (activeTab === "recipients") {
-      fetchRecipients();
-    }
-  }, [activeTab, fetchRecipients]);
+    fetchRecipients();
+  }, [fetchRecipients]);
 
   const fetchCampaign = useCallback(async () => {
     setLoading(true);
@@ -130,6 +128,9 @@ export default function CampaignDetail() {
       const json = await res.json();
       if (json.success) {
         setCampaign(json.data);
+        if (json.data.status !== "draft" && json.data.recipientsList) {
+          setRecipients(json.data.recipientsList);
+        }
         setFormData({
           name: json.data.name || "",
           segment: json.data.segment || "unverified",
@@ -415,7 +416,7 @@ export default function CampaignDetail() {
           >
             Daftar Penerima
             <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold">
-              {previewCount}
+              {recipients.length}
             </span>
           </button>
         </div>
@@ -505,22 +506,24 @@ export default function CampaignDetail() {
                     ))}
                   </Select>
 
-                  <div className="flex items-center gap-2 mt-2 text-xs text-green-800 bg-green-50 p-2.5 rounded-[8px] border border-green-300">
-                    <Users size={14} className="text-green-600" />
-                    {previewLoading ? (
-                      <span className="animate-pulse">
-                        Menghitung target...
-                      </span>
-                    ) : (
-                      <span>
-                        Estimasi target:{" "}
-                        <strong className="text-green-900">
-                          {previewCount.toLocaleString("id-ID")}
-                        </strong>{" "}
-                        pengguna
-                      </span>
-                    )}
-                  </div>
+                  {isDraft && (
+                    <div className="flex items-center gap-2 mt-2 text-xs text-green-800 bg-green-50 p-2.5 rounded-[8px] border border-green-300">
+                      <Users size={14} className="text-green-600" />
+                      {previewLoading ? (
+                        <span className="animate-pulse">
+                          Menghitung target...
+                        </span>
+                      ) : (
+                        <span>
+                          Estimasi target:{" "}
+                          <strong className="text-green-900">
+                            {previewCount.toLocaleString("id-ID")}
+                          </strong>{" "}
+                          pengguna
+                        </span>
+                      )}
+                    </div>
+                  )}
 
                   {formData.segment === "dynamic" && (
                     <div className="mt-4 border-t border-border pt-4">
@@ -714,7 +717,7 @@ export default function CampaignDetail() {
                               className="h-8 w-auto block"
                             />
                           </div>
-                          <div className="p-9">
+                          <div>
                             <div
                               className="text-[#475569] text-[15px] leading-relaxed mb-8 break-words"
                               dangerouslySetInnerHTML={{

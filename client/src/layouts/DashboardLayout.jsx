@@ -15,6 +15,7 @@ import {
   FileText,
   Bell,
   ChevronRight,
+  Megaphone,
 } from "lucide-react";
 import { ToastProvider, Avatar } from "../components/ui";
 import { apiFetch } from "../lib/api";
@@ -40,6 +41,7 @@ const navGroups = [
     title: "Operasional & Konten",
     items: [
       { name: "Campaigns", href: "/campaigns", icon: Mail },
+      { name: "Ad Campaigns", href: "/ad-campaigns", icon: Megaphone },
       { name: "Blog", href: "/blogs", icon: FileText },
       { name: "Banners", href: "/banners", icon: Image },
       { name: "Subscription", href: "/subscription-packages", icon: Package },
@@ -54,6 +56,7 @@ const breadcrumbLabels = {
   "subscription-packages": "Subscription Packages",
   "insights": "Insight",
   "campaigns": "Campaigns",
+  "ad-campaigns": "Ad Campaigns",
   "blogs": "Blog",
   "banners": "Banners",
   "reviews": "Reviews",

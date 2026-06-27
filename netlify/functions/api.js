@@ -306,6 +306,17 @@ export async function handler(event, context) {
       }
     }
 
+    if (resource === "ad-campaigns") {
+      if (!subresource && rest.length === 0) {
+        const { handleAdCampaigns } = await import("../../api/ad-campaigns.js");
+        return handleAdCampaigns(event, context);
+      }
+      if (subresource && rest.length === 0) {
+        const { handleAdCampaignById } = await import("../../api/ad-campaign-by-id.js");
+        return handleAdCampaignById(event, subresource, context);
+      }
+    }
+
     const headers = createCorsHeaders(event);
     return jsonResponse(404, { success: false, error: "Not found" }, headers);
   } catch (error) {

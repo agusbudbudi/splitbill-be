@@ -223,13 +223,15 @@ export default function SplitBillDetail() {
             </span>
             {record.owner && (
               user.isAdmin ? (
-                <button
-                  onClick={() => navigate(`/users/${record.ownerId}`)}
+                <a
+                  href={`/users/${record.ownerId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="flex items-center gap-1.5 underline underline-offset-2 decoration-white/50 hover:decoration-white transition-all"
                 >
                   <User className="h-3.5 w-3.5" />
                   {record.owner.name}
-                </button>
+                </a>
               ) : (
                 <span className="flex items-center gap-1.5">
                   <User className="h-3.5 w-3.5" />

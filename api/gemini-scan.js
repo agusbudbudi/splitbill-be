@@ -103,7 +103,13 @@ export async function handleGeminiScan(event) {
 
     // Check if token exists in headers to determine if we should authenticate
     let user = null;
-    const authHeader = event?.headers?.authorization || event?.headers?.Authorization;
+    const rawHeaders = event?.headers;
+    let authHeader = null;
+    if (rawHeaders && typeof rawHeaders.get === "function") {
+      authHeader = rawHeaders.get("authorization") || rawHeaders.get("Authorization");
+    } else if (rawHeaders) {
+      authHeader = rawHeaders.authorization || rawHeaders.Authorization;
+    }
     const hasToken = authHeader && authHeader.startsWith("Bearer ");
 
     if (hasToken) {

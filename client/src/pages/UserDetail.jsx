@@ -240,14 +240,14 @@ export default function UserDetail() {
                         <Tr key={bill.id}>
                           <Td>
                             <div>
-                              <button
-                                onClick={() =>
-                                  navigate(`/split-bills/${bill.id}`)
-                                }
+                              <a
+                                href={`/split-bills/${bill.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
                                 className="text-sm font-semibold text-primary hover:underline text-left leading-snug"
                               >
                                 {bill.activityName || "Aktivitas Tanpa Nama"}
-                              </button>
+                              </a>
                               <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
                                 #{bill.id.slice(-6)}
                               </p>

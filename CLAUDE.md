@@ -70,9 +70,9 @@ Account lockout: 5 failed login attempts → 15-minute lock (`User.incLoginAttem
 - `applyEmailRateLimit(email)` — 3 emails / hour per email address
 - `applyGeminiRateLimit(userId)` — 10 scans / hour per user
 
-### Gemini Receipt Scanning
+### Receipt Scanning (multi-provider fallback)
 
-`api/gemini-scan.js` — scans receipt images via Gemini 2.5 Flash (`gemini-2.5-flash`). Requires auth. Deducts from `user.freeScanCount` (default: 10) on each successful scan. Accepts base64-encoded images (jpeg/png/webp, max 5MB).
+`api/gemini-scan.js` — scans receipt images with a 3-provider fallback chain: **OpenRouter** (`qwen/qwen2.5-vl-32b-instruct:free`, primary) → **Groq** (`meta-llama/llama-4-scout-17b-16e-instruct`, 1st fallback) → **Gemini** (`gemini-2.5-flash-lite`, last resort). Each provider gets its own timeout budget (10s/9s/8s) under a 28s outer guard so a slow/unavailable provider can't starve the next one. Provider call implementations for OpenRouter/Groq live in `lib/ai-providers.js`; Gemini is called inline. Requires auth. Deducts from `user.freeScanCount` (default: 10) on each successful scan. Accepts base64-encoded images (jpeg/png/webp, max 4MB). Each attempt is logged to the `ScanLog` model (`provider`, `status`, `errorMessage`).
 
 ### Email
 
@@ -85,7 +85,9 @@ Account lockout: 5 failed login attempts → 15-minute lock (`User.incLoginAttem
 | `MONGO_URI` | MongoDB Atlas connection string |
 | `JWT_SECRET` | Signs access tokens (30m expiry) |
 | `JWT_REFRESH_SECRET` | Signs refresh tokens (7d expiry) |
-| `GEMINI_API_KEY` | Google Gemini API key for receipt scanning |
+| `GEMINI_API_KEY` | Google Gemini API key for receipt scanning (last-resort fallback) |
+| `GROQ_API_KEY` | Groq API key for receipt scanning (1st fallback) |
+| `OPENROUTER_API_KEY` | OpenRouter API key for receipt scanning (primary provider) |
 | `RESEND_API_KEY` | Resend email service API key |
 | `FRONTEND_URL` | Frontend origin (default: `https://splitbill.my.id`) |
 | `ALLOWED_ORIGINS` | Comma-separated CORS allowed origins |

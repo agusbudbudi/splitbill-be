@@ -6,7 +6,7 @@ import {
 } from "../lib/http.js";
 import { parseJsonBody } from "../lib/parsers.js";
 import { HttpError, toHttpError } from "../lib/errors.js";
-import { callGroq } from "../lib/ai-providers.js";
+import { callGroq, callOpenRouter, isGroqCoolingDown, getGroqCooldownRemainingMs } from "../lib/ai-providers.js";
 
 // Use Gemini 2.5 Flash-Lite (stable) for cost efficiency
 const GOOGLE_API_URL =
@@ -57,7 +57,7 @@ async function callGeminiWithFallbackInfo(url, payload, signal, retries = 2) {
       // AbortError from this provider's timeout — signal fallback
       if (fetchErr.name === "AbortError") {
         console.warn("[Gemini] Timed out — will fallback to Groq");
-        return { response: null, shouldFallback: true };
+        return { response: null, shouldFallback: true, reason: "timeout" };
       }
       throw fetchErr;
     }
@@ -73,7 +73,7 @@ async function callGeminiWithFallbackInfo(url, payload, signal, retries = 2) {
 
     if (response.status === 429) {
       console.warn("[Gemini] 429 quota exceeded — will fallback to Groq");
-      return { response: null, shouldFallback: true };
+      return { response: null, shouldFallback: true, reason: "429 quota exceeded" };
     }
 
     return { response, shouldFallback: false };
@@ -81,7 +81,7 @@ async function callGeminiWithFallbackInfo(url, payload, signal, retries = 2) {
 
   // Exhausted retries on 503 — trigger fallback
   console.warn("[Gemini] 503 after all retries — will fallback to Groq");
-  return { response: null, shouldFallback: true };
+  return { response: null, shouldFallback: true, reason: "503 after retries" };
 }
 
 export async function handleGeminiScan(event) {
@@ -156,6 +156,7 @@ export async function handleGeminiScan(event) {
 
     const apiKey = process.env.GEMINI_API_KEY;
     const groqApiKey = process.env.GROQ_API_KEY;
+    const openRouterApiKey = process.env.OPENROUTER_API_KEY;
 
     if (!apiKey) {
       throw new HttpError(500, "Missing Gemini API Key");
@@ -200,54 +201,104 @@ export async function handleGeminiScan(event) {
       //  temperature:0    — deterministic extraction, no creative variation
       generationConfig: {
         responseMimeType: "application/json",
-        maxOutputTokens: 800,
+        // Bumped from 800: receipts with many line items were getting
+        // truncated mid-array, producing unparseable JSON.
+        maxOutputTokens: 2048,
         temperature: 0,
       },
     };
 
     // ── Timeout strategy ──────────────────────────────────────────────────
     // Total budget: 28s (2s buffer before Netlify's 30s hard limit)
-    // Groq   gets 14s as primary provider (fast inference, token-efficient)
-    // Gemini gets 12s as fallback if Groq is unavailable
-    // Both are guarded individually so a slow primary never starves the fallback.
-    const GROQ_TIMEOUT_MS   = 14000;
-    const GEMINI_TIMEOUT_MS = 12000;
+    // OpenRouter gets 7s  as primary provider (free-tier vision model — fail fast if congested)
+    // Groq       gets 8s  as first fallback
+    // Gemini     gets 11s as last-resort fallback (most reliable in practice — gets the most room)
+    // Each is guarded individually so a slow provider never starves the next one.
+    const OPENROUTER_TIMEOUT_MS = 7000;
+    const GROQ_TIMEOUT_MS = 8000;
+    const GEMINI_TIMEOUT_MS = 11000;
 
     // Outer guard: abort everything after 28s
     const outerController = new AbortController();
-    const outerTimeoutId  = setTimeout(() => outerController.abort(), 28000);
+    const outerTimeoutId = setTimeout(() => outerController.abort(), 28000);
 
     let parsed = null;
-    let providerUsed = "groq";
+    let providerUsed = "openrouter";
+    // Captures the real provider-level failure reason (429/503/timeout/etc.)
+    // so it survives into the ScanLog even though the client only ever sees
+    // the generic "AI service temporarily unavailable" message.
+    let openRouterFailureReason = null;
+    let groqFailureReason = null;
+    // Internal-only diagnostic string for the ScanLog entry — never attached
+    // to the HttpError thrown to the client (HttpError.details bypasses the
+    // production message-sanitization in toHttpError()).
+    let internalFailureDetail = null;
 
     try {
-      // ── Step 1: Try Groq — primary provider (14s budget) ──────────────
-      if (!groqApiKey) {
-        console.warn("[Groq] GROQ_API_KEY not set — skipping to Gemini fallback");
+      // ── Step 1: Try OpenRouter — primary provider (10s budget) ─────────
+      if (!openRouterApiKey) {
+        openRouterFailureReason = "OPENROUTER_API_KEY not set";
+        console.warn("[OpenRouter] OPENROUTER_API_KEY not set — skipping to Groq fallback");
       } else {
-        const groqController = new AbortController();
-        const groqTimeoutId  = setTimeout(() => groqController.abort(), GROQ_TIMEOUT_MS);
+        const openRouterController = new AbortController();
+        const openRouterTimeoutId = setTimeout(() => openRouterController.abort(), OPENROUTER_TIMEOUT_MS);
 
-        // Propagate outer abort into Groq controller
-        outerController.signal.addEventListener("abort", () => groqController.abort(), { once: true });
+        // Propagate outer abort into OpenRouter controller
+        outerController.signal.addEventListener("abort", () => openRouterController.abort(), { once: true });
 
         try {
-          parsed = await callGroq(groqApiKey, base64Image, mime_type, groqController.signal);
-          providerUsed = "groq";
-        } catch (groqError) {
-          // Don't throw — fall through to Gemini fallback
-          console.warn("[Groq] Primary failed, will fallback to Gemini:", groqError.message);
+          parsed = await callOpenRouter(openRouterApiKey, base64Image, mime_type, openRouterController.signal);
+          providerUsed = "openrouter";
+        } catch (openRouterError) {
+          // Don't throw — fall through to Groq fallback
+          openRouterFailureReason = openRouterError.message;
+          console.warn("[OpenRouter] Primary failed, will fallback to Groq:", openRouterError.message);
         } finally {
-          clearTimeout(groqTimeoutId);
+          clearTimeout(openRouterTimeoutId);
         }
       }
 
-      // ── Step 2: Fallback to Gemini if Groq was unavailable (12s budget) ─
+      // ── Step 2: Fallback to Groq if OpenRouter was unavailable (9s budget) ─
       if (!parsed) {
+        // Set eagerly (not just on success) so a failed log entry correctly
+        // attributes the failure to Groq instead of defaulting to "openrouter".
+        providerUsed = "groq";
+
+        if (!groqApiKey) {
+          groqFailureReason = "GROQ_API_KEY not set";
+          console.warn("[Groq] GROQ_API_KEY not set — skipping to Gemini fallback");
+        } else if (isGroqCoolingDown()) {
+          groqFailureReason = `cooling down (TPD exhausted, ~${Math.ceil(getGroqCooldownRemainingMs() / 1000)}s left)`;
+          console.warn(`[Groq] Skipping — known rate-limited for another ${Math.ceil(getGroqCooldownRemainingMs() / 1000)}s`);
+        } else {
+          const groqController = new AbortController();
+          const groqTimeoutId = setTimeout(() => groqController.abort(), GROQ_TIMEOUT_MS);
+
+          // Propagate outer abort into Groq controller
+          outerController.signal.addEventListener("abort", () => groqController.abort(), { once: true });
+
+          try {
+            parsed = await callGroq(groqApiKey, base64Image, mime_type, groqController.signal);
+            providerUsed = "groq";
+          } catch (groqError) {
+            // Don't throw — fall through to Gemini fallback
+            groqFailureReason = groqError.message;
+            console.warn("[Groq] Fallback failed, will fallback to Gemini:", groqError.message);
+          } finally {
+            clearTimeout(groqTimeoutId);
+          }
+        }
+      }
+
+      // ── Step 3: Fallback to Gemini if OpenRouter and Groq were unavailable (8s budget) ─
+      if (!parsed) {
+        // Set eagerly (not just on success) so a failed log entry correctly
+        // attributes the failure to Gemini instead of defaulting to "groq".
+        providerUsed = "gemini";
         console.info("[Fallback] Attempting Gemini 2.5 Flash-Lite...");
 
         const geminiController = new AbortController();
-        const geminiTimeoutId  = setTimeout(() => geminiController.abort(), GEMINI_TIMEOUT_MS);
+        const geminiTimeoutId = setTimeout(() => geminiController.abort(), GEMINI_TIMEOUT_MS);
 
         // Propagate outer abort into Gemini controller
         outerController.signal.addEventListener("abort", () => geminiController.abort(), { once: true });
@@ -263,9 +314,10 @@ export async function handleGeminiScan(event) {
           clearTimeout(geminiTimeoutId);
         }
 
-        const { response, shouldFallback } = geminiResult;
+        const { response, shouldFallback, reason } = geminiResult;
 
         if (shouldFallback || !response) {
+          internalFailureDetail = `openrouter: ${openRouterFailureReason || "n/a"}; groq: ${groqFailureReason || "n/a"}; gemini: ${reason || "no response"}`;
           throw new HttpError(
             503,
             "AI service temporarily unavailable. Please try again later."
@@ -295,11 +347,20 @@ export async function handleGeminiScan(event) {
           parsed = JSON.parse(textResponse);
         } catch {
           // Fallback: extract JSON block in case model didn't honour responseMimeType
-          const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
-          if (!jsonMatch) {
-            throw new HttpError(500, "No JSON found in Gemini response");
+          try {
+            const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) {
+              throw new Error("no JSON object found");
+            }
+            parsed = JSON.parse(jsonMatch[0]);
+          } catch (parseErr) {
+            // Truncated/malformed model output (e.g. cut off mid-array by
+            // maxOutputTokens). Never leak the raw parser message to the
+            // client — log it internally instead.
+            internalFailureDetail = `gemini JSON parse failed: ${parseErr.message}; finishReason=${data?.candidates?.[0]?.finishReason || "unknown"}`;
+            console.error("[Gemini] Failed to parse response as JSON:", parseErr.message, textResponse?.slice(0, 500));
+            throw new HttpError(500, "Could not read AI response — the receipt may be too complex. Please try again.");
           }
-          parsed = JSON.parse(jsonMatch[0]);
         }
         providerUsed = "gemini";
       }
@@ -352,7 +413,9 @@ export async function handleGeminiScan(event) {
           ipAddress: getClientIp(event),
           provider: providerUsed,
           status: "failed",
-          errorMessage: finalError.message
+          errorMessage: internalFailureDetail
+            ? `${finalError.message} (${internalFailureDetail})`
+            : finalError.message
         });
       } catch (dbLogErr) {
         console.error("Failed to save failed scan log to database:", dbLogErr);

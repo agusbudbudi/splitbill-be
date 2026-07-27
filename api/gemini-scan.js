@@ -211,10 +211,14 @@ export async function handleGeminiScan(event) {
 
     // ── Timeout strategy ──────────────────────────────────────────────────
     // Total budget: 28s (2s buffer before Netlify's 30s hard limit)
-    // OpenRouter gets 7s  as primary provider (free-tier vision model — fail fast if congested)
-    // Groq       gets 8s  as first fallback
-    // Gemini     gets 11s as last-resort fallback (most reliable in practice — gets the most room)
-    // Each is guarded individually so a slow provider never starves the next one.
+    // OpenRouter and Groq (both free-tier) are raced in PARALLEL instead of
+    // sequentially — previously a slow/congested OpenRouter ate its full 7s
+    // timeout before Groq even started, stacking up to 15s before reaching
+    // Gemini. Racing caps that wait at max(7s, 8s) = 8s worst case.
+    // Gemini stays a strictly last-resort fallback (most reliable in
+    // practice but costs money, so it's never hit unless both free
+    // providers fail) and gets the most room: 11s.
+    // Each provider is guarded individually so a slow one never starves the others.
     const OPENROUTER_TIMEOUT_MS = 7000;
     const GROQ_TIMEOUT_MS = 8000;
     const GEMINI_TIMEOUT_MS = 11000;
@@ -236,58 +240,76 @@ export async function handleGeminiScan(event) {
     let internalFailureDetail = null;
 
     try {
-      // ── Step 1: Try OpenRouter — primary provider (10s budget) ─────────
+      // ── Step 1+2: Race OpenRouter and Groq in parallel (both free-tier) ──
+      // Whichever responds first wins; the other is aborted immediately so it
+      // doesn't keep burning quota/time in the background. Only if BOTH fail
+      // do we fall through to Gemini below.
+      const raceCandidates = [];
+
       if (!openRouterApiKey) {
         openRouterFailureReason = "OPENROUTER_API_KEY not set";
-        console.warn("[OpenRouter] OPENROUTER_API_KEY not set — skipping to Groq fallback");
+        console.warn("[OpenRouter] OPENROUTER_API_KEY not set — skipping");
       } else {
         const openRouterController = new AbortController();
         const openRouterTimeoutId = setTimeout(() => openRouterController.abort(), OPENROUTER_TIMEOUT_MS);
-
-        // Propagate outer abort into OpenRouter controller
         outerController.signal.addEventListener("abort", () => openRouterController.abort(), { once: true });
 
-        try {
-          parsed = await callOpenRouter(openRouterApiKey, base64Image, mime_type, openRouterController.signal);
-          providerUsed = "openrouter";
-        } catch (openRouterError) {
-          // Don't throw — fall through to Groq fallback
-          openRouterFailureReason = openRouterError.message;
-          console.warn("[OpenRouter] Primary failed, will fallback to Groq:", openRouterError.message);
-        } finally {
-          clearTimeout(openRouterTimeoutId);
-        }
+        raceCandidates.push({
+          provider: "openrouter",
+          controller: openRouterController,
+          timeoutId: openRouterTimeoutId,
+          promise: callOpenRouter(openRouterApiKey, base64Image, mime_type, openRouterController.signal),
+        });
       }
 
-      // ── Step 2: Fallback to Groq if OpenRouter was unavailable (9s budget) ─
-      if (!parsed) {
-        // Set eagerly (not just on success) so a failed log entry correctly
-        // attributes the failure to Groq instead of defaulting to "openrouter".
-        providerUsed = "groq";
+      if (!groqApiKey) {
+        groqFailureReason = "GROQ_API_KEY not set";
+        console.warn("[Groq] GROQ_API_KEY not set — skipping");
+      } else if (isGroqCoolingDown()) {
+        groqFailureReason = `cooling down (TPD exhausted, ~${Math.ceil(getGroqCooldownRemainingMs() / 1000)}s left)`;
+        console.warn(`[Groq] Skipping — known rate-limited for another ${Math.ceil(getGroqCooldownRemainingMs() / 1000)}s`);
+      } else {
+        const groqController = new AbortController();
+        const groqTimeoutId = setTimeout(() => groqController.abort(), GROQ_TIMEOUT_MS);
+        outerController.signal.addEventListener("abort", () => groqController.abort(), { once: true });
 
-        if (!groqApiKey) {
-          groqFailureReason = "GROQ_API_KEY not set";
-          console.warn("[Groq] GROQ_API_KEY not set — skipping to Gemini fallback");
-        } else if (isGroqCoolingDown()) {
-          groqFailureReason = `cooling down (TPD exhausted, ~${Math.ceil(getGroqCooldownRemainingMs() / 1000)}s left)`;
-          console.warn(`[Groq] Skipping — known rate-limited for another ${Math.ceil(getGroqCooldownRemainingMs() / 1000)}s`);
-        } else {
-          const groqController = new AbortController();
-          const groqTimeoutId = setTimeout(() => groqController.abort(), GROQ_TIMEOUT_MS);
+        raceCandidates.push({
+          provider: "groq",
+          controller: groqController,
+          timeoutId: groqTimeoutId,
+          promise: callGroq(groqApiKey, base64Image, mime_type, groqController.signal),
+        });
+      }
 
-          // Propagate outer abort into Groq controller
-          outerController.signal.addEventListener("abort", () => groqController.abort(), { once: true });
+      if (raceCandidates.length > 0) {
+        try {
+          const winner = await Promise.any(
+            raceCandidates.map(async (c) => {
+              try {
+                const result = await c.promise;
+                return { provider: c.provider, result };
+              } catch (err) {
+                if (c.provider === "openrouter") openRouterFailureReason = err.message;
+                else groqFailureReason = err.message;
+                throw err;
+              }
+            })
+          );
 
-          try {
-            parsed = await callGroq(groqApiKey, base64Image, mime_type, groqController.signal);
-            providerUsed = "groq";
-          } catch (groqError) {
-            // Don't throw — fall through to Gemini fallback
-            groqFailureReason = groqError.message;
-            console.warn("[Groq] Fallback failed, will fallback to Gemini:", groqError.message);
-          } finally {
-            clearTimeout(groqTimeoutId);
-          }
+          parsed = winner.result;
+          providerUsed = winner.provider;
+          console.info(`[Race] ${winner.provider} won`);
+
+          // Loser is still in flight — abort it, we don't need its result.
+          raceCandidates
+            .filter((c) => c.provider !== winner.provider)
+            .forEach((c) => c.controller.abort());
+        } catch {
+          // AggregateError — both providers failed. Reasons already captured
+          // above; fall through to the Gemini fallback below.
+          console.warn("[Race] OpenRouter and Groq both failed — falling back to Gemini");
+        } finally {
+          raceCandidates.forEach((c) => clearTimeout(c.timeoutId));
         }
       }
 
@@ -367,6 +389,16 @@ export async function handleGeminiScan(event) {
       }
 
       clearTimeout(outerTimeoutId);
+
+      // Drop line items priced at Rp 0 — usually extraction noise (e.g. a
+      // header/footer row misread as an item) rather than a real free item,
+      // so there's nothing useful to split.
+      if (Array.isArray(parsed?.items)) {
+        parsed.items = parsed.items.filter((item) => {
+          const price = parseFloat(String(item?.price).replace(/[^\d.-]/g, ""));
+          return !(Number.isFinite(price) && price === 0);
+        });
+      }
 
       // ── Step 3: Decrement quota & log ─────────────────────────────────
       // Decrement free scan count only for logged-in, non-subscribed users

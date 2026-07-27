@@ -15,12 +15,16 @@ import {
   Target,
   Clock,
   DollarSign,
+  CheckCircle2,
+  AlertTriangle,
+  Shuffle,
 } from "lucide-react";
 import {
   LineChart,
   Line,
   BarChart,
   Bar,
+  ComposedChart,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -29,6 +33,8 @@ import {
   Cell,
   PieChart,
   Pie,
+  Legend,
+  ReferenceLine,
 } from "recharts";
 import {
   Card,
@@ -89,6 +95,11 @@ const formatRpShort = (v) => {
   return `Rp${v}`;
 };
 
+// Percentage helper: always 2 decimal places (e.g. "38.33%")
+const formatPct = (v) => `${(v ?? 0).toFixed(2)}%`;
+const pctOf = (numerator, denominator) =>
+  denominator > 0 ? (numerator / denominator) * 100 : 0;
+
 const MONTH_LABELS = [
   "Jan",
   "Feb",
@@ -121,6 +132,20 @@ function periodLabel(period) {
   return MONTH_LABELS[parseInt(m, 10) - 1];
 }
 
+// Formats a week's Sunday start date ("YYYY-MM-DD") as a date range, e.g. "27 - 2 Agu"
+function weekRangeLabel(weekStart) {
+  if (!weekStart) return "";
+  const [y, m, d] = weekStart.split("-").map(Number);
+  const start = new Date(Date.UTC(y, m - 1, d));
+  const end = new Date(Date.UTC(y, m - 1, d + 6));
+  const sameMonth = start.getUTCMonth() === end.getUTCMonth();
+  const startLabel = sameMonth
+    ? `${start.getUTCDate()}`
+    : `${start.getUTCDate()} ${MONTH_LABELS[start.getUTCMonth()]}`;
+  const endLabel = `${end.getUTCDate()} ${MONTH_LABELS[end.getUTCMonth()]}`;
+  return `${startLabel} - ${endLabel}`;
+}
+
 const GRANULARITY_LABELS = {
   monthly: "Bulan",
   weekly: "Minggu",
@@ -140,7 +165,6 @@ const DANGER = "#ef4444";
 const PURPLE = "#a78bfa";
 
 const FUNNEL_COLORS = [PRIMARY, SUCCESS, WARNING, PURPLE];
-const STAR_COLORS = [DANGER, WARNING, WARNING, SUCCESS, SUCCESS];
 
 const FUNNEL_DESCRIPTIONS = {
   Registered:
@@ -154,16 +178,34 @@ const FUNNEL_DESCRIPTIONS = {
 };
 
 // Custom tooltip for charts
-function ChartTooltip({ active, payload, label, valueFormatter }) {
+function ChartTooltip({ active, payload, label, valueFormatter, labelFormatter }) {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-white border border-border rounded-lg shadow-lg px-3 py-2 text-xs">
-      <p className="font-semibold text-foreground mb-1">{label}</p>
+      <p className="font-semibold text-foreground mb-1">
+        {labelFormatter ? labelFormatter(label) : label}
+      </p>
       {payload.map((p) => (
         <p key={p.dataKey} style={{ color: p.color }}>
           {p.name}: {valueFormatter ? valueFormatter(p.value, p.name) : p.value}
         </p>
       ))}
+    </div>
+  );
+}
+
+// Tooltip for scan trend chart (stacked success/failed bars + failure rate line)
+function ScanTrendTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  const success = payload.find((p) => p.dataKey === "success")?.value ?? 0;
+  const failed = payload.find((p) => p.dataKey === "failed")?.value ?? 0;
+  const failureRate = payload.find((p) => p.dataKey === "failureRate")?.value ?? 0;
+  return (
+    <div className="bg-slate-900 border border-slate-700 rounded-lg shadow-lg px-3 py-2 text-xs">
+      <p className="font-semibold text-white mb-1.5">{periodLabel(label)}</p>
+      <p style={{ color: SUCCESS }}>Berhasil: {success}</p>
+      <p style={{ color: DANGER }}>Gagal: {failed}</p>
+      <p style={{ color: WARNING }}>Failure rate: {formatPct(failureRate)}</p>
     </div>
   );
 }
@@ -179,7 +221,7 @@ function FunnelBar({ stage, count, rate, color, maxCount, description }) {
           <UiTooltip content={description} />
         </span>
         <span className="text-muted-foreground">
-          {(count ?? 0).toLocaleString("id-ID")} pengguna ({rate}%)
+          {(count ?? 0).toLocaleString("id-ID")} pengguna ({formatPct(rate)})
         </span>
       </div>
       <div className="h-8 bg-muted rounded-full overflow-hidden">
@@ -187,7 +229,7 @@ function FunnelBar({ stage, count, rate, color, maxCount, description }) {
           className="h-full rounded-full flex items-center px-3 transition-all duration-700"
           style={{ width: `${width}%`, background: color }}
         >
-          <span className="text-white text-xs font-bold">{rate}%</span>
+          <span className="text-white text-xs font-bold">{formatPct(rate)}</span>
         </div>
       </div>
     </div>
@@ -207,8 +249,48 @@ const TABS = [
   { id: "overview", label: "Ringkasan" },
   { id: "features", label: "Fitur & Funnel" },
   { id: "revenue", label: "Pendapatan & Langganan" },
-  { id: "reviews", label: "Ulasan & Feedback" },
+  { id: "aiScan", label: "AI Scan" },
 ];
+
+const SCAN_KPI_DESCRIPTIONS = {
+  totalAttempts: "Total seluruh percobaan scan struk (berhasil + gagal) yang tercatat di ScanLog.",
+  successRate: "Persentase percobaan scan yang berhasil diproses dari seluruh percobaan.",
+  fallbackRate:
+    "Persentase scan berhasil yang TIDAK ditangani oleh provider utama (OpenRouter), melainkan jatuh ke fallback Groq/Gemini. Angka tinggi menandakan OpenRouter sering gagal/timeout.",
+  uniqueUsers: "Jumlah pengguna login unik yang pernah melakukan scan struk.",
+  uniqueGuestScans: "Jumlah alamat IP unik dari tamu (belum login) yang melakukan scan struk.",
+  overallFailureRate: "Persentase seluruh percobaan scan (sepanjang waktu) yang gagal diproses.",
+  last7dFailureRate: "Persentase percobaan scan yang gagal dalam 7 hari terakhir — indikator kesehatan sistem saat ini.",
+  last7dSuccessRate: "Persentase percobaan scan yang berhasil dalam 7 hari terakhir.",
+  retryRate:
+    "Dari percobaan scan yang gagal (30 hari terakhir), berapa persen yang diikuti percobaan scan lain oleh user/IP yang sama dalam <2 menit — sinyal user mencoba ulang setelah gagal.",
+};
+
+const SCAN_PROVIDER_COLORS = {
+  openrouter: PRIMARY,
+  groq: PURPLE,
+  gemini: WARNING,
+};
+
+const SCAN_PROVIDER_LABELS = {
+  openrouter: "OpenRouter",
+  groq: "Groq",
+  gemini: "Gemini",
+};
+
+const ERROR_CATEGORY_COLORS = {
+  quotaGemini: WARNING,
+  modelGroq: PURPLE,
+  openrouterNotSet: DANGER,
+  lainnya: "#94a3b8",
+};
+
+const ERROR_CATEGORY_LABELS = {
+  quotaGemini: "Kuota Gemini",
+  modelGroq: "Model Groq",
+  openrouterNotSet: "OpenRouter Belum Diset",
+  lainnya: "Lainnya",
+};
 
 export default function Insights() {
   usePageMeta(
@@ -279,7 +361,6 @@ export default function Insights() {
     userGrowth,
     activityTrend,
     featureAdoption,
-    reviews,
     topUsers = [],
     providers = [],
     splitBillStatuses = [],
@@ -288,7 +369,20 @@ export default function Insights() {
     peakDays = [],
     groupSizes = [],
     additionalSplitTypes = [],
+    aiScan = {},
   } = data || {};
+  const {
+    kpis: scanKpis = {},
+    providerStats: scanProviderStats = [],
+    trend: scanTrend = [],
+    errorBreakdown: scanErrorBreakdown = [],
+    errorCategoryTrend = [],
+    peakDays: scanPeakDays = [],
+    topScanUsers = [],
+    newScannerTrend = [],
+    incidentPeriod,
+    retryRateTrend = [],
+  } = aiScan;
   const funnelMax = funnel[0]?.count ?? 1;
 
   return (
@@ -360,7 +454,7 @@ export default function Insights() {
             />
             <StatCard
               title="Terverifikasi"
-              value={`${(kpis.verifiedUsers ?? 0).toLocaleString("id-ID")} (${kpis.verifiedRate}%)`}
+              value={`${(kpis.verifiedUsers ?? 0).toLocaleString("id-ID")} (${formatPct(kpis.verifiedRate)})`}
               icon={UserCheck}
               iconColor="text-success"
               iconBg="bg-success/10"
@@ -524,7 +618,7 @@ export default function Insights() {
                             </span>
                           </div>
                           <span className="text-muted-foreground font-bold">
-                            {entry.count} ({kpis.totalUsers > 0 ? Math.round((entry.count / kpis.totalUsers) * 100) : 0}%)
+                            {entry.count} ({formatPct(pctOf(entry.count, kpis.totalUsers))})
                           </span>
                         </div>
                       ))}
@@ -847,9 +941,8 @@ export default function Insights() {
       {/* ─────────────────────────────────────────── */}
       {activeTab === "features" && (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            {/* Marketing Funnel */}
-            <Card>
+          {/* Marketing Funnel */}
+          <Card>
               <CardHeader>
                 <SectionTitle>Marketing Funnel</SectionTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -872,7 +965,7 @@ export default function Insights() {
                   <div>
                     <p className="text-xs text-muted-foreground">Reg → Verified</p>
                     <p className="text-sm font-bold text-foreground">
-                      {funnel[1]?.rate ?? 0}%
+                      {formatPct(funnel[1]?.rate)}
                     </p>
                   </div>
                   <div>
@@ -880,10 +973,7 @@ export default function Insights() {
                       Verified → Activated
                     </p>
                     <p className="text-sm font-bold text-foreground">
-                      {funnel[1]?.count > 0
-                        ? Math.round((funnel[2]?.count / funnel[1]?.count) * 100)
-                        : 0}
-                      %
+                      {formatPct(pctOf(funnel[2]?.count, funnel[1]?.count))}
                     </p>
                   </div>
                   <div>
@@ -891,143 +981,12 @@ export default function Insights() {
                       Activated → Engaged
                     </p>
                     <p className="text-sm font-bold text-foreground">
-                      {funnel[2]?.count > 0
-                        ? Math.round((funnel[3]?.count / funnel[2]?.count) * 100)
-                        : 0}
-                      %
+                      {formatPct(pctOf(funnel[3]?.count, funnel[2]?.count))}
                     </p>
                   </div>
                 </div>
               </CardBody>
             </Card>
-
-            {/* AI Scan Adoption */}
-            <Card>
-              <CardHeader>
-                <SectionTitle>Adopsi Fitur AI Scan</SectionTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Seberapa banyak user yang menggunakan scan struk
-                </p>
-              </CardHeader>
-              <CardBody className="space-y-5">
-                {/* Adopted */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-1.5 font-semibold text-foreground">
-                      <Scan className="h-3.5 w-3.5 text-primary" />
-                      Sudah Pakai Scan
-                      <UiTooltip content={AI_ADOPTION_DESCRIPTIONS.scanAdopted} />
-                    </span>
-                    <span className="text-muted-foreground">
-                      {featureAdoption.scanAdopted} / {kpis.totalUsers} (
-                      {featureAdoption.scanAdoptionRate}%)
-                    </span>
-                  </div>
-                  <div className="h-3 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-700"
-                      style={{
-                        width: `${featureAdoption.scanAdoptionRate}%`,
-                        background: PRIMARY,
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Exhausted */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-1.5 font-semibold text-foreground">
-                      <Zap className="h-3.5 w-3.5 text-warning" />
-                      Kuota Habis (Power Users)
-                      <UiTooltip content={AI_ADOPTION_DESCRIPTIONS.scanExhausted} />
-                    </span>
-                    <span className="text-muted-foreground">
-                      {featureAdoption.scanExhausted} pengguna
-                    </span>
-                  </div>
-                  <div className="h-3 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-700"
-                      style={{
-                        width: `${kpis.totalUsers > 0 ? Math.round((featureAdoption.scanExhausted / kpis.totalUsers) * 100) : 0}%`,
-                        background: WARNING,
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Stats mini grid */}
-                <div className="pt-3 border-t border-border">
-                  <div className="grid grid-cols-2 gap-3 mb-3">
-                    <div className="bg-primary/5 rounded-lg p-4 flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <Scan className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1">
-                          <p className="text-xl font-black text-primary leading-none">
-                            {(featureAdoption?.totalScans ?? 0).toLocaleString(
-                              "id-ID",
-                            )}
-                          </p>
-                          <UiTooltip
-                            content={AI_ADOPTION_DESCRIPTIONS.totalScans}
-                          />
-                        </div>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">
-                          Total Scan Berhasil
-                        </p>
-                      </div>
-                    </div>
-                    <div className="bg-purple-500/5 rounded-lg p-4 flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-purple-500/10 flex items-center justify-center flex-shrink-0">
-                        <TrendingUp className="h-5 w-5 text-purple-500" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1">
-                          <p className="text-xl font-black text-purple-500 leading-none">
-                            {featureAdoption.avgScansPerUser ?? 0}
-                          </p>
-                          <UiTooltip content={AI_ADOPTION_DESCRIPTIONS.avgScans} />
-                        </div>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">
-                          Avg Scan / User
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 text-center">
-                    <div className="bg-muted/50 rounded-lg p-4">
-                      <div className="flex items-center justify-center gap-1">
-                        <p className="text-sm font-bold text-foreground">
-                          {featureAdoption.scanExhaustedAndSubscribed ?? 0}
-                        </p>
-                        <UiTooltip content={AI_ADOPTION_DESCRIPTIONS.conversion} />
-                      </div>
-                      <p className="text-[10px] text-muted-foreground uppercase">
-                        Konversi Sub
-                      </p>
-                    </div>
-                    <div className="bg-muted/50 rounded-lg p-4">
-                      <div className="flex items-center justify-center gap-1">
-                        <p className="text-sm font-bold text-foreground">
-                          {featureAdoption.powerUserConversionRate ?? 0}%
-                        </p>
-                        <UiTooltip
-                          content={AI_ADOPTION_DESCRIPTIONS.conversionRate}
-                        />
-                      </div>
-                      <p className="text-[10px] text-muted-foreground uppercase">
-                        Rate Konversi
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </CardBody>
-            </Card>
-          </div>
 
           {/* New Metrics Row */}
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -1067,7 +1026,7 @@ export default function Insights() {
                     const width = maxCount > 0 ? Math.max(6, (step.count / maxCount) * 100) : 0;
                     const prevCount = i > 0 ? steps[i - 1].count : step.count;
                     const dropOffCount = prevCount - step.count;
-                    const conversionRate = prevCount > 0 ? Math.round((step.count / prevCount) * 100) : 100;
+                    const conversionRate = prevCount > 0 ? pctOf(step.count, prevCount) : 100;
 
                     return (
                       <div key={step.label} className="space-y-1">
@@ -1093,7 +1052,7 @@ export default function Insights() {
                             </span>
                             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
                               style={{ background: step.color + "20", color: step.color }}>
-                              {i === 0 ? "100" : conversionRate}%
+                              {formatPct(i === 0 ? 100 : conversionRate)}
                             </span>
                           </span>
                         </div>
@@ -1117,11 +1076,11 @@ export default function Insights() {
                   const stepMap = Object.fromEntries(draftDropOff.map((d) => [d.step, d.count]));
                   const total = (stepMap["STEP_1"] ?? 0) + (stepMap["STEP_2"] ?? 0) + (stepMap["STEP_3"] ?? 0) + (stepMap["FINALIZED"] ?? 0);
                   const fin = stepMap["FINALIZED"] ?? 0;
-                  const rate = total > 0 ? Math.round((fin / total) * 100) : 0;
+                  const rate = pctOf(fin, total);
                   return (
                     <div className="pt-2 border-t border-border flex items-center justify-between text-xs">
                       <span className="text-muted-foreground">Tingkat Penyelesaian Keseluruhan</span>
-                      <span className="font-bold text-success">{rate}% ({fin.toLocaleString("id-ID")} selesai)</span>
+                      <span className="font-bold text-success">{formatPct(rate)} ({fin.toLocaleString("id-ID")} selesai)</span>
                     </div>
                   );
                 })()}
@@ -1220,7 +1179,7 @@ export default function Insights() {
                               </span>
                             </div>
                             <span className="text-muted-foreground font-bold">
-                              {entry.count} ({total > 0 ? Math.round((entry.count / total) * 100) : 0}%)
+                              {entry.count} ({formatPct(pctOf(entry.count, total))})
                             </span>
                           </div>
                         );
@@ -1296,7 +1255,7 @@ export default function Insights() {
                               </span>
                             </div>
                             <span className="text-muted-foreground font-bold">
-                              {entry.count} ({total > 0 ? Math.round((entry.count / total) * 100) : 0}%)
+                              {entry.count} ({formatPct(pctOf(entry.count, total))})
                             </span>
                           </div>
                         );
@@ -1368,7 +1327,7 @@ export default function Insights() {
                               </span>
                             </div>
                             <span className="text-muted-foreground font-bold">
-                              {entry.count} ({total > 0 ? Math.round((entry.count / total) * 100) : 0}%)
+                              {entry.count} ({formatPct(pctOf(entry.count, total))})
                             </span>
                           </div>
                         );
@@ -1387,141 +1346,575 @@ export default function Insights() {
       )}
 
       {/* ─────────────────────────────────────────── */}
-      {/* TAB: ULASAN & FEEDBACK                     */}
+      {/* TAB: AI SCAN                                */}
       {/* ─────────────────────────────────────────── */}
-      {activeTab === "reviews" && (
+      {activeTab === "aiScan" && (
         <div className="space-y-4">
-          {/* Review KPI summary */}
+          {/* KPI Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
             <StatCard
-              title="Total Ulasan"
-              value={(kpis.totalReviews ?? 0).toLocaleString("id-ID")}
-              icon={Star}
-              iconColor="text-warning"
-              iconBg="bg-warning/10"
-              tooltip="Total jumlah ulasan yang sudah diberikan oleh pengguna."
+              title="Total Percobaan Scan"
+              value={
+                <div className="flex items-baseline gap-1.5 flex-wrap">
+                  <span>{(scanKpis.totalAttempts ?? 0).toLocaleString("id-ID")}</span>
+                  <span className="text-[10px] font-bold text-success bg-success/10 px-1.5 py-0.5 rounded-full">
+                    {(scanKpis.successCount ?? 0).toLocaleString("id-ID")} berhasil
+                  </span>
+                  <span className="text-[10px] font-bold text-destructive bg-destructive/10 px-1.5 py-0.5 rounded-full">
+                    {(scanKpis.failedCount ?? 0).toLocaleString("id-ID")} gagal
+                  </span>
+                </div>
+              }
+              icon={Scan}
+              iconColor="text-primary"
+              iconBg="bg-primary/10"
+              tooltip={SCAN_KPI_DESCRIPTIONS.totalAttempts}
             />
             <StatCard
-              title="Rating Rata-rata"
-              value={`${kpis.avgRating} ⭐`}
-              icon={Star}
-              iconColor="text-warning"
-              iconBg="bg-warning/10"
-              tooltip={KPI_DESCRIPTIONS.avgRating}
-            />
-            <StatCard
-              title="Izin Kontak (Leads)"
-              value={`${reviews.contactPermissionCount} (${reviews.contactPermissionRate}%)`}
-              icon={UserCheck}
+              title="Tingkat Keberhasilan"
+              value={
+                <div className="flex items-baseline gap-1.5 flex-wrap">
+                  <span>{formatPct(scanKpis.successRate)}</span>
+                  <span className="text-[10px] font-normal text-muted-foreground">
+                    ({scanKpis.successCount ?? 0}/{scanKpis.totalAttempts ?? 0})
+                  </span>
+                  <span className="text-[10px] font-bold text-success bg-success/10 px-1.5 py-0.5 rounded-full">
+                    7 hari: {formatPct(scanKpis.last7dSuccessRate)} ({scanKpis.last7dSuccess ?? 0}/{scanKpis.last7dTotal ?? 0})
+                  </span>
+                </div>
+              }
+              icon={CheckCircle2}
               iconColor="text-success"
               iconBg="bg-success/10"
-              tooltip="Jumlah dan persentase pengguna yang memberikan izin untuk dihubungi terkait feedback mereka."
+              tooltip={`${SCAN_KPI_DESCRIPTIONS.successRate} ${SCAN_KPI_DESCRIPTIONS.last7dSuccessRate}`}
+            />
+            <StatCard
+              title="Failure Rate Keseluruhan"
+              value={
+                <div className="flex items-baseline gap-1.5 flex-wrap">
+                  <span>{formatPct(scanKpis.overallFailureRate)}</span>
+                  <span className="text-[10px] font-normal text-muted-foreground">
+                    ({scanKpis.failedCount ?? 0}/{scanKpis.totalAttempts ?? 0})
+                  </span>
+                  <span className="text-[10px] font-bold text-warning bg-warning/10 px-1.5 py-0.5 rounded-full">
+                    7 hari: {formatPct(scanKpis.last7dFailureRate)} ({scanKpis.last7dFailed ?? 0}/{scanKpis.last7dTotal ?? 0})
+                  </span>
+                </div>
+              }
+              icon={AlertTriangle}
+              iconColor="text-destructive"
+              iconBg="bg-destructive/10"
+              tooltip={`${SCAN_KPI_DESCRIPTIONS.overallFailureRate} ${SCAN_KPI_DESCRIPTIONS.last7dFailureRate}`}
+            />
+            <StatCard
+              title="User Unik Scan"
+              value={
+                <div className="flex items-baseline gap-1.5 flex-wrap">
+                  <span>{(scanKpis.uniqueUsers ?? 0).toLocaleString("id-ID")}</span>
+                  <span className="text-[10px] font-bold text-secondary-foreground bg-secondary px-1.5 py-0.5 rounded-full">
+                    {(scanKpis.uniqueGuestScans ?? 0).toLocaleString("id-ID")} guest (IP)
+                  </span>
+                </div>
+              }
+              icon={Users}
+              iconColor="text-purple-500"
+              iconBg="bg-purple-500/10"
+              tooltip={`${SCAN_KPI_DESCRIPTIONS.uniqueUsers} ${SCAN_KPI_DESCRIPTIONS.uniqueGuestScans}`}
+            />
+            <StatCard
+              title="Retry Rate (<2 menit)"
+              value={
+                <div className="flex items-baseline gap-2">
+                  <span>{formatPct(scanKpis.retryRate)}</span>
+                  <span className="text-[10px] font-normal text-muted-foreground">
+                    ({scanKpis.retriedCount ?? 0}/{scanKpis.retryEligibleCount ?? 0})
+                  </span>
+                </div>
+              }
+              icon={RefreshCw}
+              iconColor="text-purple-500"
+              iconBg="bg-purple-500/10"
+              tooltip={SCAN_KPI_DESCRIPTIONS.retryRate}
+            />
+            <StatCard
+              title="Fallback Rate"
+              value={formatPct(scanKpis.fallbackRate)}
+              icon={Shuffle}
+              iconColor="text-warning"
+              iconBg="bg-warning/10"
+              tooltip={SCAN_KPI_DESCRIPTIONS.fallbackRate}
             />
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            {/* Rating Distribution */}
-            <Card>
-              <CardHeader>
-                <SectionTitle>Distribusi Rating</SectionTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {kpis.totalReviews} ulasan · rata-rata {kpis.avgRating} bintang
-                </p>
-              </CardHeader>
-              <CardBody>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={reviews.ratingDistribution} barCategoryGap="30%">
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis
-                      dataKey="rating"
-                      tick={{ fontSize: 11 }}
-                      tickFormatter={(v) => `${"★".repeat(v)}`}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 11 }}
-                      allowDecimals={false}
-                      width={28}
-                    />
-                    <Tooltip
-                      content={
-                        <ChartTooltip valueFormatter={(v) => `${v} ulasan`} />
-                      }
-                    />
-                    <Bar dataKey="count" name="Ulasan" radius={[4, 4, 0, 0]}>
-                      {reviews.ratingDistribution.map((_, i) => (
-                        <Cell key={i} fill={STAR_COLORS[i]} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardBody>
-            </Card>
+          {/* Trend + Provider Health */}
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+            <div className="xl:col-span-2">
+              <Card>
+                <CardHeader className="flex items-start justify-between gap-3">
+                  <div>
+                    <SectionTitle>Tren Scan (Berhasil vs Gagal)</SectionTitle>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {GRANULARITY_DESCRIPTIONS[granularity]}
+                    </p>
+                  </div>
+                  <div className="flex bg-muted rounded-md p-0.5 flex-shrink-0">
+                    {["monthly", "weekly", "daily"].map((g) => (
+                      <button
+                        key={g}
+                        onClick={() => setGranularity(g)}
+                        className={`px-2.5 py-1 text-[10px] font-bold uppercase rounded-sm transition-colors ${
+                          granularity === g
+                            ? "bg-white text-primary shadow-sm"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {GRANULARITY_LABELS[g]}
+                      </button>
+                    ))}
+                  </div>
+                </CardHeader>
+                <CardBody>
+                  <ResponsiveContainer width="100%" height={260}>
+                    <ComposedChart
+                      data={scanTrend.map((d) => ({
+                        ...d,
+                        failureRate: pctOf(d.failed, d.success + d.failed),
+                      }))}
+                      barCategoryGap="25%"
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                      <XAxis
+                        dataKey="period"
+                        tick={{ fontSize: 11 }}
+                        tickFormatter={periodLabel}
+                      />
+                      <YAxis
+                        yAxisId="left"
+                        tick={{ fontSize: 11 }}
+                        allowDecimals={false}
+                        width={28}
+                      />
+                      <YAxis
+                        yAxisId="right"
+                        orientation="right"
+                        domain={[0, 100]}
+                        tick={{ fontSize: 11 }}
+                        tickFormatter={(v) => `${v}%`}
+                        width={36}
+                      />
+                      <Tooltip content={<ScanTrendTooltip />} />
+                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      <Bar
+                        yAxisId="left"
+                        dataKey="success"
+                        name="Berhasil"
+                        stackId="scan"
+                        fill={SUCCESS}
+                        radius={[0, 0, 0, 0]}
+                      />
+                      <Bar
+                        yAxisId="left"
+                        dataKey="failed"
+                        name="Gagal"
+                        stackId="scan"
+                        fill={DANGER}
+                        radius={[4, 4, 0, 0]}
+                      />
+                      <Line
+                        yAxisId="right"
+                        type="monotone"
+                        dataKey="failureRate"
+                        name="Failure Rate"
+                        stroke={WARNING}
+                        strokeWidth={2.5}
+                        dot={{ r: 4, fill: WARNING }}
+                        activeDot={{ r: 6 }}
+                      />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </CardBody>
+              </Card>
+            </div>
 
-            {/* Contact Permission Breakdown */}
+            {/* Provider Health */}
             <Card>
               <CardHeader>
-                <SectionTitle>Breakdown Izin Kontak</SectionTitle>
+                <SectionTitle>Kesehatan Provider</SectionTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Perbandingan pengguna yang bersedia dihubungi
+                  OpenRouter (utama) → Groq → Gemini (fallback)
                 </p>
               </CardHeader>
-              <CardBody className="flex flex-col items-center justify-center gap-4">
-                {kpis.totalReviews > 0 ? (
-                  <>
-                    <div className="w-full h-[160px] max-w-[200px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={[
-                              { label: "Bersedia", value: reviews.contactPermissionCount },
-                              { label: "Tidak", value: Math.max(0, kpis.totalReviews - reviews.contactPermissionCount) },
-                            ]}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={50}
-                            outerRadius={70}
-                            paddingAngle={0}
-                            dataKey="value"
-                            nameKey="label"
-                          >
-                            <Cell fill={SUCCESS} />
-                            <Cell fill={DANGER} />
-                          </Pie>
-                          <Tooltip
-                            content={
-                              <ChartTooltip valueFormatter={(v) => `${v} pengguna`} />
-                            }
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="flex flex-col gap-2 w-full text-xs">
-                      <div className="flex items-center justify-between border-b border-border/50 pb-1.5">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: SUCCESS }} />
-                          <span className="font-medium text-foreground">Bersedia dihubungi</span>
-                        </div>
-                        <span className="text-muted-foreground font-bold">
-                          {reviews.contactPermissionCount} ({reviews.contactPermissionRate}%)
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: DANGER }} />
-                          <span className="font-medium text-foreground">Tidak bersedia</span>
-                        </div>
-                        <span className="text-muted-foreground font-bold">
-                          {Math.max(0, kpis.totalReviews - reviews.contactPermissionCount)} ({Math.max(0, 100 - reviews.contactPermissionRate)}%)
-                        </span>
-                      </div>
-                    </div>
-                  </>
+              <CardBody className="space-y-3">
+                {scanProviderStats.every((p) => p.total === 0) ? (
+                  <p className="text-xs text-muted-foreground italic text-center py-8">
+                    Belum ada data
+                  </p>
                 ) : (
-                  <p className="text-xs text-muted-foreground italic text-center py-8">Belum ada ulasan</p>
+                  scanProviderStats.map((p) => {
+                    const rate = pctOf(p.success, p.total);
+                    return (
+                      <div key={p.provider} className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-semibold text-foreground">
+                            {SCAN_PROVIDER_LABELS[p.provider]}
+                          </span>
+                          <span className="text-muted-foreground">
+                            {p.success}/{p.total} berhasil ({formatPct(rate)})
+                          </span>
+                        </div>
+                        <div className="h-3 bg-muted rounded-full overflow-hidden flex">
+                          <div
+                            className="h-full transition-all duration-700"
+                            style={{
+                              width: `${p.total > 0 ? (p.success / p.total) * 100 : 0}%`,
+                              background: SCAN_PROVIDER_COLORS[p.provider],
+                            }}
+                          />
+                          <div
+                            className="h-full bg-destructive/40 transition-all duration-700"
+                            style={{
+                              width: `${p.total > 0 ? (p.failed / p.total) * 100 : 0}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })
                 )}
               </CardBody>
             </Card>
           </div>
+
+          {/* Error Category Per Day */}
+          <Card>
+            <CardHeader>
+              <SectionTitle>Penyebab Kegagalan per Hari</SectionTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Kategori error scan gagal, 30 hari terakhir
+              </p>
+            </CardHeader>
+            <CardBody>
+              {errorCategoryTrend.every(
+                (d) => d.quotaGemini + d.modelGroq + d.openrouterNotSet + d.lainnya === 0
+              ) ? (
+                <p className="text-xs text-muted-foreground italic text-center py-8">
+                  Tidak ada kegagalan tercatat dalam 30 hari terakhir 🎉
+                </p>
+              ) : (
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart data={errorCategoryTrend} barCategoryGap="20%">
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 10 }}
+                      tickFormatter={periodLabel}
+                      interval={Math.max(0, Math.floor(errorCategoryTrend.length / 10) - 1)}
+                    />
+                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} width={28} />
+                    <Tooltip
+                      content={<ChartTooltip valueFormatter={(v) => `${v} kegagalan`} />}
+                      labelFormatter={periodLabel}
+                    />
+                    <Legend
+                      wrapperStyle={{ fontSize: 11 }}
+                      formatter={(value) => ERROR_CATEGORY_LABELS[value] || value}
+                    />
+                    {["openrouterNotSet", "modelGroq", "quotaGemini", "lainnya"].map((cat) => (
+                      <Bar
+                        key={cat}
+                        dataKey={cat}
+                        name={cat}
+                        stackId="errors"
+                        fill={ERROR_CATEGORY_COLORS[cat]}
+                        radius={cat === "lainnya" ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+                      />
+                    ))}
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardBody>
+          </Card>
+
+          {/* Retry Rate Trend */}
+          <Card>
+            <CardHeader>
+              <SectionTitle>Retry per Hari</SectionTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Scan ulang dari IP/user sama dalam &lt;2 menit setelah gagal, 30 hari terakhir
+              </p>
+            </CardHeader>
+            <CardBody>
+              {retryRateTrend.every((d) => d.totalFailed === 0) ? (
+                <p className="text-xs text-muted-foreground italic text-center py-8">
+                  Tidak ada kegagalan tercatat dalam 30 hari terakhir 🎉
+                </p>
+              ) : (
+                <ResponsiveContainer width="100%" height={240}>
+                  <LineChart data={retryRateTrend}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 10 }}
+                      tickFormatter={periodLabel}
+                      interval={Math.max(0, Math.floor(retryRateTrend.length / 10) - 1)}
+                    />
+                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} width={28} />
+                    <Tooltip
+                      content={<ChartTooltip valueFormatter={(v) => `${v} scan`} />}
+                      labelFormatter={periodLabel}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="retried"
+                      name="Retry"
+                      stroke={PURPLE}
+                      strokeWidth={2.5}
+                      dot={{ r: 3, fill: PURPLE }}
+                      activeDot={{ r: 6 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </CardBody>
+          </Card>
+
+          {/* New Scanner Adoption Trend + Peak Days */}
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+            {/* AI Scan Adoption */}
+            <Card>
+              <CardHeader>
+                <SectionTitle>Adopsi Fitur AI Scan</SectionTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Seberapa banyak user yang menggunakan scan struk
+                </p>
+              </CardHeader>
+              <CardBody className="space-y-5">
+                {/* Adopted */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1.5 font-semibold text-foreground">
+                      <Scan className="h-3.5 w-3.5 text-primary" />
+                      Sudah Pakai Scan
+                      <UiTooltip content={AI_ADOPTION_DESCRIPTIONS.scanAdopted} />
+                    </span>
+                    <span className="text-muted-foreground">
+                      {featureAdoption.scanAdopted} / {kpis.totalUsers} (
+                      {formatPct(featureAdoption.scanAdoptionRate)})
+                    </span>
+                  </div>
+                  <div className="h-3 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-700"
+                      style={{
+                        width: `${featureAdoption.scanAdoptionRate ?? 0}%`,
+                        background: PRIMARY,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Exhausted */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1.5 font-semibold text-foreground">
+                      <Zap className="h-3.5 w-3.5 text-warning" />
+                      Kuota Habis (Power Users)
+                      <UiTooltip content={AI_ADOPTION_DESCRIPTIONS.scanExhausted} />
+                    </span>
+                    <span className="text-muted-foreground">
+                      {featureAdoption.scanExhausted} pengguna
+                    </span>
+                  </div>
+                  <div className="h-3 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-700"
+                      style={{
+                        width: `${pctOf(featureAdoption.scanExhausted, kpis.totalUsers)}%`,
+                        background: WARNING,
+                      }}
+                    />
+                  </div>
+                </div>
+              </CardBody>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <SectionTitle>User Baru per Minggu (Adopsi Scan)</SectionTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Jumlah pengguna yang melakukan percobaan scan struk pertama kalinya, per minggu (12 minggu terakhir)
+                </p>
+              </CardHeader>
+              <CardBody>
+                {newScannerTrend.every((d) => d.count === 0) ? (
+                  <p className="text-xs text-muted-foreground italic text-center py-8">
+                    Belum ada data
+                  </p>
+                ) : (() => {
+                  const weekLabelByPeriod = Object.fromEntries(
+                    newScannerTrend.map((d) => [d.period, weekRangeLabel(d.weekStart)])
+                  );
+                  return (
+                  <ResponsiveContainer width="100%" height={240}>
+                    <BarChart data={newScannerTrend} barCategoryGap="35%">
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                      <XAxis
+                        dataKey="period"
+                        tick={{ fontSize: 10 }}
+                        tickFormatter={(period) => weekLabelByPeriod[period] || periodLabel(period)}
+                      />
+                      <YAxis tick={{ fontSize: 11 }} allowDecimals={false} width={28} />
+                      <Tooltip
+                        content={
+                          <ChartTooltip
+                            valueFormatter={(v) => `${v} adopter baru`}
+                            labelFormatter={(period) => weekLabelByPeriod[period] || periodLabel(period)}
+                          />
+                        }
+                      />
+                      <Bar dataKey="count" name="Adopter Baru" fill={PRIMARY} radius={[4, 4, 0, 0]} />
+                      {incidentPeriod && (
+                        <ReferenceLine
+                          x={incidentPeriod}
+                          stroke={DANGER}
+                          strokeDasharray="4 4"
+                          strokeWidth={1.5}
+                          label={{
+                            value: "Insiden Groq (18 Jul)",
+                            position: "top",
+                            fill: DANGER,
+                            fontSize: 10,
+                            fontWeight: 700,
+                          }}
+                        />
+                      )}
+                    </BarChart>
+                  </ResponsiveContainer>
+                  );
+                })()}
+              </CardBody>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <SectionTitle>Hari Teraktif Scan</SectionTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Jumlah percobaan scan per hari dalam seminggu
+                </p>
+              </CardHeader>
+              <CardBody>
+                {scanPeakDays.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic text-center py-8">
+                    Belum ada data
+                  </p>
+                ) : (
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={scanPeakDays} barCategoryGap="35%">
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                      <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} allowDecimals={false} width={28} />
+                      <Tooltip content={<ChartTooltip valueFormatter={(v) => `${v} scan`} />} />
+                      <Bar dataKey="count" name="Jumlah" fill={PRIMARY} radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </CardBody>
+            </Card>
+          </div>
+
+          {/* Top Scanning Users */}
+          <Card>
+            <CardHeader className="flex items-center justify-between gap-2">
+              <div>
+                <SectionTitle>Top Pengguna Scan</SectionTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  10 pengguna dengan jumlah scan struk terbanyak
+                </p>
+              </div>
+              <Scan className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            </CardHeader>
+            <CardBody className="p-0 overflow-y-auto max-h-[280px]" style={{ scrollbarWidth: "thin" }}>
+              {topScanUsers.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  Belum ada data
+                </p>
+              ) : (
+                <ol className="divide-y divide-border">
+                  {topScanUsers.map((u, i) => (
+                    <li
+                      key={u.userId}
+                      className="flex items-center gap-3 px-5 py-3"
+                    >
+                      <span
+                        className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 ${
+                          i === 0
+                            ? "bg-warning text-white"
+                            : i === 1
+                              ? "bg-slate-400 text-white"
+                              : i === 2
+                                ? "bg-amber-600 text-white"
+                                : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {i + 1}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <button
+                          onClick={() => navigate(`/users/${u.userId}`)}
+                          className="text-sm font-semibold text-foreground hover:text-primary hover:underline underline-offset-2 transition-colors truncate block text-left w-full"
+                        >
+                          {u.name || "Unknown User"}
+                        </button>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {u.email || ""}
+                        </p>
+                      </div>
+                      <span className="flex-shrink-0 inline-flex items-center gap-1 text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                        <Scan className="h-3 w-3" />
+                        {u.count || 0}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </CardBody>
+          </Card>
+
+          {/* Error Breakdown */}
+          <Card>
+            <CardHeader>
+              <SectionTitle>Penyebab Kegagalan Scan Terbanyak</SectionTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Pesan error yang paling sering muncul (semua provider)
+              </p>
+            </CardHeader>
+            <CardBody className="p-0 overflow-y-auto max-h-[260px]" style={{ scrollbarWidth: "thin" }}>
+              {scanErrorBreakdown.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  Tidak ada kegagalan tercatat 🎉
+                </p>
+              ) : (
+                <ol className="divide-y divide-border">
+                  {scanErrorBreakdown.map((e, i) => (
+                    <li
+                      key={`${e.message}-${i}`}
+                      className="flex items-start gap-3 px-5 py-3"
+                    >
+                      <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 bg-destructive/10 text-destructive">
+                        {i + 1}
+                      </span>
+                      <p className="flex-1 min-w-0 text-xs text-foreground break-words">
+                        {e.message}
+                      </p>
+                      <span className="flex-shrink-0 text-xs font-bold text-destructive bg-destructive/10 px-2 py-0.5 rounded-full">
+                        {e.count}x
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </CardBody>
+          </Card>
         </div>
       )}
     </div>

@@ -235,6 +235,16 @@ export async function handler(event, context) {
         const { handleSplitBillAdjacent } = await import("../../api/split-bills/[recordId].js");
         return handleSplitBillAdjacent(event, subresource, context);
       }
+      // POST /api/split-bills/:recordId/images — upload receipt photo(s)
+      if (subresource && subresource !== "drafts" && rest.length === 1 && rest[0] === "images") {
+        const { handleUploadReceiptImages } = await import("../../api/split-bills/images.js");
+        return handleUploadReceiptImages(event, subresource, context);
+      }
+      // GET /api/split-bills/:recordId/images/:imageId — stream a receipt photo
+      if (subresource && subresource !== "drafts" && rest.length === 2 && rest[0] === "images") {
+        const { handleGetReceiptImage } = await import("../../api/split-bills/images.js");
+        return handleGetReceiptImage(event, subresource, rest[1], context);
+      }
     }
 
     if (resource === "payment") {

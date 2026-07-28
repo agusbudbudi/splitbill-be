@@ -18,7 +18,7 @@ const GOOGLE_API_URL =
 const PROMPT =
   `Extract all data from this receipt/bill image as JSON with these fields: ` +
   `merchant_name, date(YYYY-MM-DD), time(HH:MM), ` +
-  `items[{name,quantity,price,total}], ` +
+  `items[{name,quantity,price,total}] (price=total=the line amount printed on receipt for that quantity, NOT divided per unit), ` +
   `subtotal, tax, service_charge, discount, total_amount, payment_method, receipt_number, ` +
   `additional_charges[{label,amount}] (any other fee/charge/rounding line not already covered by tax, service_charge or discount, e.g. "pembulatan", "biaya parkir", "PB1" — do not duplicate tax/service_charge/discount here). ` +
   `Use null for any missing field. Numbers as strings.`;

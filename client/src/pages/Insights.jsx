@@ -158,6 +158,12 @@ const GRANULARITY_DESCRIPTIONS = {
   daily: "Registrasi baru per hari (30 hari terakhir)",
 };
 
+const SCAN_GRANULARITY_DESCRIPTIONS = {
+  monthly: "Scan berhasil vs gagal per bulan (6 bulan terakhir)",
+  weekly: "Scan berhasil vs gagal per minggu (12 minggu terakhir)",
+  daily: "Scan berhasil vs gagal per hari (30 hari terakhir)",
+};
+
 const PRIMARY = "#479fea";
 const SUCCESS = "#22c55e";
 const WARNING = "#f59e0b";
@@ -256,7 +262,7 @@ const SCAN_KPI_DESCRIPTIONS = {
   totalAttempts: "Total seluruh percobaan scan struk (berhasil + gagal) yang tercatat di ScanLog.",
   successRate: "Persentase percobaan scan yang berhasil diproses dari seluruh percobaan.",
   fallbackRate:
-    "Persentase scan berhasil yang TIDAK ditangani oleh provider utama (OpenRouter), melainkan jatuh ke fallback Groq/Gemini. Angka tinggi menandakan OpenRouter sering gagal/timeout.",
+    "Persentase scan berhasil yang jatuh ke Gemini karena OpenRouter dan Groq (diadu paralel sebagai provider utama) sama-sama gagal/timeout.",
   uniqueUsers: "Jumlah pengguna login unik yang pernah melakukan scan struk.",
   uniqueGuestScans: "Jumlah alamat IP unik dari tamu (belum login) yang melakukan scan struk.",
   overallFailureRate: "Persentase seluruh percobaan scan (sepanjang waktu) yang gagal diproses.",
@@ -303,6 +309,7 @@ export default function Insights() {
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [granularity, setGranularity] = useState("monthly");
+  const [scanGranularity, setScanGranularity] = useState("daily");
   const [activeTab, setActiveTab] = useState("overview");
 
   const fetchInsights = useCallback(
@@ -311,7 +318,9 @@ export default function Insights() {
       else setLoading(true);
       setError("");
       try {
-        const res = await apiFetch(`/api/insights?granularity=${granularity}`);
+        const res = await apiFetch(
+          `/api/insights?granularity=${granularity}&scanGranularity=${scanGranularity}`,
+        );
         const json = await res.json();
         if (json.success) {
           setData(json.data);
@@ -325,7 +334,7 @@ export default function Insights() {
         setRefreshing(false);
       }
     },
-    [granularity],
+    [granularity, scanGranularity],
   );
 
   useEffect(() => {
@@ -1454,16 +1463,16 @@ export default function Insights() {
                   <div>
                     <SectionTitle>Tren Scan (Berhasil vs Gagal)</SectionTitle>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {GRANULARITY_DESCRIPTIONS[granularity]}
+                      {SCAN_GRANULARITY_DESCRIPTIONS[scanGranularity]}
                     </p>
                   </div>
                   <div className="flex bg-muted rounded-md p-0.5 flex-shrink-0">
                     {["monthly", "weekly", "daily"].map((g) => (
                       <button
                         key={g}
-                        onClick={() => setGranularity(g)}
+                        onClick={() => setScanGranularity(g)}
                         className={`px-2.5 py-1 text-[10px] font-bold uppercase rounded-sm transition-colors ${
-                          granularity === g
+                          scanGranularity === g
                             ? "bg-white text-primary shadow-sm"
                             : "text-muted-foreground hover:text-foreground"
                         }`}
@@ -1541,7 +1550,7 @@ export default function Insights() {
               <CardHeader>
                 <SectionTitle>Kesehatan Provider</SectionTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  OpenRouter (utama) → Groq → Gemini (fallback)
+                  OpenRouter & Groq (race, utama) → Gemini (fallback)
                 </p>
               </CardHeader>
               <CardBody className="space-y-3">

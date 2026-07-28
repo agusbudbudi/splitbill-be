@@ -1,3 +1,5 @@
+import { mapReceiptImages } from "../images.js";
+
 /**
  * Shared utilities for the split-bills draft API.
  */
@@ -35,6 +37,7 @@ export function mapDraft(record) {
     paymentMethodIds: doc.paymentMethodIds || [],
     paymentMethodSnapshots: doc.paymentMethodSnapshots || [],
     summary: doc.summary ?? null,
+    receiptImages: mapReceiptImages(record._id.toString(), doc.receiptImages),
     createdAt:
       record.createdAt instanceof Date
         ? record.createdAt.toISOString()

@@ -12,6 +12,7 @@
     "packageJson": {
       "dependencies": [
         "npm:@google/generative-ai@~0.24.1",
+        "npm:@netlify/blobs@^8.1.0",
         "npm:@netlify/functions@^5.1.0",
         "npm:bcryptjs@^2.4.3",
         "npm:cors@^2.8.5",
@@ -21,6 +22,7 @@
         "npm:netlify-cli@^26.0.1",
         "npm:node-fetch@^3.3.2",
         "npm:resend@^4.1.2",
+        "npm:sharp@~0.33.5",
         "npm:vercel@^53.1.1"
       ]
     }

@@ -20,6 +20,7 @@ export async function handleInsights(event) {
   const headers = createCorsHeaders(event);
   const url = new URL(event.url || `http://localhost${event.path || ""}`);
   const granularity = url.searchParams.get("granularity") || "monthly";
+  const scanGranularity = url.searchParams.get("scanGranularity") || "daily";
 
   if (event.httpMethod === "OPTIONS") {
     return noContentResponse(headers);
@@ -92,9 +93,9 @@ export async function handleInsights(event) {
       return Math.floor((jakartaDate - firstSunday) / (7 * 24 * 60 * 60 * 1000)) + 1;
     };
 
-    const buildUserGrowthPeriods = () => {
+    const buildPeriods = (gran) => {
       const periods = [];
-      if (granularity === "daily") {
+      if (gran === "daily") {
         for (let i = 29; i >= 0; i--) {
           const d = new Date(Date.UTC(
             nowJakarta.getUTCFullYear(),
@@ -105,7 +106,7 @@ export async function handleInsights(event) {
             `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`,
           );
         }
-      } else if (granularity === "weekly") {
+      } else if (gran === "weekly") {
         // Start of current Jakarta-week (Sunday)
         const sundayJkt = new Date(nowJakarta);
         sundayJkt.setUTCDate(sundayJkt.getUTCDate() - sundayJkt.getUTCDay());
@@ -534,14 +535,14 @@ export async function handleInsights(event) {
         },
       ]),
 
-      // 28.3 AI Scan: success/failed trend per granularity (Jakarta TZ)
+      // 28.3 AI Scan: success/failed trend per scanGranularity (Jakarta TZ)
       ScanLog.aggregate([
         {
           $match: {
             createdAt: {
-              $gte: granularity === "daily"
+              $gte: scanGranularity === "daily"
                 ? new Date(now - 31 * 24 * 60 * 60 * 1000)
-                : granularity === "weekly"
+                : scanGranularity === "weekly"
                   ? new Date(now - 13 * 7 * 24 * 60 * 60 * 1000)
                   : startOfSixMonthsAgoJkt,
             },
@@ -550,13 +551,13 @@ export async function handleInsights(event) {
         {
           $group: {
             _id: {
-              ...(granularity === "daily"
+              ...(scanGranularity === "daily"
                 ? {
                     year: { $year: { date: "$createdAt", timezone: TIMEZONE } },
                     month: { $month: { date: "$createdAt", timezone: TIMEZONE } },
                     day: { $dayOfMonth: { date: "$createdAt", timezone: TIMEZONE } },
                   }
-                : granularity === "weekly"
+                : scanGranularity === "weekly"
                   ? {
                       year: { $year: { date: "$createdAt", timezone: TIMEZONE } },
                       week: { $week: { date: "$createdAt", timezone: TIMEZONE } },
@@ -744,7 +745,8 @@ export async function handleInsights(event) {
         ])
     );
 
-    const userGrowthPeriods = buildUserGrowthPeriods();
+    const userGrowthPeriods = buildPeriods(granularity);
+    const scanTrendPeriods = buildPeriods(scanGranularity);
     const userGrowth = userGrowthPeriods.map((period) => ({
       period,
       count: userGrowthMap[period] ?? 0,
@@ -806,15 +808,15 @@ export async function handleInsights(event) {
         (scanProviderMap[provider]?.failed ?? 0),
     }));
 
-    // Normalize AI scan trend (success/failed per period, reusing userGrowthPeriods)
+    // Normalize AI scan trend (success/failed per period, per scanGranularity)
     const scanTrendMap = {};
     scanTrendRaw
       .filter((item) => item._id && item._id.year != null)
       .forEach(({ _id, count }) => {
         let key;
-        if (granularity === "daily") {
+        if (scanGranularity === "daily") {
           key = `${_id.year}-${String(_id.month).padStart(2, "0")}-${String(_id.day).padStart(2, "0")}`;
-        } else if (granularity === "weekly") {
+        } else if (scanGranularity === "weekly") {
           key = `${_id.year}-W${String(_id.week).padStart(2, "0")}`;
         } else {
           key = `${_id.year}-${String(_id.month).padStart(2, "0")}`;
@@ -822,7 +824,7 @@ export async function handleInsights(event) {
         if (!scanTrendMap[key]) scanTrendMap[key] = { success: 0, failed: 0 };
         scanTrendMap[key][_id.status] = count;
       });
-    const scanTrend = userGrowthPeriods.map((period) => ({
+    const scanTrend = scanTrendPeriods.map((period) => ({
       period,
       success: scanTrendMap[period]?.success ?? 0,
       failed: scanTrendMap[period]?.failed ?? 0,
@@ -843,9 +845,9 @@ export async function handleInsights(event) {
       count: scanPeakDaysMap[dayNum] ?? 0,
     }));
 
-    // Fallback rate: % of successful scans NOT handled by the primary provider (openrouter)
-    const scanNonPrimarySuccess =
-      (scanProviderMap.groq?.success ?? 0) + (scanProviderMap.gemini?.success ?? 0);
+    // Fallback rate: % of successful scans that had to fall back to Gemini
+    // (OpenRouter + Groq are raced in parallel as co-primary; Gemini is the true last-resort fallback)
+    const scanNonPrimarySuccess = scanProviderMap.gemini?.success ?? 0;
     const scanFallbackRate =
       scanSuccessCount > 0
         ? pct(scanNonPrimarySuccess, scanSuccessCount)

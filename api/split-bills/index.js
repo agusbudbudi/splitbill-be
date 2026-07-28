@@ -11,6 +11,7 @@ import {
 } from "../../lib/http.js";
 import { parseJsonBody } from "../../lib/parsers.js";
 import { HttpError, toHttpError } from "../../lib/errors.js";
+import { mapReceiptImages } from "./images.js";
 export { mapDraft } from "./drafts/utils.js";
 
 export function mapRecord(record) {
@@ -49,6 +50,7 @@ export function mapRecord(record) {
     paymentMethodIds: doc.paymentMethodIds || [],
     paymentMethodSnapshots: doc.paymentMethodSnapshots || [],
     summary: doc.summary,
+    receiptImages: mapReceiptImages(record._id.toString(), doc.receiptImages),
     status: doc.status,
     last_step: doc.last_step,
     createdAt:

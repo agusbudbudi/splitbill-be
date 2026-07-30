@@ -91,35 +91,35 @@ export async function handleAuthRegister(event) {
       verificationTokenExpires,
     });
 
-    // Perform atomic user creation and draft association (Non-blocking)
+    // User creation must succeed for registration to succeed. Draft
+    // association is a nice-to-have and stays non-blocking on its own.
     let draftAssociated = false;
-    const session = await mongoose.startSession();
-    try {
-      await session.withTransaction(async () => {
-        await user.save({ session });
+    if (draftId) {
+      const session = await mongoose.startSession();
+      try {
+        await session.withTransaction(async () => {
+          await user.save({ session });
 
-        // Auto-associate guest draft with the newly registered user (AC-04)
-        if (draftId) {
+          // Auto-associate guest draft with the newly registered user (AC-04)
           const SplitBillRecord = (await import("../../lib/models/SplitBillRecord.js")).default;
           const result = await SplitBillRecord.findOneAndUpdate(
             { _id: draftId, user: null, status: "editable" },
             { $set: { user: user._id } },
             { session }
           );
-          
+
           if (result) {
             draftAssociated = true;
             console.log("Draft successfully associated with user during registration");
           } else {
             console.warn("Draft association skipped: not found or already owned");
           }
-        }
-      });
-    } catch (txErr) {
-      console.error("Transaction failed during registration draft association:", txErr);
-      // Non-blocking: continue register success even if association fails
-    } finally {
-      await session.endSession();
+        });
+      } finally {
+        await session.endSession();
+      }
+    } else {
+      await user.save();
     }
 
     // Send verification email

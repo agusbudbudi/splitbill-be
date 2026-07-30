@@ -60,19 +60,25 @@ export function Td({ className, children, ...props }) {
   );
 }
 
-export function TableSkeleton({ cols = 4, rows = 5 }) {
+export function TableSkeleton({ cols = 4, rows = 5, squareCols = [] }) {
   return (
     <tbody className="divide-y divide-border bg-white">
       {Array.from({ length: rows }).map((_, i) => (
         <tr key={i}>
-          {Array.from({ length: cols }).map((_, j) => (
-            <td key={j} className="px-5 py-4">
-              <div
-                className="h-4 bg-muted rounded-lg animate-pulse"
-                style={{ width: `${50 + ((i * cols + j) * 17) % 40}%` }}
-              />
-            </td>
-          ))}
+          {Array.from({ length: cols }).map((_, j) =>
+            squareCols.includes(j) ? (
+              <td key={j} className="px-5 py-4">
+                <div className="h-7 w-7 bg-muted rounded-xs animate-pulse" />
+              </td>
+            ) : (
+              <td key={j} className="px-5 py-4">
+                <div
+                  className="h-4 bg-muted rounded-lg animate-pulse"
+                  style={{ width: `${50 + ((i * cols + j) * 17) % 40}%` }}
+                />
+              </td>
+            )
+          )}
         </tr>
       ))}
     </tbody>

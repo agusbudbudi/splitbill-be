@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { usePageMeta } from "../lib/usePageMeta";
-import { Receipt, Calendar, Users, ChevronRight, X } from "lucide-react";
+import { Receipt, Calendar, Users, ChevronRight, ChevronLeft, X, ImageOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   Card, CardHeader,
@@ -41,6 +41,30 @@ export default function SplitBills() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  const [lightbox, setLightbox] = useState(null); // { images, index }
+  const [brokenImages, setBrokenImages] = useState({});
+
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") setLightbox(null);
+      if (e.key === "ArrowRight") {
+        setLightbox((lb) => ({ ...lb, index: (lb.index + 1) % lb.images.length }));
+      }
+      if (e.key === "ArrowLeft") {
+        setLightbox((lb) => ({
+          ...lb,
+          index: (lb.index - 1 + lb.images.length) % lb.images.length,
+        }));
+      }
+    };
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = "";
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [lightbox]);
 
   // Debounce search
   useEffect(() => {
@@ -87,7 +111,7 @@ export default function SplitBills() {
     fetchSplitBills(currentPage, debouncedSearch, statusFilter, startDate, endDate);
   }, [currentPage, debouncedSearch, statusFilter, startDate, endDate, fetchSplitBills]);
 
-  const colSpan = user.isAdmin ? 8 : 7;
+  const colSpan = user.isAdmin ? 9 : 8;
   const hasActiveFilters = statusFilter !== "all" || startDate || endDate;
 
   const clearFilters = () => {
@@ -173,6 +197,7 @@ export default function SplitBills() {
               <Th>Aktivitas</Th>
               <Th>Tanggal</Th>
               <Th>Peserta</Th>
+              <Th>Struk</Th>
               {user.isAdmin && <Th>Pemilik</Th>}
               <Th>Status</Th>
               <Th>Total Tagihan</Th>
@@ -182,7 +207,7 @@ export default function SplitBills() {
           </Thead>
 
           {loading ? (
-            <TableSkeleton cols={colSpan} rows={8} />
+            <TableSkeleton cols={colSpan} rows={8} squareCols={[3]} />
           ) : error ? (
             <Tbody>
               <Tr className="hover:bg-transparent">
@@ -237,6 +262,41 @@ export default function SplitBills() {
                       {(record.participants || []).length} Orang
                     </div>
                   </Td>
+                  <Td>
+                    {(record.receiptImages || []).length === 0 ? (
+                      <span className="text-xs text-muted-foreground">-</span>
+                    ) : brokenImages[record.receiptImages[0].id] ? (
+                      <div className="h-7 w-7 rounded-xs border border-dashed border-border flex items-center justify-center bg-muted/40 text-muted-foreground">
+                        <ImageOff className="h-3 w-3" />
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() =>
+                          setLightbox({ images: record.receiptImages, index: 0 })
+                        }
+                        className="group relative h-7 w-7 rounded-xs border border-border overflow-hidden bg-muted"
+                        title="Lihat foto struk"
+                      >
+                        <img
+                          src={record.receiptImages[0].url}
+                          alt="Struk"
+                          loading="lazy"
+                          onError={() =>
+                            setBrokenImages((prev) => ({
+                              ...prev,
+                              [record.receiptImages[0].id]: true,
+                            }))
+                          }
+                          className="h-full w-full object-cover"
+                        />
+                        {record.receiptImages.length > 1 && (
+                          <span className="absolute bottom-0 right-0 px-1 rounded-tl bg-black/70 text-white text-[9px] font-bold leading-tight">
+                            +{record.receiptImages.length - 1}
+                          </span>
+                        )}
+                      </button>
+                    )}
+                  </Td>
                   {user.isAdmin && (
                     <Td>
                       <p className="text-sm font-medium text-foreground">{record.owner?.name || "-"}</p>
@@ -279,7 +339,7 @@ export default function SplitBills() {
 
               {/* Aggregate total row */}
               <Tr className="hover:bg-muted/20 bg-muted/10 border-t-2 border-border">
-                <Td colSpan={user.isAdmin ? 5 : 4} className="py-3">
+                <Td colSpan={user.isAdmin ? 6 : 5} className="py-3">
                   <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     Total keseluruhan ({totalItems} split bill
                     {hasActiveFilters || debouncedSearch ? ", filter aktif" : ""})
@@ -306,6 +366,83 @@ export default function SplitBills() {
           />
         )}
       </Card>
+
+      {/* Fullscreen receipt photo viewer */}
+      {lightbox && lightbox.images[lightbox.index] && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.92)" }}
+          onClick={() => setLightbox(null)}
+        >
+          <button
+            onClick={() => setLightbox(null)}
+            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+            aria-label="Tutup"
+          >
+            <X className="h-5 w-5" />
+          </button>
+
+          {lightbox.images.length > 1 && (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightbox((lb) => ({
+                    ...lb,
+                    index: (lb.index - 1 + lb.images.length) % lb.images.length,
+                  }));
+                }}
+                className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                aria-label="Sebelumnya"
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightbox((lb) => ({
+                    ...lb,
+                    index: (lb.index + 1) % lb.images.length,
+                  }));
+                }}
+                className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                aria-label="Berikutnya"
+              >
+                <ChevronRight className="h-6 w-6" />
+              </button>
+            </>
+          )}
+
+          {brokenImages[lightbox.images[lightbox.index].id] ? (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="flex flex-col items-center gap-2 text-white/70"
+            >
+              <ImageOff className="h-10 w-10" />
+              <p className="text-sm">Foto struk gagal dimuat</p>
+            </div>
+          ) : (
+            <img
+              src={lightbox.images[lightbox.index].url}
+              alt={`Struk ${lightbox.index + 1}`}
+              onClick={(e) => e.stopPropagation()}
+              onError={() =>
+                setBrokenImages((prev) => ({
+                  ...prev,
+                  [lightbox.images[lightbox.index].id]: true,
+                }))
+              }
+              className="max-h-[85vh] max-w-full object-contain rounded-lg animate-in fade-in zoom-in-95 duration-200"
+            />
+          )}
+
+          {lightbox.images.length > 1 && (
+            <span className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-white/10 text-white text-xs font-semibold">
+              {lightbox.index + 1} / {lightbox.images.length}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

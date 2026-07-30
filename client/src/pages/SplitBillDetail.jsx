@@ -15,6 +15,9 @@ import {
   ExternalLink,
   Copy,
   HelpCircle,
+  X,
+  ZoomIn,
+  ImageOff,
 } from "lucide-react";
 import { formatDate, formatDateTime } from "../lib/utils";
 import { apiFetch } from "../lib/api";
@@ -68,8 +71,27 @@ export default function SplitBillDetail() {
   const [expandedParticipants, setExpandedParticipants] = useState({});
   const [adjacent, setAdjacent] = useState({ prev: null, next: null });
   const [showStepTooltip, setShowStepTooltip] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(null);
+  const [brokenImages, setBrokenImages] = useState({});
   const { user } = useAuth();
   const toast = useToast();
+
+  const receiptImages = record?.receiptImages || [];
+
+  useEffect(() => {
+    if (lightboxIndex === null) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") setLightboxIndex(null);
+      if (e.key === "ArrowRight") setLightboxIndex((i) => (i + 1) % receiptImages.length);
+      if (e.key === "ArrowLeft") setLightboxIndex((i) => (i - 1 + receiptImages.length) % receiptImages.length);
+    };
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = "";
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [lightboxIndex, receiptImages.length]);
 
   const copyToClipboard = async (text) => {
     try {
@@ -275,6 +297,47 @@ export default function SplitBillDetail() {
               </div>
             </div>
           </section>
+
+          {/* Uploaded receipt photos */}
+          {receiptImages.length > 0 && (
+            <section className="space-y-3">
+              <SectionTitle accent="bg-primary">Foto Struk</SectionTitle>
+              <div className="bg-white rounded-lg border border-border shadow-soft p-4">
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                  {receiptImages.map((img, idx) =>
+                    brokenImages[img.id] ? (
+                      <div
+                        key={img.id}
+                        className="aspect-square rounded-lg border border-dashed border-border flex flex-col items-center justify-center gap-1 bg-muted/40 text-muted-foreground"
+                      >
+                        <ImageOff className="h-4 w-4" />
+                        <span className="text-[10px] text-center px-1">Gagal memuat</span>
+                      </div>
+                    ) : (
+                      <button
+                        key={img.id}
+                        onClick={() => setLightboxIndex(idx)}
+                        className="group relative aspect-square rounded-lg border border-border overflow-hidden bg-muted"
+                      >
+                        <img
+                          src={img.url}
+                          alt={`Struk ${idx + 1}`}
+                          loading="lazy"
+                          onError={() =>
+                            setBrokenImages((prev) => ({ ...prev, [img.id]: true }))
+                          }
+                          className="h-full w-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                          <ZoomIn className="h-5 w-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                      </button>
+                    )
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
 
           {/* Expenses */}
           <section className="space-y-3">
@@ -703,6 +766,77 @@ export default function SplitBillDetail() {
           </div>
         </div>
       </section>
+
+      {/* Fullscreen receipt photo viewer */}
+      {lightboxIndex !== null && receiptImages[lightboxIndex] && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.92)" }}
+          onClick={() => setLightboxIndex(null)}
+        >
+          <button
+            onClick={() => setLightboxIndex(null)}
+            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+            aria-label="Tutup"
+          >
+            <X className="h-5 w-5" />
+          </button>
+
+          {receiptImages.length > 1 && (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxIndex((i) => (i - 1 + receiptImages.length) % receiptImages.length);
+                }}
+                className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                aria-label="Sebelumnya"
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxIndex((i) => (i + 1) % receiptImages.length);
+                }}
+                className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                aria-label="Berikutnya"
+              >
+                <ChevronRight className="h-6 w-6" />
+              </button>
+            </>
+          )}
+
+          {brokenImages[receiptImages[lightboxIndex].id] ? (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="flex flex-col items-center gap-2 text-white/70"
+            >
+              <ImageOff className="h-10 w-10" />
+              <p className="text-sm">Foto struk gagal dimuat</p>
+            </div>
+          ) : (
+            <img
+              src={receiptImages[lightboxIndex].url}
+              alt={`Struk ${lightboxIndex + 1}`}
+              onClick={(e) => e.stopPropagation()}
+              onError={() =>
+                setBrokenImages((prev) => ({
+                  ...prev,
+                  [receiptImages[lightboxIndex].id]: true,
+                }))
+              }
+              className="max-h-[85vh] max-w-full object-contain rounded-lg animate-in fade-in zoom-in-95 duration-200"
+            />
+          )}
+
+          {receiptImages.length > 1 && (
+            <span className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-white/10 text-white text-xs font-semibold">
+              {lightboxIndex + 1} / {receiptImages.length}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

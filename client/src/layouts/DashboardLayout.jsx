@@ -170,7 +170,7 @@ export default function DashboardLayout() {
 
         {/* Sidebar */}
         <aside
-          className={`fixed inset-y-0 left-0 z-30 w-56 flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 bg-white border-r border-border ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          className={`fixed inset-y-0 left-0 z-30 w-48 flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 bg-white border-r border-border ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
             }`}
         >
           {/* Logo */}
@@ -208,15 +208,15 @@ export default function DashboardLayout() {
                         key={item.name}
                         to={item.href}
                         onClick={() => setSidebarOpen(false)}
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-sm text-sm font-semibold transition-all duration-150 group ${isActive
-                            ? "bg-primary/10 text-primary"
-                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xs text-sm font-semibold transition-all duration-150 group ${isActive
+                          ? "bg-primary/10 text-primary"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
                           }`}
                       >
                         <item.icon
                           className={`h-4.5 w-4.5 flex-shrink-0 transition-colors ${isActive
-                              ? "text-primary"
-                              : "text-muted-foreground group-hover:text-foreground"
+                            ? "text-primary"
+                            : "text-muted-foreground group-hover:text-foreground"
                             }`}
                         />
                         <span className="flex-1">{item.name}</span>

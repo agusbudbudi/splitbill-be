@@ -33,19 +33,34 @@ export async function handleAuthVerify(event) {
       throw new HttpError(400, "Verification token is required");
     }
 
-    const user = await User.findOne({
-      verificationToken: token,
-      verificationTokenExpires: { $gt: Date.now() },
-    });
+    const user = await User.findOne({ verificationToken: token });
 
     if (!user) {
       throw new HttpError(400, "Invalid or expired verification token");
     }
 
-    user.isVerified = true;
-    user.verificationToken = undefined;
-    user.verificationTokenExpires = undefined;
+    // Idempotent: link may be pre-fetched by email security scanners
+    // (Gmail/Outlook link protection) before the user actually clicks it.
+    // If already verified via that earlier hit, treat this as success too.
+    if (user.isVerified) {
+      return jsonResponse(
+        200,
+        {
+          success: true,
+          message: "Email verified successfully. You can now log in.",
+        },
+        headers,
+      );
+    }
 
+    if (
+      !user.verificationTokenExpires ||
+      user.verificationTokenExpires.getTime() < Date.now()
+    ) {
+      throw new HttpError(400, "Invalid or expired verification token");
+    }
+
+    user.isVerified = true;
     await user.save();
 
     return jsonResponse(

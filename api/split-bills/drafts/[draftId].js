@@ -11,7 +11,7 @@ import {
 import { parseJsonBody } from "../../../lib/parsers.js";
 import { HttpError, toHttpError } from "../../../lib/errors.js";
 import { mapDraft } from "./utils.js";
-import { mapRecord } from "../index.js";
+import { mapRecord, notifySplitBillSaved } from "../index.js";
 
 // ─── Sanitizers (reused from index.js pattern) ───────────────────────────────
 
@@ -207,6 +207,8 @@ export async function handleDraftById(event, draftId, action, context) {
 
       // Populate user for response
       await draft.populate("user", "name email");
+
+      await notifySplitBillSaved(draft, user);
 
       return jsonResponse(
         200,

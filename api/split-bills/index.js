@@ -12,7 +12,27 @@ import {
 import { parseJsonBody } from "../../lib/parsers.js";
 import { HttpError, toHttpError } from "../../lib/errors.js";
 import { mapReceiptImages } from "./images.js";
+import { sendSplitBillSummaryEmail } from "../../lib/email.js";
 export { mapDraft } from "./drafts/utils.js";
+
+export async function notifySplitBillSaved(record, user) {
+  const frontendUrl = process.env.FRONTEND_URL || "https://splitbill.my.id";
+  try {
+    await sendSplitBillSummaryEmail({
+      email: user.email,
+      name: user.name,
+      activityName: record.activityName,
+      occurredAt: record.occurredAt,
+      totalBill: record.summary?.total ?? 0,
+      participantCount: record.participants?.length ?? 0,
+      splitBillId: record._id.toString(),
+      detailUrl: `${frontendUrl}/history/split-bill/${record._id.toString()}`,
+      reviewUrl: `${frontendUrl}/review`,
+    });
+  } catch (emailError) {
+    console.error("Failed to send split bill summary email:", emailError);
+  }
+}
 
 export function mapRecord(record) {
   const doc = record.toObject({ versionKey: false });
@@ -455,6 +475,8 @@ export async function handleSplitBills(event) {
         ...sanitized,
         user: user._id,
       });
+
+      await notifySplitBillSaved(record, user);
 
       return jsonResponse(
         201,

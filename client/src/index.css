@@ -83,10 +83,12 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
-  --radius-xl: 1.5rem;
-  --radius-lg: var(--radius);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-sm: calc(var(--radius) - 4px);
+  --radius-2xl: calc(var(--radius) + 14px);
+  --radius-xl: calc(var(--radius) + 6px);
+  --radius-lg: calc(var(--radius) - 2px);
+  --radius-md: calc(var(--radius) - 4px);
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-xs: calc(var(--radius) - 8px);
 
   --shadow-soft: 0 2px 12px -4px rgba(71, 159, 234, 0.08);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);

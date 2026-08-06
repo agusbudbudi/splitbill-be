@@ -16,7 +16,7 @@ import { sendSplitBillSummaryEmail } from "../../lib/email.js";
 export { mapDraft } from "./drafts/utils.js";
 
 export async function notifySplitBillSaved(record, user) {
-  const frontendUrl = process.env.FRONTEND_URL || "https://splitbill.my.id";
+  const frontendUrl = process.env.FRONTEND_URL || "https://www.splitbill.my.id";
   try {
     await sendSplitBillSummaryEmail({
       email: user.email,

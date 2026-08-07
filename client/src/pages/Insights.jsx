@@ -216,6 +216,23 @@ function ScanTrendTooltip({ active, payload, label }) {
   );
 }
 
+// Tooltip for model usage trend chart (stacked bars per provider)
+function ModelTrendTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  const total = payload.reduce((sum, p) => sum + (p.value ?? 0), 0);
+  return (
+    <div className="bg-slate-900 border border-slate-700 rounded-lg shadow-lg px-3 py-2 text-xs">
+      <p className="font-semibold text-white mb-1.5">{periodLabel(label)}</p>
+      {payload.map((p) => (
+        <p key={p.dataKey} style={{ color: p.color }}>
+          {SCAN_PROVIDER_LABELS[p.dataKey] || p.dataKey}: {p.value}
+        </p>
+      ))}
+      <p className="text-slate-400 mt-1 pt-1 border-t border-slate-700">Total: {total}</p>
+    </div>
+  );
+}
+
 // Funnel bar section
 function FunnelBar({ stage, count, rate, color, maxCount, description }) {
   const width = maxCount > 0 ? Math.max(8, (count / maxCount) * 100) : 0;
@@ -384,6 +401,7 @@ export default function Insights() {
     kpis: scanKpis = {},
     providerStats: scanProviderStats = [],
     trend: scanTrend = [],
+    modelTrend = [],
     errorBreakdown: scanErrorBreakdown = [],
     errorCategoryTrend = [],
     peakDays: scanPeakDays = [],
@@ -1593,6 +1611,81 @@ export default function Insights() {
               </CardBody>
             </Card>
           </div>
+
+          {/* Model Usage Trend */}
+          <Card>
+            <CardHeader className="flex items-start justify-between gap-3">
+              <div>
+                <SectionTitle>Tren Penggunaan Model</SectionTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Jumlah scan per model AI —{" "}
+                  {scanGranularity === "daily"
+                    ? "30 hari terakhir"
+                    : scanGranularity === "weekly"
+                      ? "12 minggu terakhir"
+                      : "6 bulan terakhir"}
+                </p>
+              </div>
+              <div className="flex bg-muted rounded-md p-0.5 flex-shrink-0">
+                {["monthly", "weekly", "daily"].map((g) => (
+                  <button
+                    key={g}
+                    onClick={() => setScanGranularity(g)}
+                    className={`px-2.5 py-1 text-[10px] font-bold uppercase rounded-sm transition-colors ${
+                      scanGranularity === g
+                        ? "bg-white text-primary shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {GRANULARITY_LABELS[g]}
+                  </button>
+                ))}
+              </div>
+            </CardHeader>
+            <CardBody>
+              {modelTrend.every((d) => d.total === 0) ? (
+                <p className="text-xs text-muted-foreground italic text-center py-8">
+                  Belum ada data
+                </p>
+              ) : (
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart data={modelTrend} barCategoryGap="25%">
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                    <XAxis
+                      dataKey="period"
+                      tick={{ fontSize: 11 }}
+                      tickFormatter={periodLabel}
+                    />
+                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} width={28} />
+                    <Tooltip content={<ModelTrendTooltip />} />
+                    <Legend
+                      wrapperStyle={{ fontSize: 11 }}
+                      formatter={(value) => SCAN_PROVIDER_LABELS[value] || value}
+                    />
+                    <Bar
+                      dataKey="openrouter"
+                      name="openrouter"
+                      stackId="model"
+                      fill={SCAN_PROVIDER_COLORS.openrouter}
+                    />
+                    <Bar
+                      dataKey="groq"
+                      name="groq"
+                      stackId="model"
+                      fill={SCAN_PROVIDER_COLORS.groq}
+                    />
+                    <Bar
+                      dataKey="gemini"
+                      name="gemini"
+                      stackId="model"
+                      fill={SCAN_PROVIDER_COLORS.gemini}
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardBody>
+          </Card>
 
           {/* Error Category Per Day */}
           <Card>

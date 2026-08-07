@@ -21,6 +21,7 @@ const PROMPT =
   `items[{name,quantity,price,total}] (price=total=the line amount printed on receipt for that quantity, NOT divided per unit), ` +
   `subtotal, tax, service_charge, discount, total_amount, payment_method, receipt_number, ` +
   `additional_charges[{label,amount}] (any other fee/charge/rounding line not already covered by tax, service_charge or discount, e.g. "pembulatan", "biaya parkir", "PB1" — do not duplicate tax/service_charge/discount here). ` +
+  `All amounts are Indonesian Rupiah, where "." on the receipt is a THOUSANDS separator, not a decimal point (e.g. printed "50.000" or "50,000" means fifty thousand — output as 50000, never 50). Output every amount as the full integer Rupiah value with no separators. ` +
   `Use null for any missing field. Numbers as strings.`;
 
 /**

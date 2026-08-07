@@ -219,6 +219,7 @@ export async function handleInsights(event) {
       scanFailedDocsRaw,
       scanRetryRaw,
       newScannerTrendRaw,
+      scanModelTrendRaw,
     ] = await Promise.all([
       // 1. total users
       User.countDocuments({}),
@@ -709,6 +710,44 @@ export async function handleInsights(event) {
         },
         { $sort: { "_id.year": 1, "_id.week": 1 } },
       ]),
+
+      // 28.11 AI Scan: model (provider) usage trend per scanGranularity (Jakarta TZ)
+      ScanLog.aggregate([
+        {
+          $match: {
+            createdAt: {
+              $gte: scanGranularity === "daily"
+                ? new Date(now - 31 * 24 * 60 * 60 * 1000)
+                : scanGranularity === "weekly"
+                  ? new Date(now - 13 * 7 * 24 * 60 * 60 * 1000)
+                  : startOfSixMonthsAgoJkt,
+            },
+          },
+        },
+        {
+          $group: {
+            _id: {
+              ...(scanGranularity === "daily"
+                ? {
+                    year: { $year: { date: "$createdAt", timezone: TIMEZONE } },
+                    month: { $month: { date: "$createdAt", timezone: TIMEZONE } },
+                    day: { $dayOfMonth: { date: "$createdAt", timezone: TIMEZONE } },
+                  }
+                : scanGranularity === "weekly"
+                  ? {
+                      year: { $year: { date: "$createdAt", timezone: TIMEZONE } },
+                      week: { $week: { date: "$createdAt", timezone: TIMEZONE } },
+                    }
+                  : {
+                      year: { $year: { date: "$createdAt", timezone: TIMEZONE } },
+                      month: { $month: { date: "$createdAt", timezone: TIMEZONE } },
+                    }),
+              provider: "$provider",
+            },
+            count: { $sum: 1 },
+          },
+        },
+      ]),
     ]);
 
     // Normalize trend data — fill missing periods with 0
@@ -906,6 +945,33 @@ export async function handleInsights(event) {
       };
     });
 
+    // Model (provider) usage trend — same period buckets as scanTrend, split by provider
+    const modelTrendMap = {};
+    scanModelTrendRaw
+      .filter((item) => item._id && item._id.year != null)
+      .forEach(({ _id, count }) => {
+        let key;
+        if (scanGranularity === "daily") {
+          key = `${_id.year}-${String(_id.month).padStart(2, "0")}-${String(_id.day).padStart(2, "0")}`;
+        } else if (scanGranularity === "weekly") {
+          key = `${_id.year}-W${String(_id.week).padStart(2, "0")}`;
+        } else {
+          key = `${_id.year}-${String(_id.month).padStart(2, "0")}`;
+        }
+        if (!modelTrendMap[key]) modelTrendMap[key] = { openrouter: 0, groq: 0, gemini: 0 };
+        modelTrendMap[key][_id.provider] = count;
+      });
+    const modelTrend = scanTrendPeriods.map((period) => {
+      const m = modelTrendMap[period] ?? { openrouter: 0, groq: 0, gemini: 0 };
+      return {
+        period,
+        openrouter: m.openrouter,
+        groq: m.groq,
+        gemini: m.gemini,
+        total: m.openrouter + m.groq + m.gemini,
+      };
+    });
+
     // New adopters per week (first-ever scan attempt), normalized to last 12 weeks
     const newScannerMap = Object.fromEntries(
       newScannerTrendRaw
@@ -1021,6 +1087,7 @@ export async function handleInsights(event) {
             },
             providerStats: scanProviderStats,
             trend: scanTrend,
+            modelTrend,
             errorBreakdown: scanErrorBreakdown,
             errorCategoryTrend,
             peakDays: scanPeakDays,

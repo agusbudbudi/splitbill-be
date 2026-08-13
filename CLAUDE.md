@@ -119,6 +119,10 @@ Account lockout: 5 failed login attempts → 15-minute lock (`User.incLoginAttem
 | GET | `/api/users` | admin | `api/users.js` |
 | POST | `/api/payment/create` | — | `api/payment.js` |
 | GET | `/api/payment/:paymentId` | — | `api/payment.js` |
+| GET/POST | `/api/ad-campaigns` | mixed | `api/ad-campaigns.js` |
+| GET/PUT/DELETE | `/api/ad-campaigns/:id` | admin | `api/ad-campaign-by-id.js` |
+| GET/POST | `/api/entry-points` | mixed | `api/entry-points.js` |
+| GET/PUT/DELETE | `/api/entry-points/:id` | admin | `api/entry-point-by-id.js` |
 
 ## Data Models Summary
 
@@ -128,6 +132,7 @@ Account lockout: 5 failed login attempts → 15-minute lock (`User.incLoginAttem
 - **Payment**: paymentId (unique), name, phone, amount, status (pending|paid|expired), expiresAt — has TTL index for auto-expiry
 - **Review**: rating (1-5), name, review, contactPermission, email?, phone?
 - **Banner**: image (URL), route
+- **EntryPointCard**: slug (unique), imageUrl, imageAlt, title, subtitle?, ctaText?, url?, footerText?, footerIconUrl?, ribbonText?, placement (default "homepage-member"), isActive, order — configurable multipurpose entry-point tiles (ads/review/save-friend/etc), consumed by `EntryPointSection` on splitbill-web homepage
 
 ## Adding a New Endpoint
 

@@ -327,6 +327,17 @@ export async function handler(event, context) {
       }
     }
 
+    if (resource === "entry-points") {
+      if (!subresource && rest.length === 0) {
+        const { handleEntryPoints } = await import("../../api/entry-points.js");
+        return handleEntryPoints(event, context);
+      }
+      if (subresource && rest.length === 0) {
+        const { handleEntryPointById } = await import("../../api/entry-point-by-id.js");
+        return handleEntryPointById(event, subresource, context);
+      }
+    }
+
     const headers = createCorsHeaders(event);
     return jsonResponse(404, { success: false, error: "Not found" }, headers);
   } catch (error) {

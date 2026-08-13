@@ -18,6 +18,8 @@ import Blogs from "./pages/Blogs";
 import BlogDetail from "./pages/BlogDetail";
 import AdCampaigns from "./pages/AdCampaigns";
 import AdCampaignDetail from "./pages/AdCampaignDetail";
+import EntryPoints from "./pages/EntryPoints";
+import EntryPointDetail from "./pages/EntryPointDetail";
 
 function App() {
   return (
@@ -45,6 +47,9 @@ function App() {
           <Route path="/ad-campaigns" element={<AdCampaigns />} />
           <Route path="/ad-campaigns/new" element={<AdCampaignDetail />} />
           <Route path="/ad-campaigns/:id" element={<AdCampaignDetail />} />
+          <Route path="/entry-points" element={<EntryPoints />} />
+          <Route path="/entry-points/new" element={<EntryPointDetail />} />
+          <Route path="/entry-points/:id" element={<EntryPointDetail />} />
         </Route>
       </Route>
 

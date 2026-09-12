@@ -8,6 +8,7 @@ import {
   Menu,
   X,
   Receipt,
+  Clock,
   Package,
   BarChart2,
   ShoppingBag,
@@ -29,6 +30,7 @@ const navGroups = [
       { name: "Insight", href: "/insights", icon: BarChart2 },
       { name: "Orders", href: "/orders", icon: ShoppingBag },
       { name: "Split Bill", href: "/split-bills", icon: Receipt },
+      { name: "Split Later", href: "/split-later", icon: Clock },
     ],
   },
   {
@@ -53,6 +55,7 @@ const navGroups = [
 
 const breadcrumbLabels = {
   "split-bills": "Split Bill",
+  "split-later": "Split Later",
   "orders": "Orders",
   "users": "Users",
   "subscription-packages": "Subscription Packages",
@@ -129,6 +132,7 @@ export default function DashboardLayout() {
       if (index > 0 && !breadcrumbLabels[segment]) {
         const parent = pathnames[index - 1];
         if (parent === "split-bills") name = "Detail Split Bill";
+        else if (parent === "split-later") name = "Detail Split Later";
         else if (parent === "orders") name = "Detail Order";
         else if (parent === "users") name = "Detail Pengguna";
         else if (parent === "campaigns") name = "Detail Campaign";

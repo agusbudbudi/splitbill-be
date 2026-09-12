@@ -7,6 +7,8 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Banners from "./pages/Banners";
 import SplitBills from "./pages/SplitBills";
 import SplitBillDetail from "./pages/SplitBillDetail";
+import SplitLater from "./pages/SplitLater";
+import SplitLaterDetail from "./pages/SplitLaterDetail";
 import Orders from "./pages/Orders";
 import OrderDetail from "./pages/OrderDetail";
 import SubscriptionPackages from "./pages/SubscriptionPackages";
@@ -34,6 +36,8 @@ function App() {
           <Route path="/banners" element={<Banners />} />
           <Route path="/split-bills" element={<SplitBills />} />
           <Route path="/split-bills/:id" element={<SplitBillDetail />} />
+          <Route path="/split-later" element={<SplitLater />} />
+          <Route path="/split-later/:id" element={<SplitLaterDetail />} />
           <Route path="/orders" element={<Orders />} />
           <Route path="/orders/:id" element={<OrderDetail />} />
           <Route path="/users/:id" element={<UserDetail />} />

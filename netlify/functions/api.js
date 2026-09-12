@@ -342,6 +342,40 @@ export async function handler(event, context) {
       }
     }
 
+    if (resource === "split-later" && subresource === "buckets") {
+      const [bucketId, action, receiptId] = rest;
+
+      // /api/split-later/buckets
+      if (!bucketId) {
+        const { default: h } = await import("../../api/split-later/buckets/index.js");
+        return h(event, context);
+      }
+
+      // /api/split-later/buckets/verify-ownership
+      if (bucketId === "verify-ownership" && !action) {
+        const { default: h } = await import("../../api/split-later/buckets/verify-ownership.js");
+        return h(event, context);
+      }
+
+      // /api/split-later/buckets/:bucketId
+      if (bucketId && !action) {
+        const { default: h } = await import("../../api/split-later/buckets/[bucketId].js");
+        return h(event, bucketId, context);
+      }
+
+      // /api/split-later/buckets/:bucketId/receipts
+      if (bucketId && action === "receipts" && !receiptId) {
+        const { default: h } = await import("../../api/split-later/buckets/receipts.js");
+        return h(event, bucketId, context);
+      }
+
+      // /api/split-later/buckets/:bucketId/receipts/:receiptId
+      if (bucketId && action === "receipts" && receiptId) {
+        const { default: h } = await import("../../api/split-later/buckets/[receiptId].js");
+        return h(event, bucketId, receiptId, context);
+      }
+    }
+
     const headers = createCorsHeaders(event);
     return jsonResponse(404, { success: false, error: "Not found" }, headers);
   } catch (error) {

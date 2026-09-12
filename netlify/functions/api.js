@@ -138,6 +138,10 @@ export async function handler(event, context) {
           const { default: h } = await import("../../api/auth/logout.js");
           return h(event, context);
         }
+        case "refresh": {
+          const { default: h } = await import("../../api/auth/refresh.js");
+          return h(event, context);
+        }
         case "me": {
           const { default: h } = await import("../../api/auth/me.js");
           return h(event, context);
@@ -335,6 +339,40 @@ export async function handler(event, context) {
       if (subresource && rest.length === 0) {
         const { handleEntryPointById } = await import("../../api/entry-point-by-id.js");
         return handleEntryPointById(event, subresource, context);
+      }
+    }
+
+    if (resource === "split-later" && subresource === "buckets") {
+      const [bucketId, action, receiptId] = rest;
+
+      // /api/split-later/buckets
+      if (!bucketId) {
+        const { default: h } = await import("../../api/split-later/buckets/index.js");
+        return h(event, context);
+      }
+
+      // /api/split-later/buckets/verify-ownership
+      if (bucketId === "verify-ownership" && !action) {
+        const { default: h } = await import("../../api/split-later/buckets/verify-ownership.js");
+        return h(event, context);
+      }
+
+      // /api/split-later/buckets/:bucketId
+      if (bucketId && !action) {
+        const { default: h } = await import("../../api/split-later/buckets/[bucketId].js");
+        return h(event, bucketId, context);
+      }
+
+      // /api/split-later/buckets/:bucketId/receipts
+      if (bucketId && action === "receipts" && !receiptId) {
+        const { default: h } = await import("../../api/split-later/buckets/receipts.js");
+        return h(event, bucketId, context);
+      }
+
+      // /api/split-later/buckets/:bucketId/receipts/:receiptId
+      if (bucketId && action === "receipts" && receiptId) {
+        const { default: h } = await import("../../api/split-later/buckets/[receiptId].js");
+        return h(event, bucketId, receiptId, context);
       }
     }
 

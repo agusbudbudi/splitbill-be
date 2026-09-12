@@ -160,7 +160,7 @@ export async function handleAuthLogin(event) {
       await session.endSession();
     }
 
-    const { accessToken, refreshToken } = generateTokens(user._id);
+    const { accessToken, refreshToken } = generateTokens(user._id, user.tokenVersion);
 
     const logger = await import("../../lib/logger.js");
     logger.info("Successful login", {

@@ -163,7 +163,7 @@ export async function handleAuthGoogle(event) {
       await session.endSession();
     }
 
-    const { accessToken, refreshToken } = generateTokens(user._id);
+    const { accessToken, refreshToken } = generateTokens(user._id, user.tokenVersion);
 
     return jsonResponse(
       200,

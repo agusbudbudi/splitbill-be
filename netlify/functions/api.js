@@ -138,6 +138,10 @@ export async function handler(event, context) {
           const { default: h } = await import("../../api/auth/logout.js");
           return h(event, context);
         }
+        case "refresh": {
+          const { default: h } = await import("../../api/auth/refresh.js");
+          return h(event, context);
+        }
         case "me": {
           const { default: h } = await import("../../api/auth/me.js");
           return h(event, context);

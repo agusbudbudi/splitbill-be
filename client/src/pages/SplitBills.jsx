@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { usePageMeta } from "../lib/usePageMeta";
-import { Receipt, Calendar, Users, ChevronRight, ChevronLeft, X, ImageOff } from "lucide-react";
+import { Receipt, Users, ChevronRight, ChevronLeft, X, ImageOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   Card, CardHeader,
   SearchInput, Select,
   Table, Thead, Tbody, Tr, Th, Td, TableSkeleton,
-  Avatar, Button, EmptyState, Pagination,
+  EmptyState, Pagination,
 } from "../components/ui";
-import { formatDate, formatLastStep } from "../lib/utils";
+import { formatDateShort, formatLastStep } from "../lib/utils";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -19,6 +19,14 @@ const STATUS_OPTIONS = [
   { value: "all", label: "Semua Status" },
   { value: "editable", label: "Draft" },
   { value: "locked", label: "Finalized" },
+];
+
+const LAST_STEP_OPTIONS = [
+  { value: "all", label: "Semua Last Step" },
+  { value: "STEP_1", label: "Step 1" },
+  { value: "STEP_2", label: "Step 2" },
+  { value: "STEP_3", label: "Step 3" },
+  { value: "FINALIZED", label: "Finalized" },
 ];
 
 export default function SplitBills() {
@@ -32,6 +40,7 @@ export default function SplitBills() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [lastStepFilter, setLastStepFilter] = useState("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [totalAmount, setTotalAmount] = useState(0);
@@ -78,15 +87,16 @@ export default function SplitBills() {
   // Reset page on filter change
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, startDate, endDate]);
+  }, [statusFilter, lastStepFilter, startDate, endDate]);
 
-  const fetchSplitBills = useCallback(async (page, search, status, start, end) => {
+  const fetchSplitBills = useCallback(async (page, search, status, lastStep, start, end) => {
     setLoading(true);
     setError("");
     try {
       const params = new URLSearchParams({ page, limit: 10 });
       if (search) params.set("search", search);
       if (status && status !== "all") params.set("status", status);
+      if (lastStep && lastStep !== "all") params.set("lastStep", lastStep);
       if (start) params.set("startDate", start);
       if (end) params.set("endDate", end);
       const res = await apiFetch(`/api/split-bills?${params}`);
@@ -108,14 +118,15 @@ export default function SplitBills() {
   }, []);
 
   useEffect(() => {
-    fetchSplitBills(currentPage, debouncedSearch, statusFilter, startDate, endDate);
-  }, [currentPage, debouncedSearch, statusFilter, startDate, endDate, fetchSplitBills]);
+    fetchSplitBills(currentPage, debouncedSearch, statusFilter, lastStepFilter, startDate, endDate);
+  }, [currentPage, debouncedSearch, statusFilter, lastStepFilter, startDate, endDate, fetchSplitBills]);
 
-  const colSpan = user.isAdmin ? 9 : 8;
-  const hasActiveFilters = statusFilter !== "all" || startDate || endDate;
+  const colSpan = user.isAdmin ? 8 : 7;
+  const hasActiveFilters = statusFilter !== "all" || lastStepFilter !== "all" || startDate || endDate;
 
   const clearFilters = () => {
     setStatusFilter("all");
+    setLastStepFilter("all");
     setStartDate("");
     setEndDate("");
     setSearchQuery("");
@@ -149,6 +160,17 @@ export default function SplitBills() {
               className="shrink-0"
             >
               {STATUS_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </Select>
+
+            {/* Last Step filter */}
+            <Select
+              value={lastStepFilter}
+              onChange={(e) => setLastStepFilter(e.target.value)}
+              className="shrink-0"
+            >
+              {LAST_STEP_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </Select>
@@ -196,18 +218,17 @@ export default function SplitBills() {
             <Tr className="hover:bg-transparent">
               <Th>Aktivitas</Th>
               <Th>Tanggal</Th>
+              {user.isAdmin && <Th>Pemilik</Th>}
               <Th>Peserta</Th>
               <Th>Struk</Th>
-              {user.isAdmin && <Th>Pemilik</Th>}
-              <Th>Status</Th>
               <Th>Total Tagihan</Th>
+              <Th>Status</Th>
               <Th>Last Step</Th>
-              <Th className="text-right">Aksi</Th>
             </Tr>
           </Thead>
 
           {loading ? (
-            <TableSkeleton cols={colSpan} rows={8} squareCols={[3]} />
+            <TableSkeleton cols={colSpan} rows={8} squareCols={user.isAdmin ? [4] : [3]} />
           ) : error ? (
             <Tbody>
               <Tr className="hover:bg-transparent">
@@ -235,31 +256,33 @@ export default function SplitBills() {
               {records.map((record) => (
                 <Tr key={record.id} className="group">
                   <Td>
-                    <div className="flex items-center gap-3">
-                      <Avatar name={record.activityName} size="sm" />
-                      <div className="min-w-0">
-                        <button
-                          onClick={() => navigate(`/split-bills/${record.id}`)}
-                          className="text-sm font-semibold text-foreground hover:text-primary hover:underline underline-offset-2 transition-colors truncate text-left"
-                        >
-                          {record.activityName || "Aktivitas Tanpa Nama"}
-                        </button>
-                        <p className="text-xs text-muted-foreground font-mono">
-                          #{record.id.slice(-6)}
-                        </p>
-                      </div>
+                    <div className="min-w-0">
+                      <button
+                        onClick={() => navigate(`/split-bills/${record.id}`)}
+                        className="text-sm font-semibold text-primary hover:underline underline-offset-2 transition-colors truncate text-left"
+                      >
+                        {record.activityName || "Aktivitas Tanpa Nama"}
+                      </button>
+                      <p className="text-xs text-muted-foreground font-mono">
+                        #{record.id.slice(-6)}
+                      </p>
                     </div>
                   </Td>
                   <Td className="text-muted-foreground">
-                    <div className="flex items-center gap-1.5 text-xs">
-                      <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
-                      {record.occurredAt ? formatDate(record.occurredAt) : "-"}
+                    <div className="text-xs">
+                      {record.occurredAt ? formatDateShort(record.occurredAt) : "-"}
                     </div>
                   </Td>
+                  {user.isAdmin && (
+                    <Td>
+                      <p className="text-sm font-medium text-foreground">{record.owner?.name || "-"}</p>
+                      <p className="text-xs text-muted-foreground">{record.owner?.email || ""}</p>
+                    </Td>
+                  )}
                   <Td>
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <Users className="h-3.5 w-3.5 flex-shrink-0" />
-                      {(record.participants || []).length} Orang
+                      {(record.participants || []).length}
                     </div>
                   </Td>
                   <Td>
@@ -297,12 +320,11 @@ export default function SplitBills() {
                       </button>
                     )}
                   </Td>
-                  {user.isAdmin && (
-                    <Td>
-                      <p className="text-sm font-medium text-foreground">{record.owner?.name || "-"}</p>
-                      <p className="text-xs text-muted-foreground">{record.owner?.email || ""}</p>
-                    </Td>
-                  )}
+                  <Td>
+                    <span className="text-sm font-bold text-foreground">
+                      {formatCurrency(record.summary?.total || 0)}
+                    </span>
+                  </Td>
                   <Td>
                     {record.status === "editable" ? (
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-600 border border-amber-200">
@@ -315,31 +337,16 @@ export default function SplitBills() {
                     )}
                   </Td>
                   <Td>
-                    <span className="text-sm font-bold text-foreground">
-                      {formatCurrency(record.summary?.total || 0)}
-                    </span>
-                  </Td>
-                  <Td>
-                    <span className="text-xs font-mono bg-muted px-2 py-0.5 rounded text-muted-foreground font-semibold">
+                    <span className="text-xs font-mono bg-muted px-2 py-0.5 rounded text-muted-foreground">
                       {formatLastStep(record.last_step, record.status)}
                     </span>
-                  </Td>
-                  <Td className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => navigate(`/split-bills/${record.id}`)}
-                    >
-                      Detail
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    </Button>
                   </Td>
                 </Tr>
               ))}
 
               {/* Aggregate total row */}
               <Tr className="hover:bg-muted/20 bg-muted/10 border-t-2 border-border">
-                <Td colSpan={user.isAdmin ? 6 : 5} className="py-3">
+                <Td colSpan={user.isAdmin ? 5 : 4} className="py-3">
                   <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     Total keseluruhan ({totalItems} split bill
                     {hasActiveFilters || debouncedSearch ? ", filter aktif" : ""})

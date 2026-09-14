@@ -11,6 +11,17 @@ export function formatDate(dateString) {
   return new Date(dateString).toLocaleDateString("id-ID", options);
 }
 
+const SHORT_MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
+  "Jul", "Agt", "Sept", "Okt", "Nov", "Des",
+];
+
+export function formatDateShort(dateString) {
+  if (!dateString) return "-";
+  const date = new Date(dateString);
+  return `${date.getDate()} ${SHORT_MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+}
+
 export function formatDateTime(dateString) {
   if (!dateString) return "-";
   const date = new Date(dateString);

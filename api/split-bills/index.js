@@ -398,9 +398,14 @@ export async function handleSplitBills(event) {
           ? { status: "editable" }
           : { status: "locked" };
 
+      // last_step filter
+      const lastStepParam = url.searchParams.get("lastStep") || "all";
+      const lastStepFilter =
+        lastStepParam === "all" ? {} : { last_step: lastStepParam };
+
       let query = user.isAdmin
-        ? { ...statusFilter, ...occurredAtFilter }
-        : { user: user._id, ...statusFilter, ...occurredAtFilter };
+        ? { ...statusFilter, ...occurredAtFilter, ...lastStepFilter }
+        : { user: user._id, ...statusFilter, ...occurredAtFilter, ...lastStepFilter };
 
       if (searchRegex) {
         const searchConditions = [
@@ -422,8 +427,8 @@ export async function handleSplitBills(event) {
           }
         }
         query = user.isAdmin
-          ? { ...statusFilter, ...occurredAtFilter, $or: searchConditions }
-          : { user: user._id, ...statusFilter, ...occurredAtFilter, $or: searchConditions };
+          ? { ...statusFilter, ...occurredAtFilter, ...lastStepFilter, $or: searchConditions }
+          : { user: user._id, ...statusFilter, ...occurredAtFilter, ...lastStepFilter, $or: searchConditions };
       }
 
       // Run count, records fetch, and aggregate total in parallel

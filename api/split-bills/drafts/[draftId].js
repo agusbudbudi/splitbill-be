@@ -267,6 +267,11 @@ export async function handleDraftById(event, draftId, action, context) {
         throw new HttpError(400, "last_step tidak valid. Nilai yang diizinkan: STEP_1, STEP_2, STEP_3");
       }
 
+      const stepRank = { STEP_1: 1, STEP_2: 2, STEP_3: 3, FINALIZED: 4 };
+      if (draft.last_step && stepRank[last_step] < stepRank[draft.last_step]) {
+        throw new HttpError(400, "last_step tidak bisa mundur dari progres sebelumnya");
+      }
+
       // ── Step 1 update: activityName, occurredAt, participants
       if (last_step === "STEP_1" || payload?.activityName !== undefined || payload?.occurredAt !== undefined) {
         if (payload?.activityName !== undefined) {

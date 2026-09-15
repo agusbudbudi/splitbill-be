@@ -342,6 +342,21 @@ export async function handler(event, context) {
       }
     }
 
+    if (resource === "levels") {
+      if (!subresource && rest.length === 0) {
+        const { handleLevels } = await import("../../api/levels/index.js");
+        return handleLevels(event, context);
+      }
+      if (subresource === "me" && rest.length === 0) {
+        const { handleUserLevelMe } = await import("../../api/levels/me.js");
+        return handleUserLevelMe(event, context);
+      }
+      if (subresource && rest.length === 0) {
+        const { handleLevelById } = await import("../../api/levels/[levelId].js");
+        return handleLevelById(event, subresource, context);
+      }
+    }
+
     if (resource === "split-later" && subresource === "buckets") {
       const [bucketId, action, receiptId] = rest;
 

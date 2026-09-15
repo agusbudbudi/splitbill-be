@@ -18,6 +18,7 @@ import {
   ChevronRight,
   Megaphone,
   LayoutGrid,
+  Award,
 } from "lucide-react";
 import { ToastProvider, Avatar } from "../components/ui";
 import { apiFetch } from "../lib/api";
@@ -46,6 +47,7 @@ const navGroups = [
       { name: "Campaigns", href: "/campaigns", icon: Mail },
       { name: "Ad Campaigns", href: "/ad-campaigns", icon: Megaphone },
       { name: "Entry Points", href: "/entry-points", icon: LayoutGrid },
+      { name: "User Level", href: "/user-levels", icon: Award },
       { name: "Blog", href: "/blogs", icon: FileText },
       { name: "Banners", href: "/banners", icon: Image },
       { name: "Subscription", href: "/subscription-packages", icon: Package },
@@ -63,6 +65,7 @@ const breadcrumbLabels = {
   "campaigns": "Campaigns",
   "ad-campaigns": "Ad Campaigns",
   "entry-points": "Entry Points",
+  "user-levels": "User Level",
   "blogs": "Blog",
   "banners": "Banners",
   "reviews": "Reviews",

@@ -29,16 +29,19 @@ export const compressImage = (file, maxWidth = 1080, quality = 0.8) => {
         const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Convert to base64
-        // Prefer webp if supported for better compression, otherwise jpeg
-        const mimeType = file.type === "image/png" ? "image/jpeg" : file.type;
-        // Force jpeg for pngs to ensure compression if transparency isn't critical,
-        // or just stick to original type if we want to be safe about transparency.
-        // For banners, usually we want good compression. Let's stick to jpeg for best compression of photos
-        // or keep original type if it's not huge.
-        // Let's us JPEG for everything to ensure size reduction, unless it's SVG (which shouldn't be here really)
-
-        const outputType = "image/jpeg";
+        // JPEG has no alpha channel — encoding a transparent image as JPEG
+        // flattens transparent pixels to black. Detect real transparency
+        // (not just MIME type) so opaque PNGs still get JPEG's compression,
+        // and only images that actually use alpha keep lossless PNG output.
+        const { data } = ctx.getImageData(0, 0, width, height);
+        let hasTransparency = false;
+        for (let i = 3; i < data.length; i += 4) {
+          if (data[i] < 255) {
+            hasTransparency = true;
+            break;
+          }
+        }
+        const outputType = hasTransparency ? "image/png" : "image/jpeg";
 
         const dataUrl = canvas.toDataURL(outputType, quality);
         resolve(dataUrl);

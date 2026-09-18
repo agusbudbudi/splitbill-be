@@ -3,6 +3,7 @@ import UserLevel from "../../lib/models/UserLevel.js";
 import {
   sanitizeLevelRules,
   sanitizeLevelBenefits,
+  sanitizeLevelRewards,
   assertLevelOrderAvailable,
 } from "../../lib/userLevel.js";
 import { validateBase64ImageSize } from "../../lib/middleware/requestValidator.js";
@@ -49,7 +50,7 @@ export async function handleLevels(event) {
       const adminUser = await requireAdmin(event);
 
       const body = await parseJsonBody(event);
-      const { name, icon, order, rules, isActive, description, benefits } = body;
+      const { name, icon, order, rules, isActive, description, benefits, rewards } = body;
 
       if (!name || typeof name !== "string" || !name.trim()) {
         throw new HttpError(400, "Nama level wajib diisi");
@@ -64,6 +65,7 @@ export async function handleLevels(event) {
 
       const sanitizedRules = sanitizeLevelRules(rules);
       const sanitizedBenefits = sanitizeLevelBenefits(benefits ?? []);
+      const sanitizedRewards = sanitizeLevelRewards(rewards);
       const active = isActive !== undefined ? Boolean(isActive) : true;
 
       if (active) {
@@ -77,6 +79,7 @@ export async function handleLevels(event) {
         description: typeof description === "string" ? description.trim().slice(0, 200) : "",
         benefits: sanitizedBenefits,
         rules: sanitizedRules,
+        rewards: sanitizedRewards,
         isActive: active,
         createdBy: adminUser._id,
         updatedBy: adminUser._id,

@@ -181,6 +181,7 @@ export async function handleAuthLogin(event) {
           image: user.image,
           isAdmin: user.isAdmin,
           freeScanCount: user.freeScanCount,
+          freeSplitBillCount: user.freeSplitBillCount,
           createdAt: user.createdAt,
         },
         accessToken,

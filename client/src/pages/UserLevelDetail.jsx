@@ -12,9 +12,18 @@ const METRIC_OPTIONS = [
   { value: "friendCount", label: "Jumlah teman terlibat" },
 ];
 
-const OPERATOR_OPTIONS = ["=", ">", "<", ">=", "<="];
+// "=" sengaja gak dimasukin — exact match rawan permanent-skip kalau ada
+// race concurrent finalize (stats keburu lompatin angka exact-nya).
+const OPERATOR_OPTIONS = [">", "<", ">=", "<="];
+
+// Harus sinkron dengan BENEFIT_TYPE_CONFIG di lib/levelRewards.js
+const BENEFIT_TYPE_OPTIONS = [
+  { value: "free_scan_ai", label: "Free Scan AI" },
+  { value: "max_split_bill", label: "Maksimal Split Bill Created" },
+];
 
 const EMPTY_RULE = { metric: "splitCount", operator: "<", value: 0 };
+const EMPTY_REWARD = { benefitType: "free_scan_ai", amount: 1 };
 
 const EMPTY_FORM = {
   name: "",
@@ -24,6 +33,7 @@ const EMPTY_FORM = {
   order: 0,
   isActive: true,
   rules: [{ ...EMPTY_RULE }],
+  rewards: [],
 };
 
 export default function UserLevelDetail() {
@@ -63,6 +73,7 @@ export default function UserLevelDetail() {
               level.rules && level.rules.length > 0
                 ? level.rules
                 : [{ ...EMPTY_RULE }],
+            rewards: level.rewards && level.rewards.length > 0 ? level.rewards : [],
           });
         } else {
           toast({ message: "User level tidak ditemukan", type: "error" });
@@ -130,6 +141,25 @@ export default function UserLevelDetail() {
     }));
   };
 
+  const handleRewardChange = (index, field, value) => {
+    setForm((prev) => {
+      const rewards = [...prev.rewards];
+      rewards[index] = { ...rewards[index], [field]: value };
+      return { ...prev, rewards };
+    });
+  };
+
+  const handleAddReward = () => {
+    setForm((prev) => ({ ...prev, rewards: [...prev.rewards, { ...EMPTY_REWARD }] }));
+  };
+
+  const handleRemoveReward = (index) => {
+    setForm((prev) => ({
+      ...prev,
+      rewards: prev.rewards.filter((_, i) => i !== index),
+    }));
+  };
+
   const handleSave = async () => {
     if (!form.name.trim()) {
       toast({ message: "Nama level wajib diisi", type: "warning" });
@@ -157,6 +187,10 @@ export default function UserLevelDetail() {
           metric: rule.metric,
           operator: rule.operator,
           value: Number(rule.value) || 0,
+        })),
+        rewards: form.rewards.map((reward) => ({
+          benefitType: reward.benefitType,
+          amount: Number(reward.amount) || 1,
         })),
       };
 
@@ -421,6 +455,66 @@ export default function UserLevelDetail() {
                       disabled={form.rules.length === 1}
                       className="flex-shrink-0 p-2 rounded text-muted-foreground hover:text-destructive hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                       title="Hapus rule"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Rewards builder */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className={labelClass + " mb-0"}>
+                  Rewards
+                  <span className="text-xs text-muted-foreground font-normal ml-1">
+                    — diberikan ke user saat level ini pertama kali tercapai & diklaim
+                  </span>
+                </label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={<Plus className="h-3.5 w-3.5" />}
+                  onClick={handleAddReward}
+                >
+                  Tambah Reward
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                {form.rewards.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Belum ada reward untuk level ini.
+                  </p>
+                )}
+                {form.rewards.map((reward, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <select
+                      className={inputClass}
+                      value={reward.benefitType}
+                      onChange={(e) =>
+                        handleRewardChange(index, "benefitType", e.target.value)
+                      }
+                    >
+                      {BENEFIT_TYPE_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      min={1}
+                      className={inputClass + " max-w-[100px] flex-shrink-0"}
+                      value={reward.amount}
+                      onChange={(e) => handleRewardChange(index, "amount", e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveReward(index)}
+                      className="flex-shrink-0 p-2 rounded text-muted-foreground hover:text-destructive hover:bg-muted transition-colors"
+                      title="Hapus reward"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>

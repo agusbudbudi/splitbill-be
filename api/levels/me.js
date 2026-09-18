@@ -1,5 +1,6 @@
 import { connectDatabase } from "../../lib/db.js";
 import UserLevel from "../../lib/models/UserLevel.js";
+import UserLevelAchievement from "../../lib/models/UserLevelAchievement.js";
 import { computeUserStats, resolveLevel, getNextLevel } from "../../lib/userLevel.js";
 import {
   createCorsHeaders,
@@ -27,9 +28,13 @@ export async function handleUserLevelMe(event) {
     const { requireUser } = await import("../../lib/middleware/auth.js");
     const user = await requireUser(event);
 
-    const [stats, levels] = await Promise.all([
+    const [stats, levels, achievements] = await Promise.all([
       computeUserStats(user._id),
       UserLevel.find({ isActive: true }),
+      UserLevelAchievement.find({ user: user._id }).populate(
+        "level",
+        "name icon order"
+      ),
     ]);
 
     const currentLevel = resolveLevel(stats, levels);
@@ -37,7 +42,7 @@ export async function handleUserLevelMe(event) {
 
     return jsonResponse(
       200,
-      { success: true, data: { stats, currentLevel, nextLevel } },
+      { success: true, data: { stats, currentLevel, nextLevel, achievements } },
       headers
     );
   } catch (error) {

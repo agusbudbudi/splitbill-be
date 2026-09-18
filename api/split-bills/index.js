@@ -13,6 +13,7 @@ import { parseJsonBody } from "../../lib/parsers.js";
 import { HttpError, toHttpError } from "../../lib/errors.js";
 import { mapReceiptImages } from "./images.js";
 import { sendSplitBillSummaryEmail } from "../../lib/email.js";
+import { checkAndGrantAchievements } from "../../lib/userLevel.js";
 export { mapDraft } from "./drafts/utils.js";
 
 export async function notifySplitBillSaved(record, user) {
@@ -482,6 +483,14 @@ export async function handleSplitBills(event) {
       });
 
       await notifySplitBillSaved(record, user);
+
+      if (record.status === "locked") {
+        try {
+          await checkAndGrantAchievements(user._id);
+        } catch (achievementError) {
+          console.error("checkAndGrantAchievements error:", achievementError);
+        }
+      }
 
       return jsonResponse(
         201,

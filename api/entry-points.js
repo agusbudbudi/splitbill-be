@@ -8,6 +8,13 @@ import {
 } from "../lib/http.js";
 import { parseJsonBody, getQueryParams } from "../lib/parsers.js";
 import { HttpError, toHttpError } from "../lib/errors.js";
+import { withCache, invalidateCached } from "../lib/cache.js";
+
+// Single unfiltered key — placement is such a small, low-cardinality filter
+// that caching per-placement combos isn't worth the invalidation complexity;
+// filter the cached list in memory instead.
+const ENTRY_POINTS_CACHE_KEY = "entry-points:public:active";
+const ENTRY_POINTS_CACHE_TTL_MS = 60 * 1000;
 
 export async function handleEntryPoints(event) {
   const headers = createCorsHeaders(event);
@@ -28,12 +35,21 @@ export async function handleEntryPoints(event) {
         const { requireAdmin } = await import("../lib/middleware/auth.js");
         await requireAdmin(event);
         const filter = placement ? { placement } : {};
-        const cards = await EntryPointCard.find(filter).sort({ order: 1, createdAt: -1 });
+        const cards = await EntryPointCard.find(filter).sort({ order: 1, createdAt: -1 }).lean();
         return jsonResponse(200, { success: true, data: cards }, headers);
       }
 
-      const filter = { isActive: true, ...(placement ? { placement } : {}) };
-      const cards = await EntryPointCard.find(filter).sort({ order: 1, createdAt: -1 });
+      const activeCards = await withCache(
+        ENTRY_POINTS_CACHE_KEY,
+        ENTRY_POINTS_CACHE_TTL_MS,
+        () =>
+          EntryPointCard.find({ isActive: true })
+            .sort({ order: 1, createdAt: -1 })
+            .lean()
+      );
+      const cards = placement
+        ? activeCards.filter((card) => card.placement === placement)
+        : activeCards;
       return jsonResponse(200, { success: true, data: cards }, headers);
     }
 
@@ -84,6 +100,8 @@ export async function handleEntryPoints(event) {
         createdBy: adminUser._id,
         updatedBy: adminUser._id,
       });
+
+      invalidateCached(ENTRY_POINTS_CACHE_KEY);
 
       return jsonResponse(
         201,

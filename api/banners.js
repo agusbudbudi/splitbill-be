@@ -11,8 +11,12 @@ import {
 import { getQueryParams, parseJsonBody } from "../lib/parsers.js";
 import { HttpError, toHttpError } from "../lib/errors.js";
 import { authMiddleware } from "../lib/middleware/auth.js";
+import { withCache, setCached, invalidateCached } from "../lib/cache.js";
 
 dotenv.config();
+
+const BANNERS_CACHE_KEY = "banners:public";
+const BANNERS_CACHE_TTL_MS = 60 * 1000;
 
 export async function handleBanners(event) {
   const headers = createCorsHeaders(event);
@@ -97,7 +101,8 @@ async function upsertBanners(event, headers) {
     await session.commitTransaction();
     session.endSession();
 
-    const updatedBanners = await Banner.find().sort({ createdAt: -1 });
+    const updatedBanners = await Banner.find().sort({ createdAt: -1 }).lean();
+    setCached(BANNERS_CACHE_KEY, updatedBanners, BANNERS_CACHE_TTL_MS);
 
     return jsonResponse(
       200,
@@ -125,7 +130,9 @@ async function upsertBanners(event, headers) {
 }
 
 async function getBanners(event, headers) {
-  const banners = await Banner.find().sort({ createdAt: -1 });
+  const banners = await withCache(BANNERS_CACHE_KEY, BANNERS_CACHE_TTL_MS, () =>
+    Banner.find().sort({ createdAt: -1 }).lean()
+  );
 
   return jsonResponse(
     200,
@@ -151,6 +158,8 @@ async function deleteBanner(event, headers) {
   if (!deletedBanner) {
     throw new HttpError(404, "Banner not found");
   }
+
+  invalidateCached(BANNERS_CACHE_KEY);
 
   return jsonResponse(
     200,

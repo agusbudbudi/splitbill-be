@@ -8,6 +8,9 @@ import {
 } from "../lib/http.js";
 import { parseJsonBody } from "../lib/parsers.js";
 import { HttpError, toHttpError } from "../lib/errors.js";
+import { invalidateCached } from "../lib/cache.js";
+
+const ENTRY_POINTS_CACHE_KEY = "entry-points:public:active";
 
 export async function handleEntryPointById(event, cardId) {
   const headers = createCorsHeaders(event);
@@ -81,6 +84,7 @@ export async function handleEntryPointById(event, cardId) {
       card.updatedBy = adminUser._id;
 
       await card.save();
+      invalidateCached(ENTRY_POINTS_CACHE_KEY);
 
       return jsonResponse(
         200,
@@ -94,6 +98,7 @@ export async function handleEntryPointById(event, cardId) {
       if (!card) {
         throw new HttpError(404, "Entry point card tidak ditemukan");
       }
+      invalidateCached(ENTRY_POINTS_CACHE_KEY);
       return jsonResponse(
         200,
         { success: true, message: "Entry point card berhasil dihapus" },

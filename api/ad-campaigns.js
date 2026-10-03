@@ -8,6 +8,10 @@ import {
 } from "../lib/http.js";
 import { parseJsonBody } from "../lib/parsers.js";
 import { HttpError, toHttpError } from "../lib/errors.js";
+import { withCache, invalidateCached } from "../lib/cache.js";
+
+const AD_CAMPAIGNS_CACHE_KEY = "ad-campaigns:public:active";
+const AD_CAMPAIGNS_CACHE_TTL_MS = 60 * 1000;
 
 export async function handleAdCampaigns(event) {
   const headers = createCorsHeaders(event);
@@ -31,15 +35,19 @@ export async function handleAdCampaigns(event) {
         // Admin access: requires admin auth, returns all ads
         const { requireAdmin } = await import("../lib/middleware/auth.js");
         await requireAdmin(event);
-        const ads = await AdCampaign.find().sort({ order: 1, createdAt: -1 });
+        const ads = await AdCampaign.find().sort({ order: 1, createdAt: -1 }).lean();
         return jsonResponse(200, { success: true, data: ads }, headers);
       }
 
       // Public access: only active ads, sorted by order
-      const ads = await AdCampaign.find({ isActive: true }).sort({
-        order: 1,
-        createdAt: -1,
-      });
+      const ads = await withCache(
+        AD_CAMPAIGNS_CACHE_KEY,
+        AD_CAMPAIGNS_CACHE_TTL_MS,
+        () =>
+          AdCampaign.find({ isActive: true })
+            .sort({ order: 1, createdAt: -1 })
+            .lean()
+      );
       return jsonResponse(200, { success: true, data: ads }, headers);
     }
 
@@ -86,6 +94,8 @@ export async function handleAdCampaigns(event) {
         createdBy: adminUser._id,
         updatedBy: adminUser._id,
       });
+
+      invalidateCached(AD_CAMPAIGNS_CACHE_KEY);
 
       return jsonResponse(
         201,

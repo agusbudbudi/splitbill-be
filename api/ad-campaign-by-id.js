@@ -8,6 +8,9 @@ import {
 } from "../lib/http.js";
 import { parseJsonBody } from "../lib/parsers.js";
 import { HttpError, toHttpError } from "../lib/errors.js";
+import { invalidateCached } from "../lib/cache.js";
+
+const AD_CAMPAIGNS_CACHE_KEY = "ad-campaigns:public:active";
 
 export async function handleAdCampaignById(event, adId) {
   const headers = createCorsHeaders(event);
@@ -78,6 +81,7 @@ export async function handleAdCampaignById(event, adId) {
       ad.updatedBy = adminUser._id;
 
       await ad.save();
+      invalidateCached(AD_CAMPAIGNS_CACHE_KEY);
 
       return jsonResponse(
         200,
@@ -91,6 +95,7 @@ export async function handleAdCampaignById(event, adId) {
       if (!ad) {
         throw new HttpError(404, "Ad campaign tidak ditemukan");
       }
+      invalidateCached(AD_CAMPAIGNS_CACHE_KEY);
       return jsonResponse(
         200,
         { success: true, message: "Ad campaign berhasil dihapus" },

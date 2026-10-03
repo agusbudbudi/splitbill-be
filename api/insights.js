@@ -13,6 +13,9 @@ import {
   noContentResponse,
 } from "../lib/http.js";
 import { HttpError, toHttpError } from "../lib/errors.js";
+import { getCached, setCached } from "../lib/cache.js";
+
+const INSIGHTS_CACHE_TTL_MS = 60 * 1000;
 
 dotenv.config();
 
@@ -36,6 +39,15 @@ export async function handleInsights(event) {
 
     const { requireAdmin } = await import("../lib/middleware/auth.js");
     await requireAdmin(event);
+
+    // Dashboard polls/refreshes shouldn't re-run ~35 aggregations every hit —
+    // cache the computed response body per granularity combo for a short TTL.
+    // Auth above always runs fresh; only the expensive data stage is cached.
+    const cacheKey = `insights:${granularity}:${scanGranularity}`;
+    const cachedBody = getCached(cacheKey);
+    if (cachedBody) {
+      return jsonResponse(200, cachedBody, headers);
+    }
 
     const TIMEZONE = "Asia/Jakarta";
     const TZ_OFFSET_MS = 7 * 60 * 60 * 1000;
@@ -216,8 +228,7 @@ export async function handleInsights(event) {
       topScanUsersRaw,
       scanLast7dTotal,
       scanLast7dFailed,
-      scanFailedDocsRaw,
-      scanRetryRaw,
+      scanLogs30dRaw,
       newScannerTrendRaw,
       scanModelTrendRaw,
     ] = await Promise.all([
@@ -623,76 +634,18 @@ export async function handleInsights(event) {
       ScanLog.countDocuments({ createdAt: { $gte: sevenDaysAgo } }),
       ScanLog.countDocuments({ createdAt: { $gte: sevenDaysAgo }, status: "failed" }),
 
-      // 28.8 AI Scan: failed docs (last 30 days) for per-day error-category breakdown
+      // 28.8/28.9 AI Scan: single fetch (last 30 days) driving both the
+      // per-day error-category breakdown and the retry-rate calculation.
+      // Previously the retry rate ran a per-document self-$lookup over the
+      // whole collection (no index on ipAddress) — O(n^2)-ish and the
+      // heaviest part of this endpoint. Sorted single-pass grouping below
+      // is O(n log n) and reuses the same fetch for both features.
       ScanLog.find(
-        { status: "failed", createdAt: { $gte: thirtyDaysAgo } },
-        { createdAt: 1, errorMessage: 1 },
-      ).lean(),
-
-      // 28.9 AI Scan: retry rate — of failed attempts (last 30 days), how many were
-      // followed by another attempt from the same user (or same guest IP) within 2 min
-      ScanLog.aggregate([
-        { $match: { status: "failed", createdAt: { $gte: thirtyDaysAgo } } },
-        {
-          $lookup: {
-            from: "scanlogs",
-            let: { uid: "$user", ip: "$ipAddress", failedAt: "$createdAt", selfId: "$_id" },
-            pipeline: [
-              {
-                $match: {
-                  $expr: {
-                    $and: [
-                      { $ne: ["$_id", "$$selfId"] },
-                      {
-                        $cond: [
-                          { $ne: ["$$uid", null] },
-                          { $eq: ["$user", "$$uid"] },
-                          { $eq: ["$ipAddress", "$$ip"] },
-                        ],
-                      },
-                      { $gt: ["$createdAt", "$$failedAt"] },
-                      { $lte: ["$createdAt", { $add: ["$$failedAt", 2 * 60 * 1000] }] },
-                    ],
-                  },
-                },
-              },
-              { $limit: 1 },
-            ],
-            as: "retryAttempt",
-          },
-        },
-        {
-          $addFields: {
-            wasRetried: { $gt: [{ $size: "$retryAttempt" }, 0] },
-          },
-        },
-        {
-          $facet: {
-            overall: [
-              {
-                $group: {
-                  _id: null,
-                  totalFailed: { $sum: 1 },
-                  retried: { $sum: { $cond: ["$wasRetried", 1, 0] } },
-                },
-              },
-            ],
-            byDay: [
-              {
-                $group: {
-                  _id: {
-                    year: { $year: { date: "$createdAt", timezone: TIMEZONE } },
-                    month: { $month: { date: "$createdAt", timezone: TIMEZONE } },
-                    day: { $dayOfMonth: { date: "$createdAt", timezone: TIMEZONE } },
-                  },
-                  totalFailed: { $sum: 1 },
-                  retried: { $sum: { $cond: ["$wasRetried", 1, 0] } },
-                },
-              },
-            ],
-          },
-        },
-      ]),
+        { createdAt: { $gte: thirtyDaysAgo } },
+        { createdAt: 1, errorMessage: 1, status: 1, user: 1, ipAddress: 1 },
+      )
+        .sort({ createdAt: 1 })
+        .lean(),
 
       // 28.10 AI Scan: new adopters per week — first-ever scan attempt per user, bucketed by week
       ScanLog.aggregate([
@@ -901,15 +854,23 @@ export async function handleInsights(event) {
     const scanLast7dSuccessRate =
       scanLast7dTotal > 0 ? pct(scanLast7dSuccess, scanLast7dTotal) : 0;
 
-    // Error-category-per-day breakdown (last 30 days)
+    // Single pass over scanLogs30dRaw (sorted by createdAt asc) drives both
+    // the error-category breakdown and the retry-rate calculation.
     const errorCategoryMap = {};
-    scanFailedDocsRaw.forEach((doc) => {
-      const d = new Date(doc.createdAt.getTime() + TZ_OFFSET_MS);
-      const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
-      if (!errorCategoryMap[key]) {
-        errorCategoryMap[key] = { quotaGemini: 0, modelGroq: 0, openrouterNotSet: 0, lainnya: 0 };
+    const retryGroups = new Map(); // "u:<id>" | "ip:<addr>" -> docs, time-ordered
+    scanLogs30dRaw.forEach((doc) => {
+      if (doc.status === "failed") {
+        const d = new Date(doc.createdAt.getTime() + TZ_OFFSET_MS);
+        const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+        if (!errorCategoryMap[key]) {
+          errorCategoryMap[key] = { quotaGemini: 0, modelGroq: 0, openrouterNotSet: 0, lainnya: 0 };
+        }
+        errorCategoryMap[key][categorizeScanError(doc.errorMessage)] += 1;
       }
-      errorCategoryMap[key][categorizeScanError(doc.errorMessage)] += 1;
+
+      const groupKey = doc.user ? `u:${doc.user}` : `ip:${doc.ipAddress}`;
+      if (!retryGroups.has(groupKey)) retryGroups.set(groupKey, []);
+      retryGroups.get(groupKey).push(doc);
     });
     const errorCategoryTrend = last30Days.map((date) => ({
       date,
@@ -919,22 +880,42 @@ export async function handleInsights(event) {
       lainnya: errorCategoryMap[date]?.lainnya ?? 0,
     }));
 
-    // Retry rate (last 30 days of failures)
-    const retryStats = scanRetryRaw[0]?.overall?.[0] ?? { totalFailed: 0, retried: 0 };
+    // Retry rate: a failed attempt counts as "retried" if the same user (or
+    // guest IP) made another attempt within 2 minutes. Each group is already
+    // time-ordered (global sort preserved per key), so the immediate next
+    // doc in the group is the earliest possible retry — one pass, no join.
+    const RETRY_WINDOW_MS = 2 * 60 * 1000;
+    let retryTotalFailed = 0;
+    let retryRetried = 0;
+    const retryByDayMap = {};
+    for (const docs of retryGroups.values()) {
+      for (let i = 0; i < docs.length; i++) {
+        if (docs[i].status !== "failed") continue;
+        retryTotalFailed++;
+
+        const failedAt = docs[i].createdAt.getTime();
+        const dJkt = new Date(failedAt + TZ_OFFSET_MS);
+        const dayKey = `${dJkt.getUTCFullYear()}-${String(dJkt.getUTCMonth() + 1).padStart(2, "0")}-${String(dJkt.getUTCDate()).padStart(2, "0")}`;
+        if (!retryByDayMap[dayKey]) retryByDayMap[dayKey] = { totalFailed: 0, retried: 0 };
+        retryByDayMap[dayKey].totalFailed++;
+
+        // Skip same-millisecond ties (not strictly "after") before checking the window —
+        // mirrors the original aggregation's strict $gt on createdAt.
+        let j = i + 1;
+        while (j < docs.length && docs[j].createdAt.getTime() <= failedAt) j++;
+        const next = docs[j];
+        const wasRetried = !!next && next.createdAt.getTime() - failedAt <= RETRY_WINDOW_MS;
+        if (wasRetried) {
+          retryRetried++;
+          retryByDayMap[dayKey].retried++;
+        }
+      }
+    }
+    const retryStats = { totalFailed: retryTotalFailed, retried: retryRetried };
     const scanRetryRate =
       retryStats.totalFailed > 0
         ? pct(retryStats.retried, retryStats.totalFailed)
         : 0;
-
-    // Retry rate per day (last 30 days) for the trend chart
-    const retryByDayMap = Object.fromEntries(
-      (scanRetryRaw[0]?.byDay ?? [])
-        .filter((item) => item._id && item._id.year != null)
-        .map(({ _id, totalFailed, retried }) => [
-          `${_id.year}-${String(_id.month).padStart(2, "0")}-${String(_id.day).padStart(2, "0")}`,
-          { totalFailed, retried },
-        ])
-    );
     const retryRateTrend = last30Days.map((date) => {
       const d = retryByDayMap[date] ?? { totalFailed: 0, retried: 0 };
       return {
@@ -984,11 +965,9 @@ export async function handleInsights(event) {
       weekStart: last12WeekStarts[period],
     }));
 
-    return jsonResponse(
-      200,
-      {
-        success: true,
-        data: {
+    const responseBody = {
+      success: true,
+      data: {
           kpis: {
             totalUsers,
             newUsersToday,
@@ -1097,9 +1076,10 @@ export async function handleInsights(event) {
             retryRateTrend,
           },
         },
-      },
-      headers,
-    );
+      };
+
+    setCached(cacheKey, responseBody, INSIGHTS_CACHE_TTL_MS);
+    return jsonResponse(200, responseBody, headers);
   } catch (error) {
     console.error("Insights handler error:", error);
     return errorResponse(toHttpError(error), headers);

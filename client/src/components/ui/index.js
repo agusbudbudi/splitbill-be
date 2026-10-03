@@ -1,8 +1,11 @@
 export { default as Spinner } from "./Spinner";
 export { default as Button } from "./Button";
+export { default as BackButton } from "./BackButton";
 export { default as Badge } from "./Badge";
 export { Card, CardHeader, CardBody, CardFooter } from "./Card";
 export { default as Input } from "./Input";
+export { default as DateInput } from "./DateInput";
+export { default as ResetFiltersButton } from "./ResetFiltersButton";
 export { default as SearchInput } from "./SearchInput";
 export { default as Avatar } from "./Avatar";
 export { default as StatCard } from "./StatCard";

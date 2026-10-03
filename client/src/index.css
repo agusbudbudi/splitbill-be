@@ -44,7 +44,7 @@
   --input: #f8f9fd;
   --ring: #479fea;
 
-  --radius: 1rem;
+  --radius: 14px;
 
   /* Split Bill Shadows - Softer */
   --shadow-soft: 0 2px 12px -4px rgba(71, 159, 234, 0.08);

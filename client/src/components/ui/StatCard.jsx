@@ -9,16 +9,18 @@ export default function StatCard({
   iconBg = "bg-primary/10",
   className,
   tooltip,
+  compact = false,
 }) {
   return (
     <div
       className={cn(
-        "bg-white rounded-lg shadow-soft border border-border p-3.5 sm:p-5 flex items-center gap-3 sm:gap-4",
+        "bg-white rounded-sm shadow-soft border border-border flex",
+        compact ? "items-start p-2.5 gap-2.5" : "items-center p-3.5 sm:p-5 gap-3 sm:gap-4",
         className,
       )}
     >
-      <div className={cn("p-2 sm:p-3 rounded-sm flex-shrink-0", iconBg)}>
-        <Icon className={cn("h-3 w-3 sm:h-4 w-4", iconColor)} />
+      <div className={cn("rounded-xs flex-shrink-0", compact ? "p-1.5" : "p-2 sm:p-3", iconBg)}>
+        <Icon className={cn(compact ? "h-3 w-3" : "h-3 w-3 sm:h-4 w-4", iconColor)} />
       </div>
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
@@ -27,7 +29,12 @@ export default function StatCard({
           </div>
           {tooltip && <Tooltip content={tooltip} />}
         </div>
-        <div className="text-lg sm:text-2xl font-black text-foreground mt-0.5 truncate">
+        <div
+          className={cn(
+            "font-black text-foreground mt-0.5 truncate",
+            compact ? "text-base" : "text-lg sm:text-2xl"
+          )}
+        >
           {value}
         </div>
       </div>

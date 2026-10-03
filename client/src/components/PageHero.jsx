@@ -11,7 +11,7 @@ export default function PageHero({
 }) {
   return (
     <div
-      className="p-6 rounded-lg relative overflow-hidden"
+      className="p-6 rounded-sm relative overflow-hidden"
       style={{
         background: "linear-gradient(135deg, #2DA7FD 0%, #39C1FE 45%, #2894FE 100%)",
         color: "white",
@@ -20,43 +20,48 @@ export default function PageHero({
       <div className="absolute -right-8 -top-8 w-36 h-36 bg-white/10 rounded-full blur-2xl pointer-events-none" />
       <div className="absolute -left-8 -bottom-8 w-48 h-48 bg-blue-400/20 rounded-full blur-2xl pointer-events-none" />
 
-      <div className="relative z-10 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2 mb-4">
-            {onBack && (
+      <div className="relative z-10 space-y-4">
+        {(onBack || badges) && (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {onBack ? (
               <button
                 onClick={onBack}
                 className={
                   backLabel
-                    ? "inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/20 hover:bg-white/30 text-xs font-bold transition-colors"
-                    : "inline-flex items-center justify-center p-1.5 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+                    ? "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xs bg-white/20 hover:bg-white/30 text-white text-xs font-bold transition-colors border border-white/10"
+                    : "inline-flex items-center justify-center p-1.5 rounded-xs bg-white/20 hover:bg-white/30 text-white transition-colors border border-white/10"
                 }
                 title={backLabel || "Kembali"}
               >
                 <ChevronLeft className="h-4 w-4" />
                 {backLabel}
               </button>
+            ) : (
+              <span />
             )}
-            {badges}
+            {badges && <div className="flex items-center gap-2">{badges}</div>}
           </div>
-          <h1 className="text-2xl font-black leading-tight">{title}</h1>
-          {meta && (
-            <div className="flex flex-wrap items-center gap-4 text-sm opacity-90">
-              {meta}
-            </div>
-          )}
-        </div>
+        )}
 
-        {(statLabel || statValue) && (
-          <div className="shrink-0 flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-4 sm:gap-0">
-            <div className="flex flex-col sm:items-end">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <div className="space-y-2">
+            <h1 className="text-2xl font-black leading-tight">{title}</h1>
+            {meta && (
+              <div className="flex flex-wrap items-center gap-4 text-sm opacity-90">
+                {meta}
+              </div>
+            )}
+          </div>
+
+          {(statLabel || statValue) && (
+            <div className="shrink-0 flex flex-col items-end">
               <div className="text-[11px] text-white/70 font-semibold uppercase tracking-widest">
                 {statLabel}
               </div>
               <p className="text-2xl sm:text-3xl font-black">{statValue}</p>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

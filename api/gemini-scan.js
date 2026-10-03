@@ -447,9 +447,13 @@ export async function handleGeminiScan(event) {
           ipAddress: getClientIp(event),
           provider: providerUsed,
           status: "failed",
-          errorMessage: internalFailureDetail
-            ? `${finalError.message} (${internalFailureDetail})`
-            : finalError.message
+          errorMessage: [
+            finalError.message,
+            internalFailureDetail && `internal: ${internalFailureDetail}`,
+            finalError.details && `details: ${finalError.details}`,
+          ]
+            .filter(Boolean)
+            .join(" | "),
         });
       } catch (dbLogErr) {
         console.error("Failed to save failed scan log to database:", dbLogErr);

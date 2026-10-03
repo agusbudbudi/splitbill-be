@@ -271,7 +271,7 @@ export default function Campaigns() {
             <Select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-[130px]"
+              className="w-[150px]"
             >
               <option value="all">Semua Status</option>
               <option value="draft">Draft</option>

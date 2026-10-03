@@ -100,7 +100,7 @@ export default function Select({
           disabled={disabled}
           onClick={() => setOpen((o) => !o)}
           className={cn(
-            "block w-full py-2 pl-3 pr-10 text-sm rounded-xs border transition-all text-left cursor-pointer",
+            "block w-full py-2 pl-3 pr-10 text-sm rounded-xs border transition-all text-left cursor-pointer whitespace-nowrap truncate",
             "bg-input text-foreground",
             "focus:outline-none focus:border-primary",
             "disabled:opacity-50 disabled:cursor-not-allowed",

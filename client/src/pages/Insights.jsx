@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { usePageMeta } from "../lib/usePageMeta";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import {
   Users,
   ReceiptText,
@@ -46,11 +46,11 @@ import {
 
 const AI_ADOPTION_DESCRIPTIONS = {
   scanAdopted:
-    "Persentase pengguna yang telah mencoba fitur AI Scan minimal satu kali dari total seluruh pengguna.",
+    "Persentase pengguna yang punya minimal satu scan berhasil (dihitung dari log scan) dari total seluruh pengguna.",
   scanExhausted:
-    "Jumlah pengguna yang telah menggunakan seluruh kuota scan gratis mereka (limit 3 scan).",
+    "Jumlah pengguna yang sisa kuota scan gratisnya 0 saat ini (kuota awal 5 scan, bisa bertambah dari reward review/level).",
   totalScans:
-    "Total akumulasi seluruh pemrosesan struk yang berhasil dilakukan oleh sistem AI.",
+    "Total scan berhasil oleh pengguna yang login (dihitung dari log scan).",
   avgScans:
     "Rata-rata jumlah scan yang dilakukan oleh satu orang pengguna (Total Scan / Total User yang sudah pakai scan).",
   conversion:
@@ -153,13 +153,13 @@ const GRANULARITY_LABELS = {
 
 const GRANULARITY_DESCRIPTIONS = {
   monthly: "Registrasi baru per bulan (6 bulan terakhir)",
-  weekly: "Registrasi baru per minggu (12 minggu terakhir)",
+  weekly: "Registrasi baru per minggu (sebulan terakhir)",
   daily: "Registrasi baru per hari (30 hari terakhir)",
 };
 
 const SCAN_GRANULARITY_DESCRIPTIONS = {
   monthly: "Scan berhasil vs gagal per bulan (6 bulan terakhir)",
-  weekly: "Scan berhasil vs gagal per minggu (12 minggu terakhir)",
+  weekly: "Scan berhasil vs gagal per minggu (sebulan terakhir)",
   daily: "Scan berhasil vs gagal per hari (30 hari terakhir)",
 };
 
@@ -168,6 +168,11 @@ const SUCCESS = "#22c55e";
 const WARNING = "#f59e0b";
 const DANGER = "#ef4444";
 const PURPLE = "#a78bfa";
+
+// Max acceptable AI-scan failure rate (%) over the last 7 days
+const FAILURE_RATE_THRESHOLD = 10;
+// Min acceptable success rate (%) over the last 7 days — mirror of the failure threshold
+const SUCCESS_RATE_THRESHOLD = 100 - FAILURE_RATE_THRESHOLD;
 
 const FUNNEL_COLORS = [PRIMARY, SUCCESS, WARNING, PURPLE];
 
@@ -246,9 +251,9 @@ function FunnelBar({ stage, count, rate, color, maxCount, description }) {
           {(count ?? 0).toLocaleString("id-ID")} pengguna ({formatPct(rate)})
         </span>
       </div>
-      <div className="h-8 bg-muted rounded-full overflow-hidden">
+      <div className="h-8 bg-muted rounded-xs overflow-hidden">
         <div
-          className="h-full rounded-full flex items-center px-3 transition-all duration-700"
+          className="h-full rounded-xs flex items-center px-3 transition-all duration-700"
           style={{ width: `${width}%`, background: color }}
         >
           <span className="text-white text-xs font-bold">{formatPct(rate)}</span>
@@ -264,6 +269,123 @@ function SectionTitle({ children }) {
       <span className="h-4 w-0.5 rounded-full bg-primary" />
       {children}
     </h2>
+  );
+}
+
+// Distribution card: headline metric + segmented bar + per-segment breakdown
+function DistributionCard({
+  title,
+  headline,
+  headlineLabel,
+  total,
+  totalUnit,
+  segments,
+  className,
+}) {
+  return (
+    <div
+      className={`bg-white rounded-sm shadow-soft border border-border p-4 space-y-3 ${className ?? ""}`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-muted-foreground">{title}</p>
+          <p className="text-2xl font-black text-foreground mt-0.5">
+            {headline}
+            <span className="ml-1.5 text-xs font-medium text-muted-foreground">
+              {headlineLabel}
+            </span>
+          </p>
+        </div>
+        <div className="text-right flex-shrink-0">
+          <p className="text-xs text-muted-foreground">Total</p>
+          <p className="text-sm font-bold text-foreground">
+            {total.toLocaleString("id-ID")} {totalUnit}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex h-2 w-full overflow-hidden rounded-xs bg-muted">
+        {segments.map((seg) => (
+          <div
+            key={seg.label}
+            className={`${seg.dot} transition-all duration-700`}
+            style={{ width: `${pctOf(seg.count, total)}%` }}
+          />
+        ))}
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        {segments.map((seg) => (
+          <div key={seg.label} className="flex items-start gap-2">
+            <span className={`mt-1 h-2 w-2 rounded-full flex-shrink-0 ${seg.dot}`} />
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-foreground">
+                {seg.label}
+                <span className={`ml-1.5 font-bold ${seg.text}`}>
+                  {seg.count.toLocaleString("id-ID")}
+                </span>
+                <span className="ml-1 font-normal text-muted-foreground">
+                  ({formatPct(pctOf(seg.count, total))})
+                </span>
+              </p>
+              {seg.hint && (
+                <p className="text-[11px] text-muted-foreground">{seg.hint}</p>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// KPI card with context line (delta / ratio) under the main value
+function KpiCard({ title, value, icon: Icon, iconColor, iconBg, tooltip, sub, alert, badge, className }) {
+  return (
+    <div
+      className={`bg-white rounded-sm shadow-soft border p-4 space-y-2 ${alert ? "border-destructive/40" : "border-border"} ${className ?? ""}`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <p className="text-xs font-medium text-muted-foreground truncate">{title}</p>
+          {tooltip && <UiTooltip content={tooltip} />}
+        </div>
+        <div className={`rounded-xs p-1.5 flex-shrink-0 ${iconBg}`}>
+          <Icon className={`h-3.5 w-3.5 ${iconColor}`} />
+        </div>
+      </div>
+      <div className="flex items-center gap-2 flex-wrap">
+        <p className="text-2xl font-black text-foreground truncate">{value}</p>
+        {badge}
+      </div>
+      {sub && <div className="text-[11px] text-muted-foreground leading-snug">{sub}</div>}
+      {alert && (
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded-xs border border-destructive/20 bg-destructive/10 px-2.5 py-2 text-[11px] text-destructive"
+        >
+          <AlertTriangle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+          <div className="leading-snug">{alert}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Signed delta chip (green up / red down / neutral flat)
+function DeltaText({ delta, suffix }) {
+  if (delta == null) return <span>Belum ada pembanding</span>;
+  const up = delta > 0;
+  const flat = delta === 0;
+  return (
+    <span>
+      <span
+        className={`font-bold ${flat ? "text-muted-foreground" : up ? "text-success" : "text-destructive"}`}
+      >
+        {flat ? "•" : up ? "▲" : "▼"} {Math.abs(delta).toFixed(1)}%
+      </span>{" "}
+      {suffix}
+    </span>
   );
 }
 
@@ -460,58 +582,83 @@ export default function Insights() {
       {activeTab === "overview" && (
         <div className="space-y-4">
           {/* KPI Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-            <StatCard
-              title="Total Pengguna"
-              value={
-                <div className="flex items-baseline gap-2">
-                  <span>{(kpis.totalUsers ?? 0).toLocaleString("id-ID")}</span>
-                  {kpis.newUsersToday > 0 && (
-                    <Badge variant="success" className="text-[10px]">
-                      +{kpis.newUsersToday} New
-                    </Badge>
-                  )}
-                </div>
-              }
-              icon={Users}
-              iconColor="text-primary"
-              iconBg="bg-primary/10"
-              tooltip={KPI_DESCRIPTIONS.totalUsers}
-            />
-            <StatCard
-              title="Terverifikasi"
-              value={`${(kpis.verifiedUsers ?? 0).toLocaleString("id-ID")} (${formatPct(kpis.verifiedRate)})`}
-              icon={UserCheck}
-              iconColor="text-success"
-              iconBg="bg-success/10"
-              tooltip={KPI_DESCRIPTIONS.verifiedUsers}
-            />
-            <StatCard
-              title="Total Split Bill"
-              value={
-                <div className="flex items-baseline gap-2">
-                  <span>{(kpis.totalBills ?? 0).toLocaleString("id-ID")}</span>
-                  {kpis.newBillsToday > 0 && (
-                    <Badge variant="success" className="text-[10px]">
-                      +{kpis.newBillsToday} New
-                    </Badge>
-                  )}
-                </div>
-              }
-              icon={ReceiptText}
-              iconColor="text-warning"
-              iconBg="bg-warning/10"
-              tooltip={KPI_DESCRIPTIONS.totalBills}
-            />
-            <StatCard
-              title="Total Nilai Ditagih"
-              value={formatRpShort(kpis.totalValue)}
-              icon={Wallet}
-              iconColor="text-purple-500"
-              iconBg="bg-purple-500/10"
-              tooltip={KPI_DESCRIPTIONS.totalValue}
-            />
-          </div>
+          {(() => {
+            const totalUsers = kpis.totalUsers ?? 0;
+            const verified = kpis.verifiedUsers ?? 0;
+            const NewToday = ({ n }) =>
+              n > 0 ? (
+                <span className="font-bold text-success">+{n.toLocaleString("id-ID")} hari ini</span>
+              ) : (
+                <span>Tidak ada baru hari ini</span>
+              );
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <KpiCard
+                  title="Total Pengguna"
+                  value={totalUsers.toLocaleString("id-ID")}
+                  icon={Users}
+                  iconColor="text-primary"
+                  iconBg="bg-primary/10"
+                  tooltip={KPI_DESCRIPTIONS.totalUsers}
+                  sub={
+                    <>
+                      <NewToday n={kpis.newUsersToday ?? 0} />
+                      <span className="block">
+                        {(kpis.activeUsers ?? 0).toLocaleString("id-ID")} aktif 30 hari terakhir (
+                        {formatPct(pctOf(kpis.activeUsers, totalUsers))})
+                      </span>
+                    </>
+                  }
+                />
+                <KpiCard
+                  title="Terverifikasi"
+                  value={formatPct(kpis.verifiedRate)}
+                  icon={UserCheck}
+                  iconColor="text-success"
+                  iconBg="bg-success/10"
+                  tooltip={KPI_DESCRIPTIONS.verifiedUsers}
+                  sub={
+                    <>
+                      {verified.toLocaleString("id-ID")} dari {totalUsers.toLocaleString("id-ID")} pengguna
+                      <span className="block">
+                        {Math.max(0, totalUsers - verified).toLocaleString("id-ID")} belum verifikasi email
+                      </span>
+                    </>
+                  }
+                />
+                <KpiCard
+                  title="Total Split Bill"
+                  value={(kpis.totalBills ?? 0).toLocaleString("id-ID")}
+                  icon={ReceiptText}
+                  iconColor="text-warning"
+                  iconBg="bg-warning/10"
+                  tooltip={KPI_DESCRIPTIONS.totalBills}
+                  sub={
+                    <>
+                      <NewToday n={kpis.newBillsToday ?? 0} />
+                      <span className="block">
+                        Rata-rata {kpis.avgParticipants ?? 0} peserta per bill
+                      </span>
+                    </>
+                  }
+                />
+                <KpiCard
+                  title="Total Nilai Ditagih"
+                  value={formatRpShort(kpis.totalValue)}
+                  icon={Wallet}
+                  iconColor="text-purple-500"
+                  iconBg="bg-purple-500/10"
+                  tooltip={KPI_DESCRIPTIONS.totalValue}
+                  sub={
+                    <>
+                      Rata-rata {formatRpShort(kpis.avgBillSize)} per bill
+                      <span className="block">{formatRp(kpis.totalValue)}</span>
+                    </>
+                  }
+                />
+              </div>
+            );
+          })()}
 
           {/* User Growth + Metode Pendaftaran side by side */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
@@ -579,62 +726,77 @@ export default function Insights() {
                   Distribusi Google OAuth vs Email/Password
                 </p>
               </CardHeader>
-              <CardBody className="flex flex-col items-center justify-center gap-4">
-                {providers.length > 0 ? (
-                  <>
-                    <div className="w-full h-[140px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={providers}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={45}
-                            outerRadius={65}
-                            paddingAngle={0}
-                            dataKey="count"
-                            nameKey="provider"
-                          >
-                            {providers.map((entry) => (
-                              <Cell
-                                key={entry.provider}
-                                fill={entry.provider === "google" ? "#4285F4" : WARNING}
-                              />
-                            ))}
-                          </Pie>
-                          <Tooltip
-                            content={
-                              <ChartTooltip valueFormatter={(v) => `${v} pengguna`} />
-                            }
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="flex flex-col gap-2 w-full text-xs">
-                      {providers.map((entry) => (
-                        <div
-                          key={entry.provider}
-                          className="flex items-center justify-between border-b border-border/50 pb-1.5 last:border-0 last:pb-0"
-                        >
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="w-2.5 h-2.5 rounded-full"
-                              style={{
-                                backgroundColor: entry.provider === "google" ? "#4285F4" : WARNING,
-                              }}
-                            />
-                            <span className="font-medium text-foreground capitalize">
-                              {entry.provider === "google" ? "Google OAuth" : "Email / Password"}
-                            </span>
-                          </div>
-                          <span className="text-muted-foreground font-bold">
-                            {entry.count} ({formatPct(pctOf(entry.count, kpis.totalUsers))})
-                          </span>
+              <CardBody>
+                {providers.length > 0 ? (() => {
+                  const META = {
+                    google: { label: "Google OAuth", hint: "Daftar lewat akun Google", color: "#4285F4" },
+                    local: { label: "Email / Password", hint: "Daftar manual dengan email", color: WARNING },
+                  };
+                  const rows = [...providers]
+                    .map((e) => ({
+                      ...e,
+                      ...(META[e.provider] ?? { label: e.provider, hint: null, color: "#94a3b8" }),
+                    }))
+                    .sort((a, b) => (b.count ?? 0) - (a.count ?? 0));
+                  const total = rows.reduce((a, b) => a + (b.count ?? 0), 0);
+                  const top = rows[0];
+                  return (
+                    <div className="space-y-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs text-muted-foreground">Metode terbanyak</p>
+                          <p className="text-lg font-black text-foreground mt-0.5 truncate">
+                            {top.label}
+                          </p>
+                          <p className="text-xs font-semibold text-muted-foreground">
+                            {formatPct(pctOf(top.count, total))} pengguna
+                          </p>
                         </div>
-                      ))}
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-xs text-muted-foreground">Total</p>
+                          <p className="text-sm font-bold text-foreground">
+                            {total.toLocaleString("id-ID")} pengguna
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex h-2 w-full overflow-hidden rounded-xs bg-muted">
+                        {rows.map((r) => (
+                          <div
+                            key={r.provider}
+                            className="transition-all duration-700"
+                            style={{ width: `${pctOf(r.count, total)}%`, background: r.color }}
+                          />
+                        ))}
+                      </div>
+
+                      <ul className="space-y-3">
+                        {rows.map((r) => (
+                          <li key={r.provider} className="flex items-start gap-2">
+                            <span
+                              className="mt-1 h-2 w-2 rounded-full flex-shrink-0"
+                              style={{ background: r.color }}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-2 text-xs">
+                                <span className="font-semibold text-foreground">{r.label}</span>
+                                <span className="text-muted-foreground whitespace-nowrap">
+                                  <span className="font-bold text-foreground">
+                                    {(r.count ?? 0).toLocaleString("id-ID")}
+                                  </span>{" "}
+                                  ({formatPct(pctOf(r.count, total))})
+                                </span>
+                              </div>
+                              {r.hint && (
+                                <p className="text-[11px] text-muted-foreground">{r.hint}</p>
+                              )}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
-                  </>
-                ) : (
+                  );
+                })() : (
                   <p className="text-xs text-muted-foreground italic text-center py-8">Belum ada data</p>
                 )}
               </CardBody>
@@ -709,7 +871,7 @@ export default function Insights() {
                 <CardHeader>
                   <SectionTitle>Hari Teraktif Split Bill</SectionTitle>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Jumlah split bill berdasarkan hari pembuatan dalam seminggu
+                    Jumlah split bill berdasarkan hari pembuatan dalam seminggu (30 hari terakhir)
                   </p>
                 </CardHeader>
                 <CardBody>
@@ -797,41 +959,85 @@ export default function Insights() {
       {/* ─────────────────────────────────────────── */}
       {activeTab === "revenue" && (
         <div className="space-y-4">
-          {/* Subscription KPIs */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            <StatCard
-              title="Subscriber Aktif"
-              value={(kpis.totalSubscribers ?? 0).toLocaleString("id-ID")}
-              icon={UserCheck}
-              iconColor="text-success"
-              iconBg="bg-success/10"
-              tooltip={SUBSCRIPTION_DESCRIPTIONS.activeSubscribers}
-            />
-            <StatCard
-              title="Subscriber Expired"
-              value={(kpis.expiredSubscribers ?? 0).toLocaleString("id-ID")}
-              icon={UserX}
-              iconColor="text-danger"
-              iconBg="bg-danger/10"
-              tooltip={SUBSCRIPTION_DESCRIPTIONS.expiredSubscribers}
-            />
-            <StatCard
-              title="Revenue (MTD)"
-              value={formatRpShort(kpis.revenueMTD)}
-              icon={DollarSign}
-              iconColor="text-primary"
-              iconBg="bg-primary/10"
-              tooltip={SUBSCRIPTION_DESCRIPTIONS.revenueMTD}
-            />
-            <StatCard
-              title="Pending Orders"
-              value={(kpis.pendingOrders ?? 0).toLocaleString("id-ID")}
-              icon={Clock}
-              iconColor="text-warning"
-              iconBg="bg-warning/10"
-              tooltip={SUBSCRIPTION_DESCRIPTIONS.pendingOrders}
-            />
-          </div>
+          {(() => {
+            const trend = data.revenueTrend ?? [];
+            const curr = trend[trend.length - 1];
+            const prev = trend[trend.length - 2];
+            const momDelta =
+              prev && prev.total > 0
+                ? ((curr.total - prev.total) / prev.total) * 100
+                : null;
+            const active = kpis.totalSubscribers ?? 0;
+            const expired = kpis.expiredSubscribers ?? 0;
+            const subTotal = active + expired;
+            const pending = kpis.pendingOrders ?? 0;
+
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <KpiCard
+                  title="Revenue (MTD)"
+                  value={formatRpShort(kpis.revenueMTD)}
+                  icon={DollarSign}
+                  iconColor="text-primary"
+                  iconBg="bg-primary/10"
+                  tooltip={SUBSCRIPTION_DESCRIPTIONS.revenueMTD}
+                  sub={
+                    <>
+                      <DeltaText delta={momDelta} suffix="vs total bulan lalu" />
+                      {prev && (
+                        <span className="block">
+                          Bulan lalu: {formatRpShort(prev.total)}
+                        </span>
+                      )}
+                    </>
+                  }
+                />
+                <KpiCard
+                  title="Subscriber Aktif"
+                  value={active.toLocaleString("id-ID")}
+                  icon={UserCheck}
+                  iconColor="text-success"
+                  iconBg="bg-success/10"
+                  tooltip={SUBSCRIPTION_DESCRIPTIONS.activeSubscribers}
+                  sub={
+                    subTotal > 0
+                      ? `${formatPct(pctOf(active, subTotal))} dari ${subTotal.toLocaleString("id-ID")} total subscriber`
+                      : "Belum ada subscriber"
+                  }
+                />
+                <KpiCard
+                  title="Subscriber Expired"
+                  value={expired.toLocaleString("id-ID")}
+                  icon={UserX}
+                  iconColor="text-destructive"
+                  iconBg="bg-destructive/10"
+                  tooltip={SUBSCRIPTION_DESCRIPTIONS.expiredSubscribers}
+                  sub={
+                    subTotal > 0
+                      ? `${formatPct(pctOf(expired, subTotal))} dari total subscriber · potensi diperpanjang`
+                      : "Belum ada subscriber"
+                  }
+                />
+                <KpiCard
+                  title="Pending Orders"
+                  value={pending.toLocaleString("id-ID")}
+                  icon={Clock}
+                  iconColor="text-warning"
+                  iconBg="bg-warning/10"
+                  tooltip={SUBSCRIPTION_DESCRIPTIONS.pendingOrders}
+                  sub={
+                    pending > 0 ? (
+                      <Link to="/orders" className="text-primary font-semibold hover:underline">
+                        Tinjau pesanan pending →
+                      </Link>
+                    ) : (
+                      "Tidak ada pesanan menunggu pembayaran"
+                    )
+                  }
+                />
+              </div>
+            );
+          })()}
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             {/* Revenue Trend */}
@@ -842,7 +1048,42 @@ export default function Insights() {
                   Total pembayaran paket langganan (6 bulan terakhir)
                 </p>
               </CardHeader>
-              <CardBody>
+              <CardBody className="space-y-4">
+                {(() => {
+                  const trend = data.revenueTrend ?? [];
+                  const total = trend.reduce((a, b) => a + (b.total ?? 0), 0);
+                  const avg = trend.length ? total / trend.length : 0;
+                  const best = trend.reduce(
+                    (a, b) => (a == null || b.total > a.total ? b : a),
+                    null
+                  );
+                  const stats = [
+                    { label: "Total 6 bulan", value: formatRpShort(total) },
+                    { label: "Rata-rata / bulan", value: formatRpShort(avg) },
+                    {
+                      label: "Bulan terbaik",
+                      value: best && best.total > 0 ? periodLabel(best.period) : "-",
+                      sub: best && best.total > 0 ? formatRpShort(best.total) : null,
+                    },
+                  ];
+                  return (
+                    <div className="grid grid-cols-3 gap-3">
+                      {stats.map((st) => (
+                        <div key={st.label} className="rounded-xs bg-muted px-3 py-2">
+                          <p className="text-[11px] text-muted-foreground">{st.label}</p>
+                          <p className="text-sm font-bold text-foreground">
+                            {st.value}
+                            {st.sub && (
+                              <span className="ml-1 text-[11px] font-medium text-muted-foreground">
+                                {st.sub}
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
                 <ResponsiveContainer width="100%" height={220}>
                   <LineChart data={data.revenueTrend}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -882,64 +1123,92 @@ export default function Insights() {
                   Pembagian subscriber berdasarkan paket yang dipilih
                 </p>
               </CardHeader>
-              <CardBody className="flex flex-col md:flex-row items-center gap-6 justify-center">
-                <div className="w-full h-[200px] max-w-[220px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={data.subscriptions.planDistribution}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={80}
-                        paddingAngle={0}
-                        dataKey="count"
-                        nameKey="plan"
-                      >
-                        {data.subscriptions.planDistribution.map((entry, index) => (
-                          <Cell
-                            key={`cell-${index}`}
-                            fill={FUNNEL_COLORS[index % FUNNEL_COLORS.length]}
+              <CardBody>
+                {(() => {
+                  const plans = [...(data.subscriptions.planDistribution ?? [])].sort(
+                    (a, b) => (b.count ?? 0) - (a.count ?? 0)
+                  );
+                  const total = plans.reduce((a, b) => a + (b.count ?? 0), 0);
+                  if (plans.length === 0 || total === 0) {
+                    return (
+                      <p className="text-xs text-muted-foreground italic text-center py-8">
+                        Belum ada data subscriber
+                      </p>
+                    );
+                  }
+                  const top = plans[0];
+                  const max = top.count || 1;
+                  return (
+                    <div className="space-y-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs text-muted-foreground">Paket terpopuler</p>
+                          <p className="text-2xl font-black text-foreground mt-0.5 truncate">
+                            {top.plan}
+                            <span className="ml-1.5 text-xs font-medium text-muted-foreground">
+                              {formatPct(pctOf(top.count, total))} dari semua
+                            </span>
+                          </p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-xs text-muted-foreground">Total</p>
+                          <p className="text-sm font-bold text-foreground">
+                            {total.toLocaleString("id-ID")} subscriber
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {plans.length} paket
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex h-2 w-full overflow-hidden rounded-xs bg-muted">
+                        {plans.map((pl, i) => (
+                          <div
+                            key={pl.plan}
+                            className="transition-all duration-700"
+                            style={{
+                              width: `${pctOf(pl.count, total)}%`,
+                              background: FUNNEL_COLORS[i % FUNNEL_COLORS.length],
+                            }}
                           />
                         ))}
-                      </Pie>
-                      <Tooltip
-                        content={
-                          <ChartTooltip valueFormatter={(v) => `${v} subscriber`} />
-                        }
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="flex flex-col gap-2 w-full md:w-auto min-w-[150px]">
-                  {data.subscriptions.planDistribution.map((entry, index) => (
-                    <div
-                      key={entry.plan}
-                      className="flex items-center justify-between gap-4 border-b border-border/50 pb-1.5 last:border-0 last:pb-0 text-xs"
-                    >
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-3 h-3 rounded-full"
-                          style={{
-                            backgroundColor:
-                              FUNNEL_COLORS[index % FUNNEL_COLORS.length],
-                          }}
-                        />
-                        <span className="font-medium text-foreground">
-                          {entry.plan}
-                        </span>
                       </div>
-                      <span className="text-muted-foreground font-bold">
-                        {entry.count}
-                      </span>
+
+                      <ul className="space-y-2.5">
+                        {plans.map((pl, i) => (
+                          <li key={pl.plan} className="space-y-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="flex items-center gap-2 min-w-0">
+                                <span
+                                  className="h-2 w-2 rounded-full flex-shrink-0"
+                                  style={{ background: FUNNEL_COLORS[i % FUNNEL_COLORS.length] }}
+                                />
+                                <span className="font-semibold text-foreground truncate">
+                                  {pl.plan}
+                                </span>
+                              </span>
+                              <span className="text-muted-foreground flex-shrink-0">
+                                <span className="font-bold text-foreground">
+                                  {(pl.count ?? 0).toLocaleString("id-ID")}
+                                </span>{" "}
+                                ({formatPct(pctOf(pl.count, total))})
+                              </span>
+                            </div>
+                            <div className="h-1.5 bg-muted rounded-xs overflow-hidden">
+                              <div
+                                className="h-full rounded-xs transition-all duration-700"
+                                style={{
+                                  width: `${Math.max(2, ((pl.count ?? 0) / max) * 100)}%`,
+                                  background: FUNNEL_COLORS[i % FUNNEL_COLORS.length],
+                                }}
+                              />
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
-                  ))}
-                  {data.subscriptions.planDistribution.length === 0 && (
-                    <p className="text-xs text-muted-foreground italic text-center">
-                      Belum ada data subscriber
-                    </p>
-                  )}
-                </div>
+                  );
+                })()}
               </CardBody>
             </Card>
           </div>
@@ -951,8 +1220,73 @@ export default function Insights() {
       {/* ─────────────────────────────────────────── */}
       {activeTab === "features" && (
         <div className="space-y-4">
-          {/* Marketing Funnel */}
-          <Card>
+          {/* Status Penyelesaian & Pembagian Biaya Tambahan */}
+          {(() => {
+            const statusTotal = splitBillStatuses.reduce((a, b) => a + b.count, 0);
+            const finalized =
+              splitBillStatuses.find((e) => e.status === "locked")?.count ?? 0;
+            const draft = statusTotal - finalized;
+
+            const addTotal = additionalSplitTypes.reduce((a, b) => a + b.count, 0);
+            const ADD_HINTS = {
+              "Sama Rata": "Dibagi rata ke semua peserta",
+              Proporsional: "Dibagi sesuai porsi pesanan",
+            };
+            const addSegments = additionalSplitTypes.map((e) => ({
+              label: e.type,
+              hint: ADD_HINTS[e.type],
+              count: e.count ?? 0,
+              dot: e.type === "Sama Rata" ? "bg-primary" : "bg-warning",
+              text: e.type === "Sama Rata" ? "text-primary" : "text-warning",
+            }));
+            const topAdd = [...addSegments].sort((a, b) => b.count - a.count)[0];
+
+            if (statusTotal === 0 && addTotal === 0) return null;
+            return (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {statusTotal > 0 && (
+                  <DistributionCard
+                    title="Status Penyelesaian Tagihan"
+                    headline={formatPct(pctOf(finalized, statusTotal))}
+                    headlineLabel="selesai"
+                    total={statusTotal}
+                    totalUnit="tagihan"
+                    segments={[
+                      {
+                        label: "Finalized",
+                        hint: "Locked, tidak bisa diedit",
+                        count: finalized,
+                        dot: "bg-success",
+                        text: "text-success",
+                      },
+                      {
+                        label: "Draft",
+                        hint: "Editable, belum selesai",
+                        count: draft,
+                        dot: "bg-destructive",
+                        text: "text-destructive",
+                      },
+                    ]}
+                  />
+                )}
+                {addTotal > 0 && (
+                  <DistributionCard
+                    title="Pembagian Biaya Tambahan"
+                    headline={formatPct(pctOf(topAdd.count, addTotal))}
+                    headlineLabel={`${topAdd.label} (terbanyak)`}
+                    total={addTotal}
+                    totalUnit="biaya"
+                    segments={addSegments}
+                  />
+                )}
+              </div>
+            );
+          })()}
+
+          {/* New Metrics Row */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            {/* Marketing Funnel */}
+            <Card>
               <CardHeader>
                 <SectionTitle>Marketing Funnel</SectionTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -960,46 +1294,89 @@ export default function Insights() {
                 </p>
               </CardHeader>
               <CardBody className="space-y-4">
-                {funnel.map((f, i) => (
-                  <FunnelBar
-                    key={f.stage}
-                    stage={f.stage}
-                    count={f.count}
-                    rate={f.rate}
-                    color={FUNNEL_COLORS[i]}
-                    maxCount={funnelMax}
-                    description={FUNNEL_DESCRIPTIONS[f.stage]}
-                  />
-                ))}
-                <div className="pt-2 border-t border-border grid grid-cols-3 gap-3 text-center">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Reg → Verified</p>
-                    <p className="text-sm font-bold text-foreground">
-                      {formatPct(funnel[1]?.rate)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">
-                      Verified → Activated
-                    </p>
-                    <p className="text-sm font-bold text-foreground">
-                      {formatPct(pctOf(funnel[2]?.count, funnel[1]?.count))}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">
-                      Activated → Engaged
-                    </p>
-                    <p className="text-sm font-bold text-foreground">
-                      {formatPct(pctOf(funnel[3]?.count, funnel[2]?.count))}
-                    </p>
-                  </div>
-                </div>
+                {(() => {
+                  const first = funnel[0]?.count ?? 0;
+                  const last = funnel[funnel.length - 1]?.count ?? 0;
+                  const steps = funnel.slice(1).map((f, i) => {
+                    const prev = funnel[i];
+                    return {
+                      from: prev.stage,
+                      to: f.stage,
+                      conv: pctOf(f.count, prev.count),
+                      lost: Math.max(0, (prev.count ?? 0) - (f.count ?? 0)),
+                    };
+                  });
+                  const worst = steps.reduce(
+                    (a, b) => (a == null || b.conv < a.conv ? b : a),
+                    null
+                  );
+                  return (
+                    <>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-xs text-muted-foreground">
+                            Konversi total (Registered → Engaged)
+                          </p>
+                          <p className="text-2xl font-black text-foreground mt-0.5">
+                            {formatPct(pctOf(last, first))}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-muted-foreground">Total registrasi</p>
+                          <p className="text-sm font-bold text-foreground">
+                            {first.toLocaleString("id-ID")} pengguna
+                          </p>
+                        </div>
+                      </div>
+
+                      <div>
+                        {funnel.map((f, i) => {
+                          const step = i > 0 ? steps[i - 1] : null;
+                          const isWorst = step && worst && step.to === worst.to;
+                          return (
+                            <div key={f.stage}>
+                              {step && (
+                                <div className="flex items-center justify-between gap-2 py-1.5 pl-3 text-[11px]">
+                                  <span className="text-muted-foreground">
+                                    ↓ <span className="font-semibold text-foreground">{formatPct(step.conv)}</span> lanjut
+                                    <span className="mx-1">·</span>
+                                    {step.lost.toLocaleString("id-ID")} berhenti
+                                  </span>
+                                  {isWorst && (
+                                    <Badge variant="warning" className="text-[10px] px-1.5 py-0">
+                                      Drop-off terbesar
+                                    </Badge>
+                                  )}
+                                </div>
+                              )}
+                              <FunnelBar
+                                stage={f.stage}
+                                count={f.count}
+                                rate={f.rate}
+                                color={FUNNEL_COLORS[i]}
+                                maxCount={funnelMax}
+                                description={FUNNEL_DESCRIPTIONS[f.stage]}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {worst && (
+                        <p className="pt-3 border-t border-border text-xs text-muted-foreground">
+                          Titik terlemah ada di{" "}
+                          <span className="font-semibold text-foreground">
+                            {worst.from} → {worst.to}
+                          </span>
+                          : hanya {formatPct(worst.conv)} yang lanjut, {worst.lost.toLocaleString("id-ID")} pengguna berhenti di tahap ini.
+                        </p>
+                      )}
+                    </>
+                  );
+                })()}
               </CardBody>
             </Card>
 
-          {/* New Metrics Row */}
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             {/* Step Funnel Chart */}
             <Card>
               <CardHeader>
@@ -1008,13 +1385,12 @@ export default function Insights() {
                   Seberapa jauh pengguna menyelesaikan proses split bill
                 </p>
               </CardHeader>
-              <CardBody className="space-y-3">
+              <CardBody className="space-y-4">
                 {draftDropOff.length === 0 ? (
                   <p className="text-xs text-muted-foreground italic text-center py-8">
                     Belum ada data
                   </p>
                 ) : (() => {
-                  // Build a map of raw counts per step
                   const stepMap = Object.fromEntries(
                     draftDropOff.map((d) => [d.step, d.count])
                   );
@@ -1028,78 +1404,117 @@ export default function Insights() {
                     { label: "Step 1", count: s1 + s2 + s3 + fin, color: DANGER, sublabel: "Mulai membuat bill" },
                     { label: "Step 2", count: s2 + s3 + fin, color: WARNING, sublabel: "Tambah pengeluaran" },
                     { label: "Step 3", count: s3 + fin, color: PURPLE, sublabel: "Konfirmasi & metode bayar" },
-                    { label: "Finalized", count: fin, color: SUCCESS, sublabel: "Berhasil diselesaikan ✓" },
+                    { label: "Finalized", count: fin, color: SUCCESS, sublabel: "Berhasil diselesaikan" },
                   ];
-                  const maxCount = steps[0].count || 1;
+                  const total = steps[0].count;
+                  const maxCount = total || 1;
+                  const transitions = steps.slice(1).map((st, i) => {
+                    const prev = steps[i];
+                    return {
+                      from: prev.label,
+                      to: st.label,
+                      conv: pctOf(st.count, prev.count),
+                      lost: Math.max(0, prev.count - st.count),
+                    };
+                  });
+                  const worst = transitions.reduce(
+                    (a, b) => (a == null || b.conv < a.conv ? b : a),
+                    null
+                  );
 
-                  return steps.map((step, i) => {
-                    const width = maxCount > 0 ? Math.max(6, (step.count / maxCount) * 100) : 0;
-                    const prevCount = i > 0 ? steps[i - 1].count : step.count;
-                    const dropOffCount = prevCount - step.count;
-                    const conversionRate = prevCount > 0 ? pctOf(step.count, prevCount) : 100;
-
-                    return (
-                      <div key={step.label} className="space-y-1">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="flex items-center gap-2">
-                            <span
-                              className="inline-flex items-center justify-center w-5 h-5 rounded-full text-white text-[9px] font-black flex-shrink-0"
-                              style={{ backgroundColor: step.color }}
-                            >
-                              {i + 1}
-                            </span>
-                            <span className="font-semibold text-foreground">{step.label}</span>
-                            <span className="text-muted-foreground hidden sm:inline">{step.sublabel}</span>
-                          </span>
-                          <span className="text-muted-foreground flex items-center gap-2">
-                            {i > 0 && dropOffCount > 0 && (
-                              <span className="text-[10px] text-destructive/70">
-                                -{dropOffCount} drop-off
-                              </span>
-                            )}
-                            <span className="font-semibold text-foreground">
-                              {step.count.toLocaleString("id-ID")}
-                            </span>
-                            <Badge
-                              variant="neutral"
-                              className="text-[10px] border-transparent"
-                              style={{ background: step.color + "20", color: step.color }}
-                            >
-                              {formatPct(i === 0 ? 100 : conversionRate)}
-                            </Badge>
-                          </span>
+                  return (
+                    <>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-xs text-muted-foreground">
+                            Tingkat penyelesaian (Step 1 → Finalized)
+                          </p>
+                          <p className="text-2xl font-black text-success mt-0.5">
+                            {formatPct(pctOf(fin, total))}
+                          </p>
                         </div>
-                        <div className="h-7 bg-muted rounded-sm overflow-hidden">
-                          <div
-                            className="h-full rounded-sm flex items-center px-3 transition-all duration-700"
-                            style={{ width: `${width}%`, background: step.color }}
-                          >
-                            <span className="text-white text-[10px] font-bold whitespace-nowrap">
-                              {step.count.toLocaleString("id-ID")}
-                            </span>
-                          </div>
+                        <div className="text-right">
+                          <p className="text-xs text-muted-foreground">Total bill dimulai</p>
+                          <p className="text-sm font-bold text-foreground">
+                            {total.toLocaleString("id-ID")} bill
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {fin.toLocaleString("id-ID")} selesai · {(total - fin).toLocaleString("id-ID")} belum
+                          </p>
                         </div>
                       </div>
-                    );
-                  });
-                })()}
 
-                {/* Completion Rate summary */}
-                {draftDropOff.length > 0 && (() => {
-                  const stepMap = Object.fromEntries(draftDropOff.map((d) => [d.step, d.count]));
-                  const total = (stepMap["STEP_1"] ?? 0) + (stepMap["STEP_2"] ?? 0) + (stepMap["STEP_3"] ?? 0) + (stepMap["FINALIZED"] ?? 0);
-                  const fin = stepMap["FINALIZED"] ?? 0;
-                  const rate = pctOf(fin, total);
-                  return (
-                    <div className="pt-2 border-t border-border flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Tingkat Penyelesaian Keseluruhan</span>
-                      <span className="font-bold text-success">{formatPct(rate)} ({fin.toLocaleString("id-ID")} selesai)</span>
-                    </div>
+                      <div>
+                        {steps.map((step, i) => {
+                          const tr = i > 0 ? transitions[i - 1] : null;
+                          const isWorst = tr && worst && tr.to === worst.to;
+                          const width = total > 0 ? Math.max(6, (step.count / maxCount) * 100) : 0;
+                          return (
+                            <div key={step.label}>
+                              {tr && (
+                                <div className="flex items-center justify-between gap-2 py-1.5 pl-3 text-[11px]">
+                                  <span className="text-muted-foreground">
+                                    ↓ <span className="font-semibold text-foreground">{formatPct(tr.conv)}</span> lanjut
+                                    <span className="mx-1">·</span>
+                                    {tr.lost.toLocaleString("id-ID")} berhenti
+                                  </span>
+                                  {isWorst && (
+                                    <Badge variant="warning" className="text-[10px] px-1.5 py-0">
+                                      Drop-off terbesar
+                                    </Badge>
+                                  )}
+                                </div>
+                              )}
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="flex items-center gap-2 min-w-0">
+                                    <span
+                                      className="inline-flex items-center justify-center w-5 h-5 rounded-full text-white text-[9px] font-black flex-shrink-0"
+                                      style={{ backgroundColor: step.color }}
+                                    >
+                                      {i + 1}
+                                    </span>
+                                    <span className="font-semibold text-foreground">{step.label}</span>
+                                    <span className="text-muted-foreground hidden sm:inline truncate">{step.sublabel}</span>
+                                  </span>
+                                  <span className="text-muted-foreground flex-shrink-0">
+                                    {formatPct(pctOf(step.count, total))} dari awal
+                                  </span>
+                                </div>
+                                <div className="h-7 bg-muted rounded-xs overflow-hidden">
+                                  <div
+                                    className="h-full rounded-xs flex items-center px-3 transition-all duration-700"
+                                    style={{ width: `${width}%`, background: step.color }}
+                                  >
+                                    <span className="text-white text-[10px] font-bold whitespace-nowrap">
+                                      {step.count.toLocaleString("id-ID")}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {worst && (
+                        <p className="pt-3 border-t border-border text-xs text-muted-foreground">
+                          Pengguna paling banyak berhenti di{" "}
+                          <span className="font-semibold text-foreground">
+                            {worst.from} → {worst.to}
+                          </span>
+                          : hanya {formatPct(worst.conv)} yang lanjut, {worst.lost.toLocaleString("id-ID")} bill tidak diteruskan.
+                        </p>
+                      )}
+                    </>
                   );
                 })()}
               </CardBody>
             </Card>
+          </div>
 
+          {/* Payment methods & group size distribution */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             {/* Popular Payment Methods */}
             <Card>
               <CardHeader>
@@ -1113,95 +1528,71 @@ export default function Insights() {
                   <p className="text-xs text-muted-foreground italic text-center py-8">
                     Belum ada data metode pembayaran
                   </p>
-                ) : (
-                  <ResponsiveContainer width="100%" height={190}>
-                    <BarChart
-                      data={paymentMethods}
-                      margin={{ left: 0, right: 4, top: 10, bottom: 4 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                      <XAxis dataKey="provider" tick={{ fontSize: 9 }} />
-                      <YAxis tick={{ fontSize: 9 }} allowDecimals={false} width={25} />
-                      <Tooltip content={<ChartTooltip valueFormatter={(v) => `${v} kali`} />} />
-                      <Bar dataKey="count" name="Penggunaan" fill={PURPLE} radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-              </CardBody>
-            </Card>
-          </div>
+                ) : (() => {
+                  const ranked = [...paymentMethods].sort(
+                    (a, b) => (b.count ?? 0) - (a.count ?? 0)
+                  );
+                  const total = ranked.reduce((a, b) => a + (b.count ?? 0), 0);
+                  const top = ranked[0];
+                  const max = top?.count ?? 1;
+                  return (
+                    <div className="space-y-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs text-muted-foreground">Paling populer</p>
+                          <p className="text-2xl font-black text-foreground mt-0.5 truncate">
+                            {top.provider}
+                            <span className="ml-1.5 text-xs font-medium text-muted-foreground">
+                              {formatPct(pctOf(top.count, total))} dari semua
+                            </span>
+                          </p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-xs text-muted-foreground">Total</p>
+                          <p className="text-sm font-bold text-foreground">
+                            {total.toLocaleString("id-ID")} lampiran
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {ranked.length} provider
+                          </p>
+                        </div>
+                      </div>
 
-          {/* New row for group sizes, split types, and completion status */}
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-            {/* Split Bill Completion Status */}
-            <Card>
-              <CardHeader>
-                <SectionTitle>Status Penyelesaian</SectionTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Tagihan selesai (locked) vs masih draf (editable)
-                </p>
-              </CardHeader>
-              <CardBody className="flex flex-col items-center justify-center gap-4">
-                {splitBillStatuses.length > 0 ? (
-                  <>
-                    <div className="w-full h-[140px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={splitBillStatuses}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={45}
-                            outerRadius={65}
-                            paddingAngle={0}
-                            dataKey="count"
-                            nameKey="status"
-                          >
-                            {splitBillStatuses.map((entry) => (
-                              <Cell
-                                key={entry.status}
-                                fill={entry.status === "locked" ? SUCCESS : DANGER}
-                              />
-                            ))}
-                          </Pie>
-                          <Tooltip
-                            content={
-                              <ChartTooltip valueFormatter={(v) => `${v} tagihan`} />
-                            }
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="flex flex-col gap-2 w-full text-xs">
-                      {splitBillStatuses.map((entry) => {
-                        const total = splitBillStatuses.reduce((a, b) => a + b.count, 0);
-                        return (
-                          <div
-                            key={entry.status}
-                            className="flex items-center justify-between border-b border-border/50 pb-1.5 last:border-0 last:pb-0"
-                          >
-                            <div className="flex items-center gap-2">
-                              <div
-                                className="w-2.5 h-2.5 rounded-full"
-                                style={{
-                                  backgroundColor: entry.status === "locked" ? "#22c55e" : "#ef4444",
-                                }}
-                              />
-                              <span className="font-medium text-foreground">
-                                {entry.status === "locked" ? "Finalized" : "Draft"}
+                      <ul className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+                        {ranked.map((m, i) => (
+                          <li key={m.provider} className="space-y-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="flex items-center gap-2 min-w-0">
+                                <span className="w-4 text-muted-foreground font-semibold">
+                                  {i + 1}
+                                </span>
+                                <span className="font-semibold text-foreground truncate">
+                                  {m.provider}
+                                </span>
+                              </span>
+                              <span className="text-muted-foreground flex-shrink-0">
+                                <span className="font-bold text-foreground">
+                                  {(m.count ?? 0).toLocaleString("id-ID")}
+                                </span>{" "}
+                                ({formatPct(pctOf(m.count, total))})
                               </span>
                             </div>
-                            <span className="text-muted-foreground font-bold">
-                              {entry.count} ({formatPct(pctOf(entry.count, total))})
-                            </span>
-                          </div>
-                        );
-                      })}
+                            <div className="h-1.5 bg-muted rounded-xs overflow-hidden">
+                              <div
+                                className="h-full rounded-xs transition-all duration-700"
+                                style={{
+                                  width: `${Math.max(2, ((m.count ?? 0) / max) * 100)}%`,
+                                  background: PURPLE,
+                                  opacity: i === 0 ? 1 : 0.55,
+                                }}
+                              />
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
-                  </>
-                ) : (
-                  <p className="text-xs text-muted-foreground italic text-center py-8">Belum ada data</p>
-                )}
+                  );
+                })()}
               </CardBody>
             </Card>
 
@@ -1213,145 +1604,80 @@ export default function Insights() {
                   Jumlah orang yang terlibat dalam setiap split bill
                 </p>
               </CardHeader>
-              <CardBody className="flex flex-col items-center justify-center gap-4">
-                {groupSizes.length > 0 ? (
-                  <>
-                    <div className="w-full h-[140px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={groupSizes}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={45}
-                            outerRadius={65}
-                            paddingAngle={0}
-                            dataKey="count"
-                            nameKey="label"
-                          >
-                            {groupSizes.map((entry, idx) => {
-                              const colors = ["#3b82f6", "#22c55e", "#f59e0b", "#a78bfa", "#94a3b8"];
-                              return (
-                                <Cell
-                                  key={entry.label}
-                                  fill={colors[idx % colors.length]}
-                                />
-                              );
-                            })}
-                          </Pie>
-                          <Tooltip
-                            content={
-                              <ChartTooltip valueFormatter={(v) => `${v} tagihan`} />
-                            }
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="flex flex-col gap-2 w-full text-xs">
-                      {groupSizes.map((entry, idx) => {
-                        const colors = ["#3b82f6", "#22c55e", "#f59e0b", "#a78bfa", "#94a3b8"];
-                        const total = groupSizes.reduce((a, b) => a + b.count, 0);
-                        return (
-                          <div
-                            key={entry.label}
-                            className="flex items-center justify-between border-b border-border/50 pb-1.5 last:border-0 last:pb-0"
-                          >
-                            <div className="flex items-center gap-2">
-                              <div
-                                className="w-2.5 h-2.5 rounded-full"
-                                style={{
-                                  backgroundColor: colors[idx % colors.length],
-                                }}
-                              />
-                              <span className="font-medium text-foreground">
-                                {entry.label}
-                              </span>
-                            </div>
-                            <span className="text-muted-foreground font-bold">
-                              {entry.count} ({formatPct(pctOf(entry.count, total))})
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </>
-                ) : (
+              <CardBody>
+                {groupSizes.length === 0 || groupSizes.every((g) => !g.count) ? (
                   <p className="text-xs text-muted-foreground italic text-center py-8">Belum ada data</p>
-                )}
-              </CardBody>
-            </Card>
-
-            {/* Split Type for Additional Expenses */}
-            <Card>
-              <CardHeader>
-                <SectionTitle>Pembagian Biaya Tambahan</SectionTitle>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Metode pembagian biaya tambahan (pajak, diskon, dll)
-                </p>
-              </CardHeader>
-              <CardBody className="flex flex-col items-center justify-center gap-4">
-                {additionalSplitTypes.length > 0 && additionalSplitTypes.some(t => t.count > 0) ? (
-                  <>
-                    <div className="w-full h-[140px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={additionalSplitTypes}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={45}
-                            outerRadius={65}
-                            paddingAngle={0}
-                            dataKey="count"
-                            nameKey="type"
-                          >
-                            {additionalSplitTypes.map((entry) => (
-                              <Cell
-                                key={entry.type}
-                                fill={entry.type === "Sama Rata" ? "#3b82f6" : "#f59e0b"}
-                              />
-                            ))}
-                          </Pie>
-                          <Tooltip
-                            content={
-                              <ChartTooltip valueFormatter={(v) => `${v} kali`} />
-                            }
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="flex flex-col gap-2 w-full text-xs">
-                      {additionalSplitTypes.map((entry) => {
-                        const total = additionalSplitTypes.reduce((a, b) => a + b.count, 0);
-                        return (
-                          <div
-                            key={entry.type}
-                            className="flex items-center justify-between border-b border-border/50 pb-1.5 last:border-0 last:pb-0"
-                          >
-                            <div className="flex items-center gap-2">
-                              <div
-                                className="w-2.5 h-2.5 rounded-full"
-                                style={{
-                                  backgroundColor: entry.type === "Sama Rata" ? "#3b82f6" : "#f59e0b",
-                                }}
-                              />
-                              <span className="font-medium text-foreground">
-                                {entry.type}
-                              </span>
-                            </div>
-                            <span className="text-muted-foreground font-bold">
-                              {entry.count} ({formatPct(pctOf(entry.count, total))})
+                ) : (() => {
+                  const total = groupSizes.reduce((a, b) => a + (b.count ?? 0), 0);
+                  const top = groupSizes.reduce((a, b) =>
+                    (b.count ?? 0) > (a.count ?? 0) ? b : a
+                  );
+                  const max = top.count || 1;
+                  const smallCount = groupSizes
+                    .filter((g) => g.label === "2 Orang" || g.label === "3-5 Orang")
+                    .reduce((a, b) => a + (b.count ?? 0), 0);
+                  return (
+                    <div className="space-y-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs text-muted-foreground">Ukuran paling umum</p>
+                          <p className="text-2xl font-black text-foreground mt-0.5 truncate">
+                            {top.label}
+                            <span className="ml-1.5 text-xs font-medium text-muted-foreground">
+                              {formatPct(pctOf(top.count, total))} dari semua
                             </span>
-                          </div>
-                        );
-                      })}
+                          </p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-xs text-muted-foreground">Total</p>
+                          <p className="text-sm font-bold text-foreground">
+                            {total.toLocaleString("id-ID")} tagihan
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {formatPct(pctOf(smallCount, total))} grup ≤ 5 orang
+                          </p>
+                        </div>
+                      </div>
+
+                      <ul className="space-y-2.5">
+                        {groupSizes.map((g) => {
+                          const isTop = g.label === top.label;
+                          return (
+                            <li key={g.label} className="space-y-1">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="flex items-center gap-2 min-w-0">
+                                  <span className="font-semibold text-foreground">
+                                    {g.label}
+                                  </span>
+                                  {isTop && (
+                                    <Badge variant="info" className="text-[10px] px-1.5 py-0">
+                                      Terbanyak
+                                    </Badge>
+                                  )}
+                                </span>
+                                <span className="text-muted-foreground flex-shrink-0">
+                                  <span className="font-bold text-foreground">
+                                    {(g.count ?? 0).toLocaleString("id-ID")}
+                                  </span>{" "}
+                                  ({formatPct(pctOf(g.count, total))})
+                                </span>
+                              </div>
+                              <div className="h-1.5 bg-muted rounded-xs overflow-hidden">
+                                <div
+                                  className="h-full rounded-xs bg-primary transition-all duration-700"
+                                  style={{
+                                    width: `${g.count ? Math.max(2, (g.count / max) * 100) : 0}%`,
+                                    opacity: isTop ? 1 : 0.55,
+                                  }}
+                                />
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
                     </div>
-                  </>
-                ) : (
-                  <p className="text-xs text-muted-foreground italic text-center py-8">
-                    Belum ada data biaya tambahan
-                  </p>
-                )}
+                  );
+                })()}
               </CardBody>
             </Card>
           </div>
@@ -1364,100 +1690,181 @@ export default function Insights() {
       {activeTab === "aiScan" && (
         <div className="space-y-4">
           {/* KPI Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-            <StatCard
-              title="Total Percobaan Scan"
-              value={
-                <div className="flex items-baseline gap-1.5 flex-wrap">
-                  <span>{(scanKpis.totalAttempts ?? 0).toLocaleString("id-ID")}</span>
-                  <Badge variant="success" className="text-[10px]">
-                    {(scanKpis.successCount ?? 0).toLocaleString("id-ID")} berhasil
-                  </Badge>
-                  <Badge variant="danger" className="text-[10px]">
-                    {(scanKpis.failedCount ?? 0).toLocaleString("id-ID")} gagal
-                  </Badge>
-                </div>
-              }
-              icon={Scan}
-              iconColor="text-primary"
-              iconBg="bg-primary/10"
-              tooltip={SCAN_KPI_DESCRIPTIONS.totalAttempts}
-            />
-            <StatCard
-              title="Tingkat Keberhasilan"
-              value={
-                <div className="flex items-baseline gap-1.5 flex-wrap">
-                  <span>{formatPct(scanKpis.successRate)}</span>
-                  <span className="text-[10px] font-normal text-muted-foreground">
-                    ({scanKpis.successCount ?? 0}/{scanKpis.totalAttempts ?? 0})
-                  </span>
-                  <Badge variant="success" className="text-[10px]">
-                    7 hari: {formatPct(scanKpis.last7dSuccessRate)} ({scanKpis.last7dSuccess ?? 0}/{scanKpis.last7dTotal ?? 0})
-                  </Badge>
-                </div>
-              }
-              icon={CheckCircle2}
-              iconColor="text-success"
-              iconBg="bg-success/10"
-              tooltip={`${SCAN_KPI_DESCRIPTIONS.successRate} ${SCAN_KPI_DESCRIPTIONS.last7dSuccessRate}`}
-            />
-            <StatCard
-              title="Failure Rate Keseluruhan"
-              value={
-                <div className="flex items-baseline gap-1.5 flex-wrap">
-                  <span>{formatPct(scanKpis.overallFailureRate)}</span>
-                  <span className="text-[10px] font-normal text-muted-foreground">
-                    ({scanKpis.failedCount ?? 0}/{scanKpis.totalAttempts ?? 0})
-                  </span>
-                  <Badge variant="warning" className="text-[10px]">
-                    7 hari: {formatPct(scanKpis.last7dFailureRate)} ({scanKpis.last7dFailed ?? 0}/{scanKpis.last7dTotal ?? 0})
-                  </Badge>
-                </div>
-              }
-              icon={AlertTriangle}
-              iconColor="text-destructive"
-              iconBg="bg-destructive/10"
-              tooltip={`${SCAN_KPI_DESCRIPTIONS.overallFailureRate} ${SCAN_KPI_DESCRIPTIONS.last7dFailureRate}`}
-            />
-            <StatCard
-              title="User Unik Scan"
-              value={
-                <div className="flex items-baseline gap-1.5 flex-wrap">
-                  <span>{(scanKpis.uniqueUsers ?? 0).toLocaleString("id-ID")}</span>
-                  <Badge variant="neutral" className="text-[10px]">
-                    {(scanKpis.uniqueGuestScans ?? 0).toLocaleString("id-ID")} guest (IP)
-                  </Badge>
-                </div>
-              }
-              icon={Users}
-              iconColor="text-purple-500"
-              iconBg="bg-purple-500/10"
-              tooltip={`${SCAN_KPI_DESCRIPTIONS.uniqueUsers} ${SCAN_KPI_DESCRIPTIONS.uniqueGuestScans}`}
-            />
-            <StatCard
-              title="Retry Rate (<2 menit)"
-              value={
-                <div className="flex items-baseline gap-2">
-                  <span>{formatPct(scanKpis.retryRate)}</span>
-                  <span className="text-[10px] font-normal text-muted-foreground">
-                    ({scanKpis.retriedCount ?? 0}/{scanKpis.retryEligibleCount ?? 0})
-                  </span>
-                </div>
-              }
-              icon={RefreshCw}
-              iconColor="text-purple-500"
-              iconBg="bg-purple-500/10"
-              tooltip={SCAN_KPI_DESCRIPTIONS.retryRate}
-            />
-            <StatCard
-              title="Fallback Rate"
-              value={formatPct(scanKpis.fallbackRate)}
-              icon={Shuffle}
-              iconColor="text-warning"
-              iconBg="bg-warning/10"
-              tooltip={SCAN_KPI_DESCRIPTIONS.fallbackRate}
-            />
-          </div>
+          {(() => {
+            const total = scanKpis.totalAttempts ?? 0;
+            const ppDelta = (recent, overall) =>
+              scanKpis.last7dTotal > 0 ? recent - overall : null;
+            const failureOverThreshold =
+              (scanKpis.last7dTotal ?? 0) > 0 &&
+              (scanKpis.last7dFailureRate ?? 0) > FAILURE_RATE_THRESHOLD;
+            const topError = scanErrorBreakdown[0];
+            const successBelowThreshold =
+              (scanKpis.last7dTotal ?? 0) > 0 &&
+              (scanKpis.last7dSuccessRate ?? 0) < SUCCESS_RATE_THRESHOLD;
+            const hasRecentScans = (scanKpis.last7dTotal ?? 0) > 0;
+            const successDelta = ppDelta(scanKpis.last7dSuccessRate ?? 0, scanKpis.successRate ?? 0);
+            const failDelta = ppDelta(scanKpis.last7dFailureRate ?? 0, scanKpis.overallFailureRate ?? 0);
+            const Pp = ({ delta, goodWhenUp }) =>
+              delta == null ? null : (
+                <span
+                  className={`font-bold ${
+                    Math.abs(delta) < 0.05
+                      ? "text-muted-foreground"
+                      : (delta > 0) === goodWhenUp
+                        ? "text-success"
+                        : "text-destructive"
+                  }`}
+                >
+                  {delta > 0 ? "▲ +" : delta < 0 ? "▼ " : "• "}
+                  {delta.toFixed(1)} pp
+                </span>
+              );
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                <KpiCard
+                  title="Total Percobaan Scan"
+                  value={total.toLocaleString("id-ID")}
+                  icon={Scan}
+                  iconColor="text-primary"
+                  iconBg="bg-primary/10"
+                  tooltip={SCAN_KPI_DESCRIPTIONS.totalAttempts}
+                  sub={
+                    <span>
+                      <span className="font-bold text-success">
+                        {(scanKpis.successCount ?? 0).toLocaleString("id-ID")}
+                      </span>{" "}
+                      berhasil ·{" "}
+                      <span className="font-bold text-destructive">
+                        {(scanKpis.failedCount ?? 0).toLocaleString("id-ID")}
+                      </span>{" "}
+                      gagal
+                      <span className="block">
+                        7 hari terakhir: {(scanKpis.last7dTotal ?? 0).toLocaleString("id-ID")} percobaan
+                      </span>
+                    </span>
+                  }
+                />
+                <KpiCard
+                  title="Tingkat Keberhasilan"
+                  badge={
+                    hasRecentScans ? (
+                      <Badge
+                        variant={successBelowThreshold ? "warning" : "success"}
+                        className="text-[10px]"
+                      >
+                        {successBelowThreshold ? "Warning · Perlu cek" : "Sehat"}
+                      </Badge>
+                    ) : null
+                  }
+                  alert={
+                    successBelowThreshold ? (
+                      <>
+                        <p className="font-bold">
+                          Di bawah batas {SUCCESS_RATE_THRESHOLD}% (7 hari). Perlu dicek.
+                        </p>
+                        <p className="mt-0.5">
+                          Cek provider, API key, dan kuota.
+                        </p>
+                      </>
+                    ) : null
+                  }
+                  value={formatPct(scanKpis.successRate)}
+                  icon={CheckCircle2}
+                  iconColor="text-success"
+                  iconBg="bg-success/10"
+                  tooltip={`${SCAN_KPI_DESCRIPTIONS.successRate} ${SCAN_KPI_DESCRIPTIONS.last7dSuccessRate}`}
+                  sub={
+                    <span>
+                      7 hari: <span className={`font-bold ${!hasRecentScans ? "text-foreground" : successBelowThreshold ? "text-destructive" : "text-success"}`}>{formatPct(scanKpis.last7dSuccessRate)}</span>{" "}
+                      ({scanKpis.last7dSuccess ?? 0}/{scanKpis.last7dTotal ?? 0}){" "}
+                      <Pp delta={successDelta} goodWhenUp />
+                      <span className="block">
+                        Sehat: ≥ {SUCCESS_RATE_THRESHOLD}% · Warning: &lt; {SUCCESS_RATE_THRESHOLD}% (7 hari terakhir)
+                      </span>
+                      <span className="block">vs keseluruhan ({scanKpis.successCount ?? 0}/{total})</span>
+                    </span>
+                  }
+                />
+                <KpiCard
+                  title="Failure Rate Keseluruhan"
+                  alert={
+                    failureOverThreshold ? (
+                      <>
+                        <p className="font-bold">
+                          Melebihi batas {FAILURE_RATE_THRESHOLD}% (7 hari). Perlu dicek.
+                        </p>
+                        {topError && (
+                          <p className="mt-0.5 break-words">
+                            Terbanyak: {topError.message} ({topError.count}x)
+                          </p>
+                        )}
+                      </>
+                    ) : null
+                  }
+                  value={formatPct(scanKpis.overallFailureRate)}
+                  icon={AlertTriangle}
+                  iconColor="text-destructive"
+                  iconBg="bg-destructive/10"
+                  tooltip={`${SCAN_KPI_DESCRIPTIONS.overallFailureRate} ${SCAN_KPI_DESCRIPTIONS.last7dFailureRate}`}
+                  sub={
+                    <span>
+                      7 hari: <span className={`font-bold ${failureOverThreshold ? "text-destructive" : "text-success"}`}>{formatPct(scanKpis.last7dFailureRate)}</span>{" "}
+                      ({scanKpis.last7dFailed ?? 0}/{scanKpis.last7dTotal ?? 0}){" "}
+                      <Pp delta={failDelta} goodWhenUp={false} />
+                      <span className="block">
+                        Target 7 hari: &lt; {FAILURE_RATE_THRESHOLD}%
+                        {scanKpis.last7dTotal > 0 && !failureOverThreshold && " · sesuai target"}
+                      </span>
+                      <span className="block">vs keseluruhan ({scanKpis.failedCount ?? 0}/{total})</span>
+                    </span>
+                  }
+                />
+                <KpiCard
+                  title="User Unik Scan"
+                  value={(scanKpis.uniqueUsers ?? 0).toLocaleString("id-ID")}
+                  icon={Users}
+                  iconColor="text-purple-500"
+                  iconBg="bg-purple-500/10"
+                  tooltip={`${SCAN_KPI_DESCRIPTIONS.uniqueUsers} ${SCAN_KPI_DESCRIPTIONS.uniqueGuestScans}`}
+                  sub={
+                    <span>
+                      + {(scanKpis.uniqueGuestScans ?? 0).toLocaleString("id-ID")} guest (berdasar IP)
+                      <span className="block">
+                        Rata-rata{" "}
+                        {scanKpis.uniqueUsers > 0
+                          ? (total / scanKpis.uniqueUsers).toFixed(1)
+                          : "0"}{" "}
+                        percobaan per user
+                      </span>
+                    </span>
+                  }
+                />
+                <KpiCard
+                  title="Retry Rate (<2 menit)"
+                  value={formatPct(scanKpis.retryRate)}
+                  icon={RefreshCw}
+                  iconColor="text-purple-500"
+                  iconBg="bg-purple-500/10"
+                  tooltip={SCAN_KPI_DESCRIPTIONS.retryRate}
+                  sub={
+                    <span>
+                      {scanKpis.retriedCount ?? 0} dari {scanKpis.retryEligibleCount ?? 0} scan diulang
+                      <span className="block">Makin tinggi, makin sering hasil scan tidak memuaskan</span>
+                    </span>
+                  }
+                />
+                <KpiCard
+                  title="Fallback Rate"
+                  value={formatPct(scanKpis.fallbackRate)}
+                  icon={Shuffle}
+                  iconColor="text-warning"
+                  iconBg="bg-warning/10"
+                  tooltip={SCAN_KPI_DESCRIPTIONS.fallbackRate}
+                  sub="Scan yang harus pindah ke provider cadangan"
+                />
+              </div>
+            );
+          })()}
 
           {/* Trend + Provider Health */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
@@ -1557,43 +1964,91 @@ export default function Insights() {
                   OpenRouter & Groq (race, utama) → Gemini (fallback)
                 </p>
               </CardHeader>
-              <CardBody className="space-y-3">
+              <CardBody className="space-y-4">
                 {scanProviderStats.every((p) => p.total === 0) ? (
                   <p className="text-xs text-muted-foreground italic text-center py-8">
                     Belum ada data
                   </p>
-                ) : (
-                  scanProviderStats.map((p) => {
-                    const rate = pctOf(p.success, p.total);
-                    return (
-                      <div key={p.provider} className="space-y-1">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-semibold text-foreground">
-                            {SCAN_PROVIDER_LABELS[p.provider]}
-                          </span>
-                          <span className="text-muted-foreground">
-                            {p.success}/{p.total} berhasil ({formatPct(rate)})
-                          </span>
+                ) : (() => {
+                  const grand = scanProviderStats.reduce((a, b) => a + b.total, 0);
+                  const used = scanProviderStats.filter((p) => p.total > 0);
+                  const best = used.reduce((a, b) =>
+                    pctOf(b.success, b.total) > pctOf(a.success, a.total) ? b : a
+                  );
+                  const worst = used.reduce((a, b) =>
+                    pctOf(b.success, b.total) < pctOf(a.success, a.total) ? b : a
+                  );
+                  return (
+                    <>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs text-muted-foreground">Paling andal</p>
+                          <p className="text-lg font-black text-foreground mt-0.5 truncate">
+                            {SCAN_PROVIDER_LABELS[best.provider]}
+                            <span className="ml-1.5 text-xs font-medium text-success">
+                              {formatPct(pctOf(best.success, best.total))}
+                            </span>
+                          </p>
                         </div>
-                        <div className="h-3 bg-muted rounded-full overflow-hidden flex">
-                          <div
-                            className="h-full transition-all duration-700"
-                            style={{
-                              width: `${p.total > 0 ? (p.success / p.total) * 100 : 0}%`,
-                              background: SCAN_PROVIDER_COLORS[p.provider],
-                            }}
-                          />
-                          <div
-                            className="h-full bg-destructive/40 transition-all duration-700"
-                            style={{
-                              width: `${p.total > 0 ? (p.failed / p.total) * 100 : 0}%`,
-                            }}
-                          />
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-xs text-muted-foreground">Total panggilan</p>
+                          <p className="text-sm font-bold text-foreground">
+                            {grand.toLocaleString("id-ID")}
+                          </p>
                         </div>
                       </div>
-                    );
-                  })
-                )}
+
+                      <div className="space-y-3">
+                        {scanProviderStats.map((p) => {
+                          const rate = pctOf(p.success, p.total);
+                          const isWorst = used.length > 1 && p.provider === worst.provider && p.total > 0;
+                          return (
+                            <div key={p.provider} className="space-y-1">
+                              <div className="flex items-center justify-between gap-2 text-xs">
+                                <span className="flex items-center gap-2 min-w-0">
+                                  <span
+                                    className="h-2 w-2 rounded-full flex-shrink-0"
+                                    style={{ background: SCAN_PROVIDER_COLORS[p.provider] }}
+                                  />
+                                  <span className="font-semibold text-foreground truncate">
+                                    {SCAN_PROVIDER_LABELS[p.provider]}
+                                  </span>
+                                  {isWorst && (
+                                    <Badge variant="warning" className="text-[10px] px-1.5 py-0">
+                                      Terendah
+                                    </Badge>
+                                  )}
+                                </span>
+                                <span className="font-bold text-foreground flex-shrink-0">
+                                  {formatPct(rate)}
+                                </span>
+                              </div>
+                              <div className="h-2 bg-muted rounded-xs overflow-hidden flex">
+                                <div
+                                  className="h-full transition-all duration-700"
+                                  style={{
+                                    width: `${p.total > 0 ? (p.success / p.total) * 100 : 0}%`,
+                                    background: SCAN_PROVIDER_COLORS[p.provider],
+                                  }}
+                                />
+                                <div
+                                  className="h-full bg-destructive/40 transition-all duration-700"
+                                  style={{
+                                    width: `${p.total > 0 ? (p.failed / p.total) * 100 : 0}%`,
+                                  }}
+                                />
+                              </div>
+                              <p className="text-[11px] text-muted-foreground">
+                                {p.success.toLocaleString("id-ID")} berhasil · {p.failed.toLocaleString("id-ID")} gagal ·{" "}
+                                {formatPct(pctOf(p.total, grand))} dari total panggilan
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  );
+                })()}
               </CardBody>
             </Card>
           </div>
@@ -1673,98 +2128,101 @@ export default function Insights() {
             </CardBody>
           </Card>
 
-          {/* Error Category Per Day */}
-          <Card>
-            <CardHeader>
-              <SectionTitle>Penyebab Kegagalan per Hari</SectionTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Kategori error scan gagal, 30 hari terakhir
-              </p>
-            </CardHeader>
-            <CardBody>
-              {errorCategoryTrend.every(
-                (d) => d.quotaGemini + d.modelGroq + d.openrouterNotSet + d.lainnya === 0
-              ) ? (
-                <p className="text-xs text-muted-foreground italic text-center py-8">
-                  Tidak ada kegagalan tercatat dalam 30 hari terakhir 🎉
+          {/* Error Category Per Day + Retry Rate Trend */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            {/* Error Category Per Day */}
+            <Card>
+              <CardHeader>
+                <SectionTitle>Penyebab Kegagalan per Hari</SectionTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Kategori error scan gagal, 30 hari terakhir
                 </p>
-              ) : (
-                <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={errorCategoryTrend} barCategoryGap="20%">
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                    <XAxis
-                      dataKey="date"
-                      tick={{ fontSize: 10 }}
-                      tickFormatter={periodLabel}
-                      interval={Math.max(0, Math.floor(errorCategoryTrend.length / 10) - 1)}
-                    />
-                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} width={28} />
-                    <Tooltip
-                      content={<ChartTooltip valueFormatter={(v) => `${v} kegagalan`} />}
-                      labelFormatter={periodLabel}
-                    />
-                    <Legend
-                      wrapperStyle={{ fontSize: 11 }}
-                      formatter={(value) => ERROR_CATEGORY_LABELS[value] || value}
-                    />
-                    {["openrouterNotSet", "modelGroq", "quotaGemini", "lainnya"].map((cat) => (
-                      <Bar
-                        key={cat}
-                        dataKey={cat}
-                        name={cat}
-                        stackId="errors"
-                        fill={ERROR_CATEGORY_COLORS[cat]}
-                        radius={cat === "lainnya" ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+              </CardHeader>
+              <CardBody>
+                {errorCategoryTrend.every(
+                  (d) => d.quotaGemini + d.modelGroq + d.openrouterNotSet + d.lainnya === 0
+                ) ? (
+                  <p className="text-xs text-muted-foreground italic text-center py-8">
+                    Tidak ada kegagalan tercatat dalam 30 hari terakhir 🎉
+                  </p>
+                ) : (
+                  <ResponsiveContainer width="100%" height={260}>
+                    <BarChart data={errorCategoryTrend} barCategoryGap="20%">
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fontSize: 10 }}
+                        tickFormatter={periodLabel}
+                        interval={Math.max(0, Math.floor(errorCategoryTrend.length / 10) - 1)}
                       />
-                    ))}
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </CardBody>
-          </Card>
+                      <YAxis tick={{ fontSize: 11 }} allowDecimals={false} width={28} />
+                      <Tooltip
+                        content={<ChartTooltip valueFormatter={(v) => `${v} kegagalan`} />}
+                        labelFormatter={periodLabel}
+                      />
+                      <Legend
+                        wrapperStyle={{ fontSize: 11 }}
+                        formatter={(value) => ERROR_CATEGORY_LABELS[value] || value}
+                      />
+                      {["openrouterNotSet", "modelGroq", "quotaGemini", "lainnya"].map((cat) => (
+                        <Bar
+                          key={cat}
+                          dataKey={cat}
+                          name={cat}
+                          stackId="errors"
+                          fill={ERROR_CATEGORY_COLORS[cat]}
+                          radius={cat === "lainnya" ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+                        />
+                      ))}
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </CardBody>
+            </Card>
 
-          {/* Retry Rate Trend */}
-          <Card>
-            <CardHeader>
-              <SectionTitle>Retry per Hari</SectionTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Scan ulang dari IP/user sama dalam &lt;2 menit setelah gagal, 30 hari terakhir
-              </p>
-            </CardHeader>
-            <CardBody>
-              {retryRateTrend.every((d) => d.totalFailed === 0) ? (
-                <p className="text-xs text-muted-foreground italic text-center py-8">
-                  Tidak ada kegagalan tercatat dalam 30 hari terakhir 🎉
+            {/* Retry Rate Trend */}
+            <Card>
+              <CardHeader>
+                <SectionTitle>Retry per Hari</SectionTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Scan ulang dari IP/user sama dalam &lt;2 menit setelah gagal, 30 hari terakhir
                 </p>
-              ) : (
-                <ResponsiveContainer width="100%" height={240}>
-                  <LineChart data={retryRateTrend}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis
-                      dataKey="date"
-                      tick={{ fontSize: 10 }}
-                      tickFormatter={periodLabel}
-                      interval={Math.max(0, Math.floor(retryRateTrend.length / 10) - 1)}
-                    />
-                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} width={28} />
-                    <Tooltip
-                      content={<ChartTooltip valueFormatter={(v) => `${v} scan`} />}
-                      labelFormatter={periodLabel}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="retried"
-                      name="Retry"
-                      stroke={PURPLE}
-                      strokeWidth={2.5}
-                      dot={{ r: 3, fill: PURPLE }}
-                      activeDot={{ r: 6 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              )}
-            </CardBody>
-          </Card>
+              </CardHeader>
+              <CardBody>
+                {retryRateTrend.every((d) => d.totalFailed === 0) ? (
+                  <p className="text-xs text-muted-foreground italic text-center py-8">
+                    Tidak ada kegagalan tercatat dalam 30 hari terakhir 🎉
+                  </p>
+                ) : (
+                  <ResponsiveContainer width="100%" height={240}>
+                    <LineChart data={retryRateTrend}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fontSize: 10 }}
+                        tickFormatter={periodLabel}
+                        interval={Math.max(0, Math.floor(retryRateTrend.length / 10) - 1)}
+                      />
+                      <YAxis tick={{ fontSize: 11 }} allowDecimals={false} width={28} />
+                      <Tooltip
+                        content={<ChartTooltip valueFormatter={(v) => `${v} scan`} />}
+                        labelFormatter={periodLabel}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="retried"
+                        name="Retry"
+                        stroke={PURPLE}
+                        strokeWidth={2.5}
+                        dot={{ r: 3, fill: PURPLE }}
+                        activeDot={{ r: 6 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </CardBody>
+            </Card>
+          </div>
 
           {/* New Scanner Adoption Trend + Peak Days */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
@@ -1776,53 +2234,111 @@ export default function Insights() {
                   Seberapa banyak user yang menggunakan scan struk
                 </p>
               </CardHeader>
-              <CardBody className="space-y-5">
-                {/* Adopted */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-1.5 font-semibold text-foreground">
-                      <Scan className="h-3.5 w-3.5 text-primary" />
-                      Sudah Pakai Scan
-                      <UiTooltip content={AI_ADOPTION_DESCRIPTIONS.scanAdopted} />
-                    </span>
-                    <span className="text-muted-foreground">
-                      {featureAdoption.scanAdopted} / {kpis.totalUsers} (
-                      {formatPct(featureAdoption.scanAdoptionRate)})
-                    </span>
-                  </div>
-                  <div className="h-3 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-700"
-                      style={{
-                        width: `${featureAdoption.scanAdoptionRate ?? 0}%`,
-                        background: PRIMARY,
-                      }}
-                    />
-                  </div>
-                </div>
+              <CardBody>
+                {(() => {
+                  const totalUsers = kpis.totalUsers ?? 0;
+                  const adopted = featureAdoption.scanAdopted ?? 0;
+                  const exhausted = featureAdoption.scanExhausted ?? 0;
+                  const converted = featureAdoption.scanExhaustedAndSubscribed ?? 0;
+                  const notYet = Math.max(0, totalUsers - adopted);
+                  const exhaustedOfAdopted = Math.min(100, pctOf(exhausted, adopted));
+                  return (
+                    <div className="space-y-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                            Pengguna yang pernah scan
+                            <UiTooltip content={AI_ADOPTION_DESCRIPTIONS.scanAdopted} />
+                          </p>
+                          <p className="text-2xl font-black text-foreground mt-0.5">
+                            {formatPct(featureAdoption.scanAdoptionRate)}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-muted-foreground">Pengguna</p>
+                          <p className="text-sm font-bold text-foreground">
+                            {adopted.toLocaleString("id-ID")} / {totalUsers.toLocaleString("id-ID")}
+                          </p>
+                        </div>
+                      </div>
 
-                {/* Exhausted */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-1.5 font-semibold text-foreground">
-                      <Zap className="h-3.5 w-3.5 text-warning" />
-                      Kuota Habis (Power Users)
-                      <UiTooltip content={AI_ADOPTION_DESCRIPTIONS.scanExhausted} />
-                    </span>
-                    <span className="text-muted-foreground">
-                      {featureAdoption.scanExhausted} pengguna
-                    </span>
-                  </div>
-                  <div className="h-3 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-700"
-                      style={{
-                        width: `${pctOf(featureAdoption.scanExhausted, kpis.totalUsers)}%`,
-                        background: WARNING,
-                      }}
-                    />
-                  </div>
-                </div>
+                      <div className="flex h-2 w-full overflow-hidden rounded-xs bg-muted">
+                        <div
+                          className="h-full transition-all duration-700"
+                          style={{
+                            width: `${Math.min(100, featureAdoption.scanAdoptionRate ?? 0)}%`,
+                            background: PRIMARY,
+                          }}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          {
+                            label: "Total scan berhasil",
+                            value: (featureAdoption.totalScans ?? 0).toLocaleString("id-ID"),
+                            tip: AI_ADOPTION_DESCRIPTIONS.totalScans,
+                          },
+                          {
+                            label: "Rata-rata / user",
+                            value: `${featureAdoption.avgScansPerUser ?? 0}x`,
+                            tip: AI_ADOPTION_DESCRIPTIONS.avgScans,
+                          },
+                          {
+                            label: "Belum pernah scan",
+                            value: notYet.toLocaleString("id-ID"),
+                          },
+                        ].map((st) => (
+                          <div key={st.label} className="rounded-xs bg-muted px-3 py-2">
+                            <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                              {st.label}
+                              {st.tip && <UiTooltip content={st.tip} />}
+                            </p>
+                            <p className="text-sm font-bold text-foreground">{st.value}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="pt-3 border-t border-border space-y-2">
+                        <div className="flex items-center justify-between gap-3 text-xs">
+                          <span className="flex items-center gap-1.5 font-semibold text-foreground min-w-0">
+                            <Zap className="h-3.5 w-3.5 flex-shrink-0 text-warning" />
+                            <span className="whitespace-nowrap">Kuota habis (power users)</span>
+                            <UiTooltip content={AI_ADOPTION_DESCRIPTIONS.scanExhausted} />
+                          </span>
+                          <span className="font-bold text-foreground whitespace-nowrap flex-shrink-0">
+                            {exhausted.toLocaleString("id-ID")} pengguna
+                          </span>
+                        </div>
+                        <div className="h-2 bg-muted rounded-xs overflow-hidden">
+                          <div
+                            className="h-full rounded-xs transition-all duration-700"
+                            style={{ width: `${exhaustedOfAdopted}%`, background: WARNING }}
+                          />
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          <span className="font-bold text-foreground">
+                            {formatPct(exhaustedOfAdopted)}
+                          </span>{" "}
+                          dari pengguna yang pernah scan
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {exhausted > 0 ? (
+                            <>
+                              <span className="font-bold text-foreground">
+                                {converted.toLocaleString("id-ID")}
+                              </span>{" "}
+                              dari {exhausted.toLocaleString("id-ID")} sudah berlangganan (
+                              {formatPct(featureAdoption.powerUserConversionRate)} konversi)
+                            </>
+                          ) : (
+                            "Belum ada pengguna yang menghabiskan kuota"
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })()}
               </CardBody>
             </Card>
 
@@ -1830,7 +2346,7 @@ export default function Insights() {
               <CardHeader>
                 <SectionTitle>User Baru per Minggu (Adopsi Scan)</SectionTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Jumlah pengguna yang melakukan percobaan scan struk pertama kalinya, per minggu (12 minggu terakhir)
+                  Jumlah pengguna yang melakukan percobaan scan struk pertama kalinya, per minggu (sebulan terakhir)
                 </p>
               </CardHeader>
               <CardBody>
@@ -1861,7 +2377,7 @@ export default function Insights() {
                         }
                       />
                       <Bar dataKey="count" name="Adopter Baru" fill={PRIMARY} radius={[4, 4, 0, 0]} />
-                      {incidentPeriod && (
+                      {incidentPeriod && newScannerTrend.some((d) => d.period === incidentPeriod) && (
                         <ReferenceLine
                           x={incidentPeriod}
                           stroke={DANGER}
@@ -1887,7 +2403,7 @@ export default function Insights() {
               <CardHeader>
                 <SectionTitle>Hari Teraktif Scan</SectionTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Jumlah percobaan scan per hari dalam seminggu
+                  Jumlah percobaan scan per hari dalam seminggu (30 hari terakhir)
                 </p>
               </CardHeader>
               <CardBody>
@@ -1973,13 +2489,13 @@ export default function Insights() {
             <CardHeader>
               <SectionTitle>Penyebab Kegagalan Scan Terbanyak</SectionTitle>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Pesan error yang paling sering muncul (semua provider)
+                Pesan error yang paling sering muncul dalam 7 hari terakhir (semua provider)
               </p>
             </CardHeader>
             <CardBody className="p-0 overflow-y-auto max-h-[260px]" style={{ scrollbarWidth: "thin" }}>
               {scanErrorBreakdown.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8">
-                  Tidak ada kegagalan tercatat 🎉
+                  Tidak ada kegagalan dalam 7 hari terakhir 🎉
                 </p>
               ) : (
                 <ol className="divide-y divide-border">

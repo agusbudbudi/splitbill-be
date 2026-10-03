@@ -150,20 +150,20 @@ export async function handleInsights(event) {
       );
     }
 
-    // Fixed last-12-weeks period list (independent of the granularity toggle)
+    // Fixed last-5-weeks period list (covers the last ~month) (independent of the granularity toggle)
     // — used for the AI Scan new-adopter (first-time scanner) trend.
-    const last12WeekPeriods = [];
-    const last12WeekStarts = {}; // period -> Sunday start date ("YYYY-MM-DD"), for date-range axis labels
+    const last5WeekPeriods = [];
+    const last5WeekStarts = {}; // period -> Sunday start date ("YYYY-MM-DD"), for date-range axis labels
     {
       const sundayJkt = new Date(nowJakarta);
       sundayJkt.setUTCDate(sundayJkt.getUTCDate() - sundayJkt.getUTCDay());
       sundayJkt.setUTCHours(0, 0, 0, 0);
-      for (let i = 11; i >= 0; i--) {
+      for (let i = 4; i >= 0; i--) {
         const d = new Date(sundayJkt);
         d.setUTCDate(d.getUTCDate() - i * 7);
         const period = `${d.getUTCFullYear()}-W${String(mongoWeekJkt(d)).padStart(2, "0")}`;
-        last12WeekPeriods.push(period);
-        last12WeekStarts[period] =
+        last5WeekPeriods.push(period);
+        last5WeekStarts[period] =
           `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
       }
     }
@@ -246,20 +246,21 @@ export async function handleInsights(event) {
       // 3. active last 30 days
       User.countDocuments({ lastLoginAt: { $gte: thirtyDaysAgo } }),
 
-      // 4. scan adopted (used at least 1 scan: freeScanCount < 5)
-      User.countDocuments({ freeScanCount: { $lt: 5 } }),
+      // 4. scan adopted: distinct logged-in users with >=1 successful scan.
+      // Sourced from ScanLog, NOT freeScanCount: the quota is topped up by the
+      // review reward (+5), level rewards and admin resets, and subscribers never
+      // decrement it, so "5 - freeScanCount" drifts away from real usage.
+      ScanLog.distinct("user", { status: "success", user: { $ne: null } }).then(
+        (ids) => ids.length
+      ),
 
       // 5. scan exhausted
       User.countDocuments({ freeScanCount: 0 }),
 
-      // 5.1 total scans performed (sum of 5 - freeScanCount)
-      User.aggregate([
-        {
-          $group: {
-            _id: null,
-            total: { $sum: { $subtract: [5, "$freeScanCount"] } },
-          },
-        },
+      // 5.1 total successful scans by logged-in users (ScanLog, same source as adopted)
+      ScanLog.aggregate([
+        { $match: { status: "success", user: { $ne: null } } },
+        { $group: { _id: null, total: { $sum: 1 } } },
       ]),
 
       // 6. user growth per granularity (Jakarta TZ)
@@ -467,8 +468,9 @@ export async function handleInsights(event) {
         { $sort: { _id: 1 } },
       ]),
 
-      // 25. Peak activity days (day of week)
+      // 25. Peak activity days (day of week, last 30 days)
       SplitBillRecord.aggregate([
+        { $match: { createdAt: { $gte: thirtyDaysAgo } } },
         {
           $group: {
             _id: { $dayOfWeek: { date: "$createdAt", timezone: TIMEZONE } },
@@ -585,16 +587,23 @@ export async function handleInsights(event) {
         },
       ]),
 
-      // 28.4 AI Scan: top failure reasons
+      // 28.4 AI Scan: top failure reasons (last 7 days)
       ScanLog.aggregate([
-        { $match: { status: "failed", errorMessage: { $ne: null } } },
+        {
+          $match: {
+            status: "failed",
+            errorMessage: { $ne: null },
+            createdAt: { $gte: sevenDaysAgo },
+          },
+        },
         { $group: { _id: "$errorMessage", count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 8 },
       ]),
 
-      // 28.5 AI Scan: peak scan days (day of week)
+      // 28.5 AI Scan: peak scan days (day of week, last 30 days)
       ScanLog.aggregate([
+        { $match: { createdAt: { $gte: thirtyDaysAgo } } },
         {
           $group: {
             _id: { $dayOfWeek: { date: "$createdAt", timezone: TIMEZONE } },
@@ -953,16 +962,16 @@ export async function handleInsights(event) {
       };
     });
 
-    // New adopters per week (first-ever scan attempt), normalized to last 12 weeks
+    // New adopters per week (first-ever scan attempt), normalized to last 5 weeks
     const newScannerMap = Object.fromEntries(
       newScannerTrendRaw
         .filter((item) => item._id && item._id.year != null)
         .map(({ _id, count }) => [`${_id.year}-W${String(_id.week).padStart(2, "0")}`, count])
     );
-    const newScannerTrend = last12WeekPeriods.map((period) => ({
+    const newScannerTrend = last5WeekPeriods.map((period) => ({
       period,
       count: newScannerMap[period] ?? 0,
-      weekStart: last12WeekStarts[period],
+      weekStart: last5WeekStarts[period],
     }));
 
     const responseBody = {

@@ -55,7 +55,7 @@ const Tooltip = ({ content, children, width = "w-56" }) => {
       {show &&
         createPortal(
           <div
-            className={`fixed z-[9999] pointer-events-none ${width} rounded-[8px] bg-slate-800 text-white text-[11px] font-normal leading-relaxed px-3 py-2 shadow-xl animate-in fade-in zoom-in-95 duration-150 text-center`}
+            className={`fixed z-[9999] pointer-events-none ${width} rounded-sm bg-slate-800 text-white text-[11px] font-normal leading-relaxed px-3 py-2 shadow-xl animate-in fade-in zoom-in-95 duration-150 text-center`}
             style={{
               top: `${coords.top}px`,
               left: `${coords.left}px`,

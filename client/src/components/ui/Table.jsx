@@ -73,7 +73,7 @@ export function TableSkeleton({ cols = 4, rows = 5, squareCols = [] }) {
             ) : (
               <td key={j} className="px-5 py-4">
                 <div
-                  className="h-4 bg-muted rounded-lg animate-pulse"
+                  className="h-4 bg-muted rounded-sm animate-pulse"
                   style={{ width: `${50 + ((i * cols + j) * 17) % 40}%` }}
                 />
               </td>

@@ -33,7 +33,7 @@ const formatRupiah = (value) =>
 
 function YesNoToggle({ value, onChange }) {
   return (
-    <div className="flex rounded-lg overflow-hidden border border-border w-fit">
+    <div className="flex rounded-sm overflow-hidden border border-border w-fit">
       {[true, false].map((opt) => (
         <button
           key={String(opt)}
@@ -186,7 +186,7 @@ export default function SubscriptionPackageModal({
               onChange={(e) => setField("description", e.target.value)}
               placeholder="Deskripsi paket..."
               rows={2}
-              className="block w-full px-3 py-2 text-sm rounded-md border border-border bg-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-all resize-none"
+              className="block w-full px-3 py-2 text-sm rounded-xs border border-border bg-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-all resize-none"
             />
           </div>
 
@@ -209,7 +209,7 @@ export default function SubscriptionPackageModal({
               Diskon
             </label>
             <div className="flex gap-2">
-              <div className="flex rounded-lg overflow-hidden border border-border flex-shrink-0">
+              <div className="flex rounded-sm overflow-hidden border border-border flex-shrink-0">
                 {[
                   { value: "rupiah", label: "Rp" },
                   { value: "percentage", label: "%" },
@@ -235,7 +235,7 @@ export default function SubscriptionPackageModal({
                 value={form.discountValue}
                 onChange={(e) => setField("discountValue", e.target.value)}
                 placeholder="0"
-                className="flex-1 px-3 py-2 text-sm rounded-md border border-border bg-input text-foreground focus:outline-none focus:border-primary transition-all"
+                className="flex-1 px-3 py-2 text-sm rounded-xs border border-border bg-input text-foreground focus:outline-none focus:border-primary transition-all"
               />
             </div>
             {errors.discountValue && (
@@ -248,7 +248,7 @@ export default function SubscriptionPackageModal({
             <label className="block text-sm font-medium text-foreground">
               Harga Akhir
             </label>
-            <div className="px-3 py-2 rounded-lg border border-border bg-secondary text-primary text-sm font-semibold">
+            <div className="px-3 py-2 rounded-sm border border-border bg-secondary text-primary text-sm font-semibold">
               {formatRupiah(finalPrice)}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -264,7 +264,7 @@ export default function SubscriptionPackageModal({
             <select
               value={form.durationMonths}
               onChange={(e) => setField("durationMonths", e.target.value)}
-              className="block w-full px-3 py-2 text-sm rounded-md border border-border bg-input text-foreground focus:outline-none focus:border-primary transition-all"
+              className="block w-full px-3 py-2 text-sm rounded-xs border border-border bg-input text-foreground focus:outline-none focus:border-primary transition-all"
             >
               {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                 <option key={m} value={String(m)}>
@@ -292,13 +292,13 @@ export default function SubscriptionPackageModal({
                     value={benefit}
                     onChange={(e) => setBenefit(index, e.target.value)}
                     placeholder={`Benefit ${index + 1}`}
-                    className="flex-1 px-3 py-2 text-sm rounded-md border border-border bg-input text-foreground focus:outline-none focus:border-primary transition-all"
+                    className="flex-1 px-3 py-2 text-sm rounded-xs border border-border bg-input text-foreground focus:outline-none focus:border-primary transition-all"
                   />
                   <button
                     type="button"
                     onClick={() => removeBenefit(index)}
                     disabled={form.benefits.length === 1 && !benefit}
-                    className="p-2 rounded-lg border border-border bg-white text-destructive hover:bg-destructive/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+                    className="p-2 rounded-sm border border-border bg-white text-destructive hover:bg-destructive/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-shrink-0"
                   >
                     <Trash2 size={14} />
                   </button>

@@ -12,7 +12,7 @@ export default function Pagination({
   const canNext = currentPage < totalPages;
 
   const btnBase = cn(
-    "p-2 rounded-lg border border-border transition-all text-sm font-medium",
+    "p-2 rounded-sm border border-border transition-all text-sm font-medium",
     "hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
   );
 

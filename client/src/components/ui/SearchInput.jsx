@@ -16,7 +16,7 @@ export default function SearchInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         className={cn(
-          "block w-full pl-9 py-2 text-sm rounded-sm border border-border",
+          "block w-full pl-9 py-2 text-sm rounded-xs border border-border",
           "bg-input text-foreground placeholder:text-muted-foreground",
           "focus:outline-none focus:border-primary transition-all",
           value ? "pr-8" : "pr-3",

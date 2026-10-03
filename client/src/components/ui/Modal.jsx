@@ -32,7 +32,7 @@ export default function Modal({ isOpen, onClose, title, size = "md", className, 
     >
       <div
         className={cn(
-          "w-full bg-white rounded-lg shadow-xl flex flex-col max-h-[90vh]",
+          "w-full bg-white rounded-sm shadow-xl flex flex-col max-h-[90vh]",
           "animate-in fade-in zoom-in-95 duration-200",
           sizes[size],
           className
@@ -44,7 +44,7 @@ export default function Modal({ isOpen, onClose, title, size = "md", className, 
             <h2 className="text-base font-semibold text-foreground">{title}</h2>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              className="p-1.5 rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
             >
               <X size={16} />
             </button>

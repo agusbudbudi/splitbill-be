@@ -33,7 +33,7 @@ export default function Input({
         <input
           id={inputId}
           className={cn(
-            "block w-full py-2 text-sm rounded-md border transition-all",
+            "block w-full py-2 text-sm rounded-xs border transition-all",
             "bg-input text-foreground placeholder:text-muted-foreground",
             "focus:outline-none focus:border-primary",
             leftIcon ? "pl-10 pr-3" : "px-3",

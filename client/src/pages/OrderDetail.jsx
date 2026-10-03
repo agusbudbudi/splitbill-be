@@ -195,7 +195,7 @@ export default function OrderDetail() {
             <Card>
               <CardBody className="p-5">
                 <div className="flex items-start gap-4">
-                  <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 text-primary">
+                  <div className="h-12 w-12 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0 text-primary">
                     <Package size={24} />
                   </div>
                   <div className="flex-1">
@@ -273,7 +273,7 @@ export default function OrderDetail() {
                       <div className="pt-2">
                         <Badge
                           variant="warning"
-                          className="w-full justify-center rounded-sm py-1.5"
+                          className="w-full justify-center rounded-xs py-1.5"
                         >
                           Sandbox Mode
                         </Badge>
@@ -367,7 +367,7 @@ export default function OrderDetail() {
                   </div>
 
                   {order.qrisData?.payment_number ? (
-                    <div className="bg-white p-3 rounded-sm inline-block mx-auto">
+                    <div className="bg-white p-3 rounded-xs inline-block mx-auto">
                       <QRCode
                         value={order.qrisData.payment_number}
                         size={192}
@@ -375,7 +375,7 @@ export default function OrderDetail() {
                       />
                     </div>
                   ) : (
-                    <div className="py-8 bg-muted/50 rounded-lg flex flex-col items-center gap-2">
+                    <div className="py-8 bg-muted/50 rounded-sm flex flex-col items-center gap-2">
                       <Info className="h-8 w-8 text-muted-foreground" />
                       <p className="text-xs text-muted-foreground">
                         Tautan QRIS tidak tersedia

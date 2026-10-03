@@ -6,7 +6,7 @@ import {
   Calendar,
   Clock,
   Scan,
-  Receipt,
+  ReceiptText,
   CheckCircle,
   XCircle,
   Users,
@@ -215,10 +215,10 @@ export default function UserDetail() {
               <span className="h-4 w-0.5 rounded-full bg-primary" />
               Riwayat Split Bill
             </h2>
-            <div className="bg-white rounded-lg border border-border shadow-soft overflow-hidden">
+            <div className="bg-white rounded-sm border border-border shadow-soft overflow-hidden">
               {splitBills.length === 0 ? (
                 <EmptyState
-                  icon={Receipt}
+                  icon={ReceiptText}
                   title="Belum ada split bill"
                   description="Pengguna ini belum membuat aktivitas split bill."
                 />
@@ -263,25 +263,22 @@ export default function UserDetail() {
                             </span>
                           </Td>
                           <Td>
-                            {bill.status === "editable" ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-600 border border-amber-200">
-                                Draft
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200">
-                                Finalize
-                              </span>
-                            )}
+                            <Badge
+                              variant={bill.status === "editable" ? "warning" : "success"}
+                              className="text-xs font-semibold"
+                            >
+                              {bill.status === "editable" ? "Draft" : "Finalize"}
+                            </Badge>
                           </Td>
                           <Td>
-                            <span className="text-xs font-mono bg-muted px-2 py-0.5 rounded text-muted-foreground font-semibold">
+                            <Badge variant="neutral" className="font-mono">
                               {(() => {
                                 const step = bill.last_step || (bill.status === "locked" ? "FINALIZED" : "");
                                 if (!step) return "—";
                                 if (step === "FINALIZED") return "Finalized";
                                 return step.replace("_", " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
                               })()}
-                            </span>
+                            </Badge>
                           </Td>
                           <Td className="text-right font-semibold text-sm text-foreground whitespace-nowrap">
                             {formatCurrency(bill.summary?.total)}
@@ -322,7 +319,7 @@ export default function UserDetail() {
               <span className="h-4 w-0.5 rounded-full bg-warning" />
               Riwayat Pembelian & Transaksi
             </h2>
-            <div className="bg-white rounded-lg border border-border shadow-soft overflow-hidden">
+            <div className="bg-white rounded-sm border border-border shadow-soft overflow-hidden">
               {orders.length === 0 ? (
                 <EmptyState
                   icon={ShoppingBag}
@@ -405,7 +402,7 @@ export default function UserDetail() {
               <span className="h-4 w-0.5 rounded-full bg-success" />
               Informasi Pengguna
             </h2>
-            <div className="bg-white rounded-lg border border-border shadow-soft px-4">
+            <div className="bg-white rounded-sm border border-border shadow-soft px-4">
               <InfoRow label="Nama">
                 <span className="inline-flex items-center gap-1.5">
                   {userData.name}
@@ -459,7 +456,7 @@ export default function UserDetail() {
               <span className="h-4 w-0.5 rounded-full bg-warning" />
               Informasi Langganan
             </h2>
-            <div className="bg-white rounded-lg border border-border shadow-soft overflow-hidden">
+            <div className="bg-white rounded-sm border border-border shadow-soft overflow-hidden">
               {/* Status header banner */}
               {userData.subscriptionStatus === "active" ? (
                 <div
@@ -557,10 +554,10 @@ export default function UserDetail() {
               <span className="h-4 w-0.5 rounded-full bg-primary" />
               Kuota Scan AI
             </h2>
-            <div className="bg-white rounded-lg border border-border shadow-soft p-4 space-y-4">
+            <div className="bg-white rounded-sm border border-border shadow-soft p-4 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <div className="h-9 w-9 rounded-sm bg-primary/10 flex items-center justify-center">
                     <Scan className="h-4 w-4 text-primary" />
                   </div>
                   <div>
@@ -604,7 +601,7 @@ export default function UserDetail() {
               <span className="h-4 w-0.5 rounded-full bg-destructive" />
               Aksi Admin
             </h2>
-            <div className="bg-white rounded-lg border border-border shadow-soft p-4 space-y-3">
+            <div className="bg-white rounded-sm border border-border shadow-soft p-4 space-y-3">
               <Button
                 variant="outline"
                 size="sm"

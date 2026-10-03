@@ -20,6 +20,7 @@ import {
   Modal,
   ModalFooter,
   EmptyState,
+  Badge,
   useToast,
 } from "../components/ui";
 
@@ -135,7 +136,7 @@ export default function AdCampaigns() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Page header */}
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -201,7 +202,7 @@ export default function AdCampaigns() {
               : null;
 
             return (
-              <Card key={ad._id} className="overflow-hidden flex flex-col">
+              <Card key={ad._id} className="overflow-hidden flex flex-col min-w-0">
                 {/* Media preview */}
                 <div
                   className="w-full h-40 bg-muted flex items-center justify-center relative overflow-hidden flex-shrink-0"
@@ -241,22 +242,12 @@ export default function AdCampaigns() {
                     </div>
                   )}
 
-                  {/* Status badge */}
-                  <div className="absolute top-2 right-2">
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        ad.isActive
-                          ? "bg-green-100 text-green-700"
-                          : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {ad.isActive ? "Aktif" : "Nonaktif"}
-                    </span>
-                  </div>
-
                   {/* Media type badge */}
                   <div className="absolute top-2 left-2">
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-black/40 text-white flex items-center gap-1">
+                    <Badge
+                      variant="neutral"
+                      className="bg-black/40 border-transparent text-white text-[10px] px-2 flex items-center gap-1"
+                    >
                       {isYouTube(ad.mediaUrl) ? (
                         "YouTube"
                       ) : ad.mediaType === "video" ? (
@@ -268,11 +259,11 @@ export default function AdCampaigns() {
                           <ImageIcon className="h-2.5 w-2.5" /> Image
                         </>
                       )}
-                    </span>
+                    </Badge>
                   </div>
                 </div>
 
-                <CardBody className="space-y-2 flex-1">
+                <CardBody className="space-y-2 flex-1 min-w-0">
                   <div>
                     <p className="font-semibold text-foreground text-sm leading-snug line-clamp-1">
                       {ad.title || ad.id}
@@ -288,15 +279,15 @@ export default function AdCampaigns() {
                     </p>
                   )}
 
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1">
-                    <span>⏱ {ad.durationSeconds}s</span>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1 min-w-0">
+                    <span className="flex-shrink-0">⏱ {ad.durationSeconds}s</span>
                     {ad.ctaText && (
-                      <span className="truncate">🔗 {ad.ctaText}</span>
+                      <span className="truncate min-w-0">🔗 {ad.ctaText}</span>
                     )}
-                    <span className="ml-auto text-[10px] opacity-60">
-                      #{ad.id}
-                    </span>
                   </div>
+                  <p className="text-[10px] text-muted-foreground/70 truncate">
+                    #{ad.id}
+                  </p>
                 </CardBody>
 
                 <CardFooter className="py-3 flex items-center justify-between gap-2">

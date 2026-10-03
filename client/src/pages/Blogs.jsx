@@ -136,7 +136,7 @@ export default function Blogs() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -171,7 +171,7 @@ export default function Blogs() {
 
           <div className="flex items-center gap-2">
             {/* Filter Tabs */}
-            <div className="flex rounded-md border border-border overflow-hidden">
+            <div className="flex rounded-xs border border-border overflow-hidden">
               {FILTER_OPTIONS.map((opt) => (
                 <button
                   key={opt.id}
@@ -232,7 +232,7 @@ export default function Blogs() {
                           <img
                             src={blog.thumbnail}
                             alt={blog.thumbnailAlt || blog.title}
-                            className="w-20 h-20 object-cover rounded-sm flex-shrink-0 bg-muted"
+                            className="w-20 h-20 object-cover rounded-xs flex-shrink-0 bg-muted"
                             onError={(e) => {
                               e.target.style.display = "none";
                             }}
@@ -256,7 +256,7 @@ export default function Blogs() {
                     <Td>
                       {blog.category ? (
                         <Badge
-                          variant="outline"
+                          variant="info"
                           className="text-[10px] font-medium"
                         >
                           {blog.category}

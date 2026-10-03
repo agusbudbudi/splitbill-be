@@ -3,9 +3,7 @@ import { usePageMeta } from "../lib/usePageMeta";
 import { useNavigate } from "react-router-dom";
 import {
   Users,
-  Receipt,
-  Star,
-  TrendingUp,
+  ReceiptText,
   Wallet,
   Scan,
   RefreshCw,
@@ -42,6 +40,7 @@ import {
   CardBody,
   StatCard,
   Spinner,
+  Badge,
   Tooltip as UiTooltip,
 } from "../components/ui";
 
@@ -187,7 +186,7 @@ const FUNNEL_DESCRIPTIONS = {
 function ChartTooltip({ active, payload, label, valueFormatter, labelFormatter }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white border border-border rounded-lg shadow-lg px-3 py-2 text-xs">
+    <div className="bg-white border border-border rounded-sm shadow-lg px-3 py-2 text-xs">
       <p className="font-semibold text-foreground mb-1">
         {labelFormatter ? labelFormatter(label) : label}
       </p>
@@ -207,7 +206,7 @@ function ScanTrendTooltip({ active, payload, label }) {
   const failed = payload.find((p) => p.dataKey === "failed")?.value ?? 0;
   const failureRate = payload.find((p) => p.dataKey === "failureRate")?.value ?? 0;
   return (
-    <div className="bg-slate-900 border border-slate-700 rounded-lg shadow-lg px-3 py-2 text-xs">
+    <div className="bg-slate-900 border border-slate-700 rounded-sm shadow-lg px-3 py-2 text-xs">
       <p className="font-semibold text-white mb-1.5">{periodLabel(label)}</p>
       <p style={{ color: SUCCESS }}>Berhasil: {success}</p>
       <p style={{ color: DANGER }}>Gagal: {failed}</p>
@@ -221,7 +220,7 @@ function ModelTrendTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   const total = payload.reduce((sum, p) => sum + (p.value ?? 0), 0);
   return (
-    <div className="bg-slate-900 border border-slate-700 rounded-lg shadow-lg px-3 py-2 text-xs">
+    <div className="bg-slate-900 border border-slate-700 rounded-sm shadow-lg px-3 py-2 text-xs">
       <p className="font-semibold text-white mb-1.5">{periodLabel(label)}</p>
       {payload.map((p) => (
         <p key={p.dataKey} style={{ color: p.color }}>
@@ -428,7 +427,7 @@ export default function Insights() {
         <button
           onClick={() => fetchInsights(true)}
           disabled={refreshing}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 transition-colors disabled:opacity-50 flex-shrink-0"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xs text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 transition-colors disabled:opacity-50 flex-shrink-0"
         >
           <RefreshCw
             className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
@@ -461,16 +460,16 @@ export default function Insights() {
       {activeTab === "overview" && (
         <div className="space-y-4">
           {/* KPI Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
             <StatCard
               title="Total Pengguna"
               value={
                 <div className="flex items-baseline gap-2">
                   <span>{(kpis.totalUsers ?? 0).toLocaleString("id-ID")}</span>
                   {kpis.newUsersToday > 0 && (
-                    <span className="text-[10px] font-bold text-success bg-success/10 px-1.5 py-0.5 rounded-full">
+                    <Badge variant="success" className="text-[10px]">
                       +{kpis.newUsersToday} New
-                    </span>
+                    </Badge>
                   )}
                 </div>
               }
@@ -493,13 +492,13 @@ export default function Insights() {
                 <div className="flex items-baseline gap-2">
                   <span>{(kpis.totalBills ?? 0).toLocaleString("id-ID")}</span>
                   {kpis.newBillsToday > 0 && (
-                    <span className="text-[10px] font-bold text-success bg-success/10 px-1.5 py-0.5 rounded-full">
+                    <Badge variant="success" className="text-[10px]">
                       +{kpis.newBillsToday} New
-                    </span>
+                    </Badge>
                   )}
                 </div>
               }
-              icon={Receipt}
+              icon={ReceiptText}
               iconColor="text-warning"
               iconBg="bg-warning/10"
               tooltip={KPI_DESCRIPTIONS.totalBills}
@@ -511,22 +510,6 @@ export default function Insights() {
               iconColor="text-purple-500"
               iconBg="bg-purple-500/10"
               tooltip={KPI_DESCRIPTIONS.totalValue}
-            />
-            <StatCard
-              title="Avg Ukuran Tagihan"
-              value={formatRpShort(kpis.avgBillSize)}
-              icon={TrendingUp}
-              iconColor="text-secondary-foreground"
-              iconBg="bg-secondary"
-              tooltip={KPI_DESCRIPTIONS.avgBill}
-            />
-            <StatCard
-              title="Rating Rata-rata"
-              value={`${kpis.avgRating} ⭐`}
-              icon={Star}
-              iconColor="text-warning"
-              iconBg="bg-warning/10"
-              tooltip={KPI_DESCRIPTIONS.avgRating}
             />
           </div>
 
@@ -541,12 +524,12 @@ export default function Insights() {
                       {GRANULARITY_DESCRIPTIONS[granularity]}
                     </p>
                   </div>
-                  <div className="flex bg-muted rounded-md p-0.5 flex-shrink-0">
+                  <div className="flex bg-muted rounded-xs p-0.5 flex-shrink-0">
                     {["monthly", "weekly", "daily"].map((g) => (
                       <button
                         key={g}
                         onClick={() => setGranularity(g)}
-                        className={`px-2.5 py-1 text-[10px] font-bold uppercase rounded-sm transition-colors ${
+                        className={`px-2.5 py-1 text-[10px] font-bold uppercase rounded-xs transition-colors ${
                           granularity === g
                             ? "bg-white text-primary shadow-sm"
                             : "text-muted-foreground hover:text-foreground"
@@ -795,10 +778,10 @@ export default function Insights() {
                             {u.email || ""}
                           </p>
                         </div>
-                        <span className="flex-shrink-0 inline-flex items-center gap-1 text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                          <Receipt className="h-3 w-3" />
+                        <Badge variant="info" className="flex-shrink-0 items-center gap-1 text-xs">
+                          <ReceiptText className="h-3 w-3" />
                           {u.splitBillCount || 0}
-                        </span>
+                        </Badge>
                       </li>
                     ))}
                   </ol>
@@ -1077,15 +1060,18 @@ export default function Insights() {
                             <span className="font-semibold text-foreground">
                               {step.count.toLocaleString("id-ID")}
                             </span>
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-                              style={{ background: step.color + "20", color: step.color }}>
+                            <Badge
+                              variant="neutral"
+                              className="text-[10px] border-transparent"
+                              style={{ background: step.color + "20", color: step.color }}
+                            >
                               {formatPct(i === 0 ? 100 : conversionRate)}
-                            </span>
+                            </Badge>
                           </span>
                         </div>
-                        <div className="h-7 bg-muted rounded-lg overflow-hidden">
+                        <div className="h-7 bg-muted rounded-sm overflow-hidden">
                           <div
-                            className="h-full rounded-lg flex items-center px-3 transition-all duration-700"
+                            className="h-full rounded-sm flex items-center px-3 transition-all duration-700"
                             style={{ width: `${width}%`, background: step.color }}
                           >
                             <span className="text-white text-[10px] font-bold whitespace-nowrap">
@@ -1384,12 +1370,12 @@ export default function Insights() {
               value={
                 <div className="flex items-baseline gap-1.5 flex-wrap">
                   <span>{(scanKpis.totalAttempts ?? 0).toLocaleString("id-ID")}</span>
-                  <span className="text-[10px] font-bold text-success bg-success/10 px-1.5 py-0.5 rounded-full">
+                  <Badge variant="success" className="text-[10px]">
                     {(scanKpis.successCount ?? 0).toLocaleString("id-ID")} berhasil
-                  </span>
-                  <span className="text-[10px] font-bold text-destructive bg-destructive/10 px-1.5 py-0.5 rounded-full">
+                  </Badge>
+                  <Badge variant="danger" className="text-[10px]">
                     {(scanKpis.failedCount ?? 0).toLocaleString("id-ID")} gagal
-                  </span>
+                  </Badge>
                 </div>
               }
               icon={Scan}
@@ -1405,9 +1391,9 @@ export default function Insights() {
                   <span className="text-[10px] font-normal text-muted-foreground">
                     ({scanKpis.successCount ?? 0}/{scanKpis.totalAttempts ?? 0})
                   </span>
-                  <span className="text-[10px] font-bold text-success bg-success/10 px-1.5 py-0.5 rounded-full">
+                  <Badge variant="success" className="text-[10px]">
                     7 hari: {formatPct(scanKpis.last7dSuccessRate)} ({scanKpis.last7dSuccess ?? 0}/{scanKpis.last7dTotal ?? 0})
-                  </span>
+                  </Badge>
                 </div>
               }
               icon={CheckCircle2}
@@ -1423,9 +1409,9 @@ export default function Insights() {
                   <span className="text-[10px] font-normal text-muted-foreground">
                     ({scanKpis.failedCount ?? 0}/{scanKpis.totalAttempts ?? 0})
                   </span>
-                  <span className="text-[10px] font-bold text-warning bg-warning/10 px-1.5 py-0.5 rounded-full">
+                  <Badge variant="warning" className="text-[10px]">
                     7 hari: {formatPct(scanKpis.last7dFailureRate)} ({scanKpis.last7dFailed ?? 0}/{scanKpis.last7dTotal ?? 0})
-                  </span>
+                  </Badge>
                 </div>
               }
               icon={AlertTriangle}
@@ -1438,9 +1424,9 @@ export default function Insights() {
               value={
                 <div className="flex items-baseline gap-1.5 flex-wrap">
                   <span>{(scanKpis.uniqueUsers ?? 0).toLocaleString("id-ID")}</span>
-                  <span className="text-[10px] font-bold text-secondary-foreground bg-secondary px-1.5 py-0.5 rounded-full">
+                  <Badge variant="neutral" className="text-[10px]">
                     {(scanKpis.uniqueGuestScans ?? 0).toLocaleString("id-ID")} guest (IP)
-                  </span>
+                  </Badge>
                 </div>
               }
               icon={Users}
@@ -1484,12 +1470,12 @@ export default function Insights() {
                       {SCAN_GRANULARITY_DESCRIPTIONS[scanGranularity]}
                     </p>
                   </div>
-                  <div className="flex bg-muted rounded-md p-0.5 flex-shrink-0">
+                  <div className="flex bg-muted rounded-xs p-0.5 flex-shrink-0">
                     {["monthly", "weekly", "daily"].map((g) => (
                       <button
                         key={g}
                         onClick={() => setScanGranularity(g)}
-                        className={`px-2.5 py-1 text-[10px] font-bold uppercase rounded-sm transition-colors ${
+                        className={`px-2.5 py-1 text-[10px] font-bold uppercase rounded-xs transition-colors ${
                           scanGranularity === g
                             ? "bg-white text-primary shadow-sm"
                             : "text-muted-foreground hover:text-foreground"
@@ -1626,12 +1612,12 @@ export default function Insights() {
                       : "6 bulan terakhir"}
                 </p>
               </div>
-              <div className="flex bg-muted rounded-md p-0.5 flex-shrink-0">
+              <div className="flex bg-muted rounded-xs p-0.5 flex-shrink-0">
                 {["monthly", "weekly", "daily"].map((g) => (
                   <button
                     key={g}
                     onClick={() => setScanGranularity(g)}
-                    className={`px-2.5 py-1 text-[10px] font-bold uppercase rounded-sm transition-colors ${
+                    className={`px-2.5 py-1 text-[10px] font-bold uppercase rounded-xs transition-colors ${
                       scanGranularity === g
                         ? "bg-white text-primary shadow-sm"
                         : "text-muted-foreground hover:text-foreground"
@@ -1971,10 +1957,10 @@ export default function Insights() {
                           {u.email || ""}
                         </p>
                       </div>
-                      <span className="flex-shrink-0 inline-flex items-center gap-1 text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                      <Badge variant="info" className="flex-shrink-0 items-center gap-1 text-xs">
                         <Scan className="h-3 w-3" />
                         {u.count || 0}
-                      </span>
+                      </Badge>
                     </li>
                   ))}
                 </ol>
@@ -2008,9 +1994,9 @@ export default function Insights() {
                       <p className="flex-1 min-w-0 text-xs text-foreground break-words">
                         {e.message}
                       </p>
-                      <span className="flex-shrink-0 text-xs font-bold text-destructive bg-destructive/10 px-2 py-0.5 rounded-full">
+                      <Badge variant="danger" className="flex-shrink-0 text-xs">
                         {e.count}x
-                      </span>
+                      </Badge>
                     </li>
                   ))}
                 </ol>

@@ -14,6 +14,7 @@ import {
   Card,
   CardBody,
   CardFooter,
+  Badge,
   Button,
   Modal,
   ModalFooter,
@@ -131,7 +132,7 @@ export default function UserLevels() {
   const sortedLevels = [...levels].sort((a, b) => b.order - a.order);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Page header */}
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -173,7 +174,7 @@ export default function UserLevels() {
             <Card key={level._id} className="overflow-hidden flex flex-col">
               <CardBody className="space-y-3 flex-1">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-lg bg-muted overflow-hidden flex-shrink-0 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-sm bg-muted overflow-hidden flex-shrink-0 flex items-center justify-center">
                     {level.icon ? (
                       <img
                         src={level.icon}
@@ -193,25 +194,19 @@ export default function UserLevels() {
                     </p>
                     <p className="text-xs text-muted-foreground">Order: {level.order}</p>
                   </div>
-                  <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
-                      level.isActive
-                        ? "bg-green-100 text-green-700"
-                        : "bg-muted text-muted-foreground"
-                    }`}
+                  <Badge
+                    variant={level.isActive ? "success" : "neutral"}
+                    className="text-[10px] font-bold flex-shrink-0"
                   >
                     {level.isActive ? "Aktif" : "Nonaktif"}
-                  </span>
+                  </Badge>
                 </div>
 
                 <div className="flex flex-wrap gap-1.5">
                   {(level.rules || []).map((rule, idx) => (
-                    <span
-                      key={idx}
-                      className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground"
-                    >
+                    <Badge key={idx} variant="neutral" className="text-[10px] font-medium">
                       {formatRule(rule)}
-                    </span>
+                    </Badge>
                   ))}
                 </div>
               </CardBody>

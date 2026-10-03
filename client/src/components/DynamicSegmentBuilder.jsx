@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Plus, Trash2, ShieldAlert, ShieldCheck } from "lucide-react";
 import { apiFetch } from "../lib/api";
-import { Button, Input, Spinner } from "./ui";
+import { Button, Input, Spinner, Badge } from "./ui";
 
 const OPERATOR_OPTIONS = [
   { id: "eq", label: "Sama Dengan (==)" },
@@ -95,16 +95,16 @@ export default function DynamicSegmentBuilder({ value, onChange }) {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground bg-muted/30 rounded-md">
+      <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground bg-muted/30 rounded-xs">
         <Spinner size="sm" /> Memuat variabel...
       </div>
     );
   }
 
   const renderGroup = (type, group, groupIndex) => (
-    <div key={groupIndex} className="bg-white border border-border rounded-md p-4 mb-3 shadow-sm relative">
+    <div key={groupIndex} className="bg-white border border-border rounded-xs p-4 mb-3 shadow-sm relative">
       {groupIndex > 0 && (
-        <div className="absolute -top-[21px] left-4 bg-muted text-xs font-bold px-2 py-0.5 rounded border border-border uppercase tracking-wide">
+        <div className="absolute -top-[21px] left-4 bg-muted text-xs font-bold px-2 py-0.5 rounded-xs border border-border uppercase tracking-wide">
           OR
         </div>
       )}
@@ -116,7 +116,7 @@ export default function DynamicSegmentBuilder({ value, onChange }) {
         <button
           type="button"
           onClick={() => removeGroup(type, groupIndex)}
-          className="text-red-500 hover:bg-red-50 p-1.5 rounded-md transition-colors"
+          className="text-red-500 hover:bg-red-50 p-1.5 rounded-xs transition-colors"
           title="Hapus Grup"
         >
           <Trash2 size={14} />
@@ -129,7 +129,7 @@ export default function DynamicSegmentBuilder({ value, onChange }) {
           return (
             <div key={ruleIndex} className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
               {ruleIndex > 0 && (
-                <div className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded hidden sm:block uppercase">
+                <div className="text-[10px] font-bold bg-muted px-1.5 py-0.5 rounded-xs hidden sm:block uppercase">
                   AND
                 </div>
               )}
@@ -138,7 +138,7 @@ export default function DynamicSegmentBuilder({ value, onChange }) {
                 <select
                   value={rule.field}
                   onChange={(e) => updateRule(type, groupIndex, ruleIndex, "field", e.target.value)}
-                  className="w-full px-3 py-2 bg-input border border-border rounded-sm text-sm focus:outline-none focus:border-primary"
+                  className="w-full px-3 py-2 bg-input border border-border rounded-xs text-sm focus:outline-none focus:border-primary"
                 >
                   {variables.map((v) => (
                     <option key={v.field} value={v.field}>
@@ -150,7 +150,7 @@ export default function DynamicSegmentBuilder({ value, onChange }) {
                 <select
                   value={rule.operator}
                   onChange={(e) => updateRule(type, groupIndex, ruleIndex, "operator", e.target.value)}
-                  className="w-full px-3 py-2 bg-input border border-border rounded-sm text-sm focus:outline-none focus:border-primary"
+                  className="w-full px-3 py-2 bg-input border border-border rounded-xs text-sm focus:outline-none focus:border-primary"
                 >
                   {OPERATOR_OPTIONS.map((o) => (
                     <option key={o.id} value={o.id}>{o.label}</option>
@@ -161,7 +161,7 @@ export default function DynamicSegmentBuilder({ value, onChange }) {
                   <select
                     value={rule.value}
                     onChange={(e) => updateRule(type, groupIndex, ruleIndex, "value", e.target.value)}
-                    className="w-full px-3 py-2 bg-input border border-border rounded-sm text-sm focus:outline-none focus:border-primary"
+                    className="w-full px-3 py-2 bg-input border border-border rounded-xs text-sm focus:outline-none focus:border-primary"
                   >
                     <option value="">Pilih value...</option>
                     {varDef.options.map(opt => (
@@ -172,7 +172,7 @@ export default function DynamicSegmentBuilder({ value, onChange }) {
                   <select
                     value={rule.value === true ? "true" : rule.value === false ? "false" : ""}
                     onChange={(e) => updateRule(type, groupIndex, ruleIndex, "value", e.target.value === "true")}
-                    className="w-full px-3 py-2 bg-input border border-border rounded-sm text-sm focus:outline-none focus:border-primary"
+                    className="w-full px-3 py-2 bg-input border border-border rounded-xs text-sm focus:outline-none focus:border-primary"
                   >
                     <option value="">Pilih...</option>
                     <option value="true">True</option>
@@ -184,7 +184,7 @@ export default function DynamicSegmentBuilder({ value, onChange }) {
                     value={rule.value}
                     onChange={(e) => updateRule(type, groupIndex, ruleIndex, "value", e.target.value)}
                     placeholder="Value..."
-                    className="w-full px-3 py-2 bg-input border border-border rounded-sm text-sm focus:outline-none focus:border-primary"
+                    className="w-full px-3 py-2 bg-input border border-border rounded-xs text-sm focus:outline-none focus:border-primary"
                   />
                 )}
               </div>
@@ -216,15 +216,15 @@ export default function DynamicSegmentBuilder({ value, onChange }) {
   );
 
   return (
-    <div className="space-y-6 bg-muted/10 p-5 rounded-lg border border-border">
+    <div className="space-y-6 bg-muted/10 p-5 rounded-sm border border-border">
       {/* INCLUDED SEGMENTS */}
       <div>
         <div className="flex items-center gap-2 mb-4">
           <ShieldCheck className="text-emerald-500" size={18} />
           <h3 className="font-bold text-sm text-foreground">Included Segments</h3>
-          <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+          <Badge variant="neutral" className="text-[10px] font-normal">
             User WAJIB memenuhi kriteria ini
-          </span>
+          </Badge>
         </div>
         
         {(!segment.included || segment.included.length === 0) ? (
@@ -252,9 +252,9 @@ export default function DynamicSegmentBuilder({ value, onChange }) {
         <div className="flex items-center gap-2 mb-4">
           <ShieldAlert className="text-red-500" size={18} />
           <h3 className="font-bold text-sm text-foreground">Excluded Segments</h3>
-          <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+          <Badge variant="neutral" className="text-[10px] font-normal">
             User akan diabaikan jika memenuhi ini
-          </span>
+          </Badge>
         </div>
 
         {(!segment.excluded || segment.excluded.length === 0) ? (

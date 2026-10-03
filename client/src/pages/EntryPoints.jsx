@@ -114,7 +114,7 @@ export default function EntryPoints() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Page header */}
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -191,22 +191,10 @@ export default function EntryPoints() {
                 />
 
                 {card.ribbonText && (
-                  <span className="absolute bottom-0 left-0 rounded-tr-sm bg-gradient-to-r from-violet-400 via-pink-400 to-primary/70 px-2 py-1 text-[10px] font-black uppercase leading-none tracking-wide text-white shadow-sm">
+                  <span className="absolute bottom-0 left-0 rounded-tr-xs bg-gradient-to-r from-violet-400 via-pink-400 to-primary/70 px-2 py-1 text-[10px] font-black uppercase leading-none tracking-wide text-white shadow-sm">
                     {card.ribbonText}
                   </span>
                 )}
-
-                <div className="absolute top-2 right-2">
-                  <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      card.isActive
-                        ? "bg-green-100 text-green-700"
-                        : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {card.isActive ? "Aktif" : "Nonaktif"}
-                  </span>
-                </div>
               </div>
 
               <CardBody className="space-y-2 flex-1">

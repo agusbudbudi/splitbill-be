@@ -38,6 +38,7 @@ import {
   DateInput,
   ResetFiltersButton,
   useToast,
+  Checkbox,
 } from "../components/ui";
 import { formatDateTime } from "../lib/utils";
 import { apiFetch } from "../lib/api";
@@ -108,7 +109,6 @@ export default function Users() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [isVerified, setIsVerified] = useState("");
   const [subscriptionStatus, setSubscriptionStatus] = useState("");
-  const [provider, setProvider] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
@@ -137,7 +137,7 @@ export default function Users() {
   }, [searchQuery]);
 
   const fetchUsers = useCallback(
-    async (page, search, verified, subStatus, prov, from, to, sby, sorder) => {
+    async (page, search, verified, subStatus, from, to, sby, sorder) => {
       setLoading(true);
       setError("");
       try {
@@ -145,7 +145,6 @@ export default function Users() {
         if (search) params.set("search", search);
         if (verified !== "") params.set("isVerified", verified);
         if (subStatus !== "") params.set("subscriptionStatus", subStatus);
-        if (prov !== "") params.set("provider", prov);
         if (from) params.set("dateFrom", from);
         if (to) params.set("dateTo", to);
         const res = await apiFetch(`/api/users?${params}`);
@@ -175,7 +174,6 @@ export default function Users() {
       debouncedSearch,
       isVerified,
       subscriptionStatus,
-      provider,
       dateFrom,
       dateTo,
       sortBy,
@@ -186,7 +184,6 @@ export default function Users() {
     debouncedSearch,
     isVerified,
     subscriptionStatus,
-    provider,
     dateFrom,
     dateTo,
     sortBy,
@@ -265,12 +262,11 @@ export default function Users() {
   };
 
   // ── Active filter count badge ──────────────────────────────────────────
-  const activeFilterCount = [isVerified, subscriptionStatus, provider, dateFrom, dateTo].filter(Boolean).length;
+  const activeFilterCount = [isVerified, subscriptionStatus, dateFrom, dateTo].filter(Boolean).length;
 
   const resetFilters = () => {
     setIsVerified("");
     setSubscriptionStatus("");
-    setProvider("");
     setDateFrom("");
     setDateTo("");
     setCurrentPage(1);
@@ -317,16 +313,6 @@ export default function Users() {
               <option value="active">Active</option>
               <option value="none">Belum Langganan</option>
               <option value="expired">Expired</option>
-            </Select>
-
-            {/* Provider */}
-            <Select
-              value={provider}
-              onChange={(e) => { setProvider(e.target.value); setCurrentPage(1); }}
-            >
-              <option value="">Semua Provider</option>
-              <option value="google">Google</option>
-              <option value="credentials">Email/Password</option>
             </Select>
 
             {/* Date range filter */}
@@ -394,11 +380,9 @@ export default function Users() {
             <Tr className="hover:bg-transparent">
               {/* Checkbox column (#17) */}
               <Th className="w-10 text-center">
-                <input
-                  type="checkbox"
-                  className="rounded-xs border-border accent-primary cursor-pointer"
+                <Checkbox
                   checked={isAllSelected}
-                  ref={(el) => { if (el) el.indeterminate = isIndeterminate; }}
+                  indeterminate={isIndeterminate}
                   onChange={toggleAll}
                   disabled={loading || users.length === 0}
                   title="Pilih semua di halaman ini"
@@ -461,9 +445,7 @@ export default function Users() {
                   >
                     {/* Checkbox (#17) */}
                     <Td className="text-center w-10">
-                      <input
-                        type="checkbox"
-                        className="rounded-xs border-border accent-primary cursor-pointer"
+                      <Checkbox
                         checked={isSelected}
                         onChange={() => toggleOne(user._id)}
                       />

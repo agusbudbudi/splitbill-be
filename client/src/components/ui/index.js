@@ -17,3 +17,4 @@ export { default as Pagination } from "./Pagination";
 export { default as Tooltip } from "./Tooltip";
 export { default as CrownBadge } from "./CrownBadge";
 export { default as Select } from "./Select";
+export { default as Checkbox } from "./Checkbox";

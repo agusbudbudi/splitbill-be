@@ -1,5 +1,4 @@
 import dotenv from "dotenv";
-import mongoose from "mongoose";
 
 import User from "../../lib/models/User.js";
 import { generateTokens } from "../../lib/middleware/auth.js";
@@ -131,33 +130,29 @@ export async function handleAuthLogin(event) {
     // Reset login attempts on successful login
     await user.resetLoginAttempts();
 
-    // Perform atomic login and draft association (Non-blocking)
+    // Associate a guest draft on login, if one was passed. A single
+    // findOneAndUpdate with an atomic filter+update needs no session/transaction
+    // (that machinery was previously started on every login, draftId or not —
+    // a wasted replica-set round trip on the common no-draftId path).
     let draftAssociated = false;
-    const session = await mongoose.startSession();
-    try {
-      await session.withTransaction(async () => {
-        // Associate draft if draftId provided
-        if (draftId) {
-          const SplitBillRecord = (await import("../../lib/models/SplitBillRecord.js")).default;
-          const result = await SplitBillRecord.findOneAndUpdate(
-            { _id: draftId, user: null, status: "editable" },
-            { $set: { user: user._id } },
-            { session }
-          );
-          
-          if (result) {
-            draftAssociated = true;
-            console.log("Draft successfully associated with user during login");
-          } else {
-            console.warn("Draft association skipped: not found or already owned");
-          }
+    if (draftId) {
+      try {
+        const SplitBillRecord = (await import("../../lib/models/SplitBillRecord.js")).default;
+        const result = await SplitBillRecord.findOneAndUpdate(
+          { _id: draftId, user: null, status: "editable" },
+          { $set: { user: user._id } }
+        );
+
+        if (result) {
+          draftAssociated = true;
+          console.log("Draft successfully associated with user during login");
+        } else {
+          console.warn("Draft association skipped: not found or already owned");
         }
-      });
-    } catch (txErr) {
-      console.error("Transaction failed during login draft association:", txErr);
-      // Non-blocking: continue login even if association fails
-    } finally {
-      await session.endSession();
+      } catch (draftErr) {
+        console.error("Draft association failed during login:", draftErr);
+        // Non-blocking: continue login even if association fails
+      }
     }
 
     const { accessToken, refreshToken } = generateTokens(user._id, user.tokenVersion);

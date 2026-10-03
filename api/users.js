@@ -88,14 +88,23 @@ export async function handleUsers(event) {
     const threeMonthsAgo = new Date();
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
-    const [users, totalItems, verifiedUsersCount, activeUsersCount, usersWithSplitBill, splitBillCounts] = await Promise.all([
+    const [users, totalItems, verifiedUsersCount, activeUsersCount, usersWithSplitBill] = await Promise.all([
       User.find(filter).sort(mongoSort).skip(skip).limit(limitNum),
       User.countDocuments(filter),
       User.countDocuments({ isVerified: true }),
       User.countDocuments({ lastLoginAt: { $gte: threeMonthsAgo } }),
       SplitBillRecord.distinct("user").then((ids) => ids.length),
-      SplitBillRecord.aggregate([{ $group: { _id: "$user", count: { $sum: 1 } } }]),
     ]);
+
+    // Per-user split bill counts are only needed for this page's ~10 users —
+    // scope the $group to them instead of aggregating the whole collection.
+    const pageUserIds = users.map((u) => u._id);
+    const splitBillCounts = pageUserIds.length
+      ? await SplitBillRecord.aggregate([
+          { $match: { user: { $in: pageUserIds } } },
+          { $group: { _id: "$user", count: { $sum: 1 } } },
+        ])
+      : [];
 
     const splitBillCountMap = Object.fromEntries(
       splitBillCounts

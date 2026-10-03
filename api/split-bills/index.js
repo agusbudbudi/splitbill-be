@@ -370,8 +370,8 @@ export async function handleSplitBills(event) {
 
     if (method === "GET") {
       const url = new URL(event.url || `http://localhost${event.path || ""}`);
-      const page = parseInt(url.searchParams.get("page") || "1", 10);
-      const limit = parseInt(url.searchParams.get("limit") || "10", 10);
+      const page = Math.max(parseInt(url.searchParams.get("page") || "1", 10) || 1, 1);
+      const limit = Math.min(Math.max(parseInt(url.searchParams.get("limit") || "10", 10) || 10, 1), 50);
       const skip = (page - 1) * limit;
 
       const search = url.searchParams.get("search") || "";
@@ -432,7 +432,10 @@ export async function handleSplitBills(event) {
           : { user: user._id, ...statusFilter, ...occurredAtFilter, ...lastStepFilter, $or: searchConditions };
       }
 
-      // Run count, records fetch, and aggregate total in parallel
+      // totalAmount is a sum over the whole filtered set, not just this page —
+      // it doesn't change across pages 2, 3, ... of the same filter (the
+      // frontend resets to page 1 on every filter change), so only recompute
+      // it on page 1 instead of paying for the aggregate on every page load.
       const [totalItems, recordDocs, aggregateResult] = await Promise.all([
         SplitBillRecord.countDocuments(query),
         (() => {
@@ -443,14 +446,16 @@ export async function handleSplitBills(event) {
           if (user.isAdmin) q = q.populate("user", "name email");
           return q;
         })(),
-        SplitBillRecord.aggregate([
-          { $match: { ...query, "summary.total": { $exists: true } } },
-          { $group: { _id: null, totalAmount: { $sum: "$summary.total" } } },
-        ]),
+        page === 1
+          ? SplitBillRecord.aggregate([
+              { $match: { ...query, "summary.total": { $exists: true } } },
+              { $group: { _id: null, totalAmount: { $sum: "$summary.total" } } },
+            ])
+          : null,
       ]);
 
       const totalPages = Math.ceil(totalItems / limit);
-      const totalAmount = aggregateResult[0]?.totalAmount ?? 0;
+      const totalAmount = page === 1 ? aggregateResult[0]?.totalAmount ?? 0 : null;
 
       return jsonResponse(
         200,
@@ -482,15 +487,18 @@ export async function handleSplitBills(event) {
         user: user._id,
       });
 
-      await notifySplitBillSaved(record, user);
-
-      if (record.status === "locked") {
-        try {
-          await checkAndGrantAchievements(user._id);
-        } catch (achievementError) {
-          console.error("checkAndGrantAchievements error:", achievementError);
-        }
-      }
+      // Email send and achievement check are independent — run concurrently
+      // instead of paying both latencies back-to-back on the save path.
+      await Promise.all([
+        notifySplitBillSaved(record, user),
+        record.status === "locked"
+          ? checkAndGrantAchievements(user._id, user.name).catch(
+              (achievementError) => {
+                console.error("checkAndGrantAchievements error:", achievementError);
+              }
+            )
+          : Promise.resolve(),
+      ]);
 
       return jsonResponse(
         201,

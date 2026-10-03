@@ -32,7 +32,8 @@ export async function handleParticipants(event) {
     if (method === "GET") {
       const participants = await Participant.find({ user: user._id })
         .collation({ locale: "en", strength: 2 })
-        .sort({ createdAt: 1 });
+        .sort({ createdAt: 1 })
+        .lean();
 
       return jsonResponse(
         200,

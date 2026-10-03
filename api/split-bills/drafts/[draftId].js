@@ -209,14 +209,17 @@ export async function handleDraftById(event, draftId, action, context) {
       // Populate user for response
       await draft.populate("user", "name email");
 
-      await notifySplitBillSaved(draft, user);
-
-      // Level achievement check — non-blocking, jangan gagalin finalize kalau ini error
-      try {
-        await checkAndGrantAchievements(user._id);
-      } catch (achievementError) {
-        console.error("checkAndGrantAchievements error:", achievementError);
-      }
+      // Email send and achievement check are independent — run concurrently
+      // instead of paying both latencies back-to-back on the finalize path.
+      // Non-blocking: neither should fail the finalize itself.
+      await Promise.all([
+        notifySplitBillSaved(draft, user),
+        checkAndGrantAchievements(user._id, user.name).catch(
+          (achievementError) => {
+            console.error("checkAndGrantAchievements error:", achievementError);
+          }
+        ),
+      ]);
 
       return jsonResponse(
         200,
@@ -230,8 +233,11 @@ export async function handleDraftById(event, draftId, action, context) {
 
     // ── GET /drafts/:draftId ────────────────────────────────────────────────
     if (method === "GET") {
-      const user = await tryGetUser(event);
-      const draft = await SplitBillRecord.findById(draftId);
+      // Independent reads — run concurrently instead of back-to-back.
+      const [user, draft] = await Promise.all([
+        tryGetUser(event),
+        SplitBillRecord.findById(draftId),
+      ]);
 
       assertDraftAccess(draft, user?._id);
 
@@ -253,8 +259,12 @@ export async function handleDraftById(event, draftId, action, context) {
 
     // ── PUT /drafts/:draftId ────────────────────────────────────────────────
     if (method === "PUT") {
-      const user = await tryGetUser(event);
-      const draft = await SplitBillRecord.findById(draftId);
+      // Independent reads — run concurrently instead of back-to-back. PUT
+      // fires on every wizard step, so this latency add-up matters most here.
+      const [user, draft] = await Promise.all([
+        tryGetUser(event),
+        SplitBillRecord.findById(draftId),
+      ]);
 
       assertDraftAccess(draft, user?._id);
 

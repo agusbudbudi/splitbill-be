@@ -35,13 +35,13 @@ export async function handleLevels(event) {
       if (includeInactive === "true") {
         const { requireAdmin } = await import("../../lib/middleware/auth.js");
         await requireAdmin(event);
-        const levels = await UserLevel.find({}).sort({ order: -1 });
+        const levels = await UserLevel.find({}).sort({ order: -1 }).lean();
         return jsonResponse(200, { success: true, data: levels }, headers);
       }
 
-      const levels = await UserLevel.find({ isActive: true }).sort({
-        order: -1,
-      });
+      const levels = await UserLevel.find({ isActive: true })
+        .sort({ order: -1 })
+        .lean();
       return jsonResponse(200, { success: true, data: levels }, headers);
     }
 

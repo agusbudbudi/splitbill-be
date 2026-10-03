@@ -402,25 +402,31 @@ export async function handleGeminiScan(event) {
       }
 
       // ── Step 3: Decrement quota & log ─────────────────────────────────
-      // Decrement free scan count only for logged-in, non-subscribed users
-      if (user && !isSubscribed) {
-        user.freeScanCount = Math.max(0, user.freeScanCount - 1);
-        await user.save();
-      }
-
-      // Save success log to DB
-      try {
-        const ScanLog = (await import("../lib/models/ScanLog.js")).default;
-        const { getClientIp } = await import("../lib/middleware/rateLimiter.js");
-        await ScanLog.create({
+      // Decrement free scan count only for logged-in, non-subscribed users.
+      // Atomic $inc (not read-modify-write via .save()) — two concurrent
+      // scans from the same user previously raced: both read the same
+      // freeScanCount, last .save() won, so only one decrement landed and
+      // the quota could be over-spent. The $gt:0 guard keeps the same
+      // floor-at-zero behavior as the old Math.max(0, ...).
+      // Runs concurrently with the log write — independent of each other.
+      const ScanLog = (await import("../lib/models/ScanLog.js")).default;
+      const { getClientIp } = await import("../lib/middleware/rateLimiter.js");
+      await Promise.all([
+        user && !isSubscribed
+          ? user.constructor.updateOne(
+              { _id: user._id, freeScanCount: { $gt: 0 } },
+              { $inc: { freeScanCount: -1 } }
+            )
+          : Promise.resolve(),
+        ScanLog.create({
           user: user ? user._id : null,
           ipAddress: getClientIp(event),
           provider: providerUsed,
           status: "success"
-        });
-      } catch (dbLogErr) {
-        console.error("Failed to save success scan log to database:", dbLogErr);
-      }
+        }).catch((dbLogErr) => {
+          console.error("Failed to save success scan log to database:", dbLogErr);
+        }),
+      ]);
 
       const logger = await import("../lib/logger.js");
       logger.info("Scan completed", {

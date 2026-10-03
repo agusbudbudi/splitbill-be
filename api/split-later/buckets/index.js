@@ -152,8 +152,8 @@ export async function handleSplitLaterBuckets(event) {
       // original response shape for existing callers (e.g. the Quick Capture
       // bucket picker) that expect every bucket in one array.
       const isPaginated = url.searchParams.has("page") || url.searchParams.has("limit");
-      const page = parseInt(url.searchParams.get("page") || "1", 10);
-      const limit = parseInt(url.searchParams.get("limit") || "10", 10);
+      const page = Math.max(parseInt(url.searchParams.get("page") || "1", 10) || 1, 1);
+      const limit = Math.min(Math.max(parseInt(url.searchParams.get("limit") || "10", 10) || 10, 1), 50);
       const skip = (page - 1) * limit;
 
       const search = url.searchParams.get("search") || "";
@@ -202,7 +202,7 @@ export async function handleSplitLaterBuckets(event) {
       const [totalItems, buckets] = await Promise.all([
         SplitLaterBucket.countDocuments(query),
         (() => {
-          let q = SplitLaterBucket.find(query).sort({ updatedAt: -1 });
+          let q = SplitLaterBucket.find(query).sort({ updatedAt: -1 }).lean();
           if (isPaginated) q = q.skip(skip).limit(limit);
           if (user.isAdmin) q = q.populate("user", "name email");
           return q;

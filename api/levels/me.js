@@ -29,7 +29,7 @@ export async function handleUserLevelMe(event) {
     const user = await requireUser(event);
 
     const [stats, levels, achievements] = await Promise.all([
-      computeUserStats(user._id),
+      computeUserStats(user._id, user.name),
       UserLevel.find({ isActive: true }),
       UserLevelAchievement.find({ user: user._id }).populate(
         "level",

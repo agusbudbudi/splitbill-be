@@ -91,26 +91,13 @@ export async function handleSplitBillById(event, recordId) {
 
     await connectDatabase();
     if (method === "GET") {
-      let user = null;
-      try {
-        user = await requireUser(event);
-      } catch (authErr) {
-        // Optional auth: allow guest access for GET
-        if (authErr.statusCode !== 401) {
-          throw authErr;
-        }
-      }
-
+      // Shared links are openable by anyone with the valid ID — no auth or
+      // ownership check on GET (no 'isPublic' flag exists to gate this).
       const record = await SplitBillRecord.findById(recordId).populate("user", "name email");
 
       if (!record) {
         throw new HttpError(404, "Split bill tidak ditemukan");
       }
-
-      // If authenticated, we could still show it (publicly shared)
-      // but we skip the "this user only" check for GET if it's a valid ID
-      // Note: In a real production app, we might want a 'isPublic' flag on the record
-      // for now, we follow the user's request to allow opening shared links.
 
       return jsonResponse(
         200,
@@ -123,6 +110,7 @@ export async function handleSplitBillById(event, recordId) {
     }
 
     if (method === "DELETE") {
+      const user = await requireUser(event);
       const result = await SplitBillRecord.deleteOne({
         _id: recordId,
         user: user._id,

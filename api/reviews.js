@@ -298,7 +298,7 @@ async function getReviews(event, headers, isPublicRequest = false) {
 
 
   const pageNum = Math.max(parseInt(page, 10) || 1, 1);
-  const limitNum = Math.max(parseInt(limit, 10) || 10, 1);
+  const limitNum = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 50);
   const skip = (pageNum - 1) * limitNum;
 
   let [reviews, totalItems] = await Promise.all([

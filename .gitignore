@@ -60,8 +60,8 @@ jspm_packages/
 # Development scripts
 scripts/
 
-# Build outputs
-public/
+# Build outputs (repo-root only — client/public/ holds tracked source assets)
+/public/
 
 # OS
 .DS_Store

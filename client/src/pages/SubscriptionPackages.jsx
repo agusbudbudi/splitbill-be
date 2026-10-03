@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { usePageMeta } from "../lib/usePageMeta";
-import { Plus, Pencil, Trash2, Package, CheckCircle, Eye } from "lucide-react";
+import { Plus, Pencil, Trash2, Package } from "lucide-react";
 import {
   Card,
   CardHeader,
-  StatCard,
   SearchInput,
   Badge,
   Table,
@@ -129,11 +128,8 @@ export default function SubscriptionPackages() {
     fetchPackages();
   }
 
-  const activeCount = packages.filter((p) => p.isActive).length;
-  const visibleCount = packages.filter((p) => p.showToCustomer).length;
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Page header */}
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -151,31 +147,6 @@ export default function SubscriptionPackages() {
         >
           Tambah Paket
         </Button>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard
-          title="Total Paket"
-          value={totalItems}
-          icon={Package}
-          iconColor="text-primary"
-          iconBg="bg-primary/10"
-        />
-        <StatCard
-          title="Paket Aktif"
-          value={activeCount}
-          icon={CheckCircle}
-          iconColor="text-success"
-          iconBg="bg-success/10"
-        />
-        <StatCard
-          title="Ditampilkan ke Pelanggan"
-          value={visibleCount}
-          icon={Eye}
-          iconColor="text-warning"
-          iconBg="bg-warning/10"
-        />
       </div>
 
       {/* Table card */}
@@ -280,14 +251,14 @@ export default function SubscriptionPackages() {
                       <button
                         onClick={() => openEdit(pkg)}
                         title="Edit"
-                        className="p-1.5 rounded-lg border border-border bg-white text-primary hover:bg-primary/5 transition-colors"
+                        className="p-1.5 rounded-sm border border-border bg-white text-primary hover:bg-primary/5 transition-colors"
                       >
                         <Pencil size={13} />
                       </button>
                       <button
                         onClick={() => setDeleteConfirm(pkg)}
                         title="Hapus"
-                        className="p-1.5 rounded-lg border border-destructive/20 bg-white text-destructive hover:bg-destructive/5 transition-colors"
+                        className="p-1.5 rounded-sm border border-destructive/20 bg-white text-destructive hover:bg-destructive/5 transition-colors"
                       >
                         <Trash2 size={13} />
                       </button>

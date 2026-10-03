@@ -23,6 +23,7 @@ export default function Banners() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleteIndex, setDeleteIndex] = useState(null);
+  const [dirty, setDirty] = useState(false);
   const toast = useToast();
 
   useEffect(() => {
@@ -36,6 +37,7 @@ export default function Banners() {
       const data = await res.json();
       if (data.success) {
         setBanners(data.data.banners || []);
+        setDirty(false);
       } else {
         toast({
           message: data.message || "Gagal memuat banner",
@@ -50,7 +52,8 @@ export default function Banners() {
   };
 
   const handleAddBanner = () => {
-    setBanners([...banners, { image: "", route: "" }]);
+    setBanners([{ image: "", route: "" }, ...banners]);
+    setDirty(true);
   };
 
   const confirmRemoveBanner = (index) => setDeleteIndex(index);
@@ -60,6 +63,7 @@ export default function Banners() {
     newBanners.splice(deleteIndex, 1);
     setBanners(newBanners);
     setDeleteIndex(null);
+    setDirty(true);
   };
 
   const handleImageChange = async (index, file) => {
@@ -69,6 +73,7 @@ export default function Banners() {
       const newBanners = [...banners];
       newBanners[index].image = compressed;
       setBanners(newBanners);
+      setDirty(true);
     } catch {
       toast({
         message: "Gagal memproses gambar. Silakan coba lagi.",
@@ -81,6 +86,7 @@ export default function Banners() {
     const newBanners = [...banners];
     newBanners[index].route = value;
     setBanners(newBanners);
+    setDirty(true);
   };
 
   const handleSave = async () => {
@@ -115,6 +121,7 @@ export default function Banners() {
       const result = await response.json();
       if (result.success) {
         toast({ message: "Semua banner berhasil disimpan!", type: "success" });
+        setDirty(false);
         fetchBanners();
       } else {
         toast({
@@ -141,7 +148,7 @@ export default function Banners() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Page header */}
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -153,13 +160,25 @@ export default function Banners() {
             pengguna.
           </p>
         </div>
-        <Button
-          icon={<Plus className="h-4 w-4" />}
-          onClick={handleAddBanner}
-          className="flex-shrink-0"
-        >
-          Tambah Banner
-        </Button>
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <Button
+            icon={<Plus className="h-4 w-4" />}
+            onClick={handleAddBanner}
+            variant="secondary"
+          >
+            Tambah Banner
+          </Button>
+          {banners.length > 0 && (
+            <Button
+              icon={<Save className="h-4 w-4" />}
+              loading={saving}
+              disabled={!dirty}
+              onClick={handleSave}
+            >
+              {saving ? "Menyimpan..." : "Simpan Semua Banner"}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Banner grid */}
@@ -181,22 +200,22 @@ export default function Banners() {
           />
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {banners.map((banner, index) => (
             <Card key={banner._id || index} className="overflow-hidden">
               {/* Image preview */}
               <div
-                className="w-full h-44 flex items-center justify-center bg-muted"
+                className="w-full flex items-center justify-center bg-muted"
                 style={{ borderBottom: "1px solid var(--border)" }}
               >
                 {banner.image ? (
                   <img
                     src={banner.image}
                     alt="Banner Preview"
-                    className="w-full h-full object-cover"
+                    className="w-full h-auto"
                   />
                 ) : (
-                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                  <div className="flex flex-col items-center gap-2 text-muted-foreground py-14">
                     <ImageIcon className="h-8 w-8" />
                     <span className="text-xs">Belum ada gambar</span>
                   </div>
@@ -214,7 +233,7 @@ export default function Banners() {
                   </label>
                   <div className="flex items-center gap-3">
                     <label className="cursor-pointer">
-                      <span className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-sm border border-border bg-white text-foreground hover:bg-muted transition-colors">
+                      <span className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-xs border border-border bg-white text-foreground hover:bg-muted transition-colors">
                         <Upload className="h-4 w-4" />
                         {banner.image ? "Ganti Gambar" : "Pilih Gambar"}
                       </span>
@@ -240,7 +259,7 @@ export default function Banners() {
                   </label>
                   <input
                     type="text"
-                    className="block w-full px-3 py-2 text-sm rounded-sm border border-border bg-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-all"
+                    className="block w-full px-3 py-2 text-sm rounded-xs border border-border bg-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-all"
                     placeholder="/profile"
                     value={banner.route}
                     onChange={(e) => handleRouteChange(index, e.target.value)}
@@ -260,20 +279,6 @@ export default function Banners() {
               </CardFooter>
             </Card>
           ))}
-        </div>
-      )}
-
-      {/* Save button */}
-      {banners.length > 0 && (
-        <div className="flex justify-end pt-2">
-          <Button
-            icon={<Save className="h-4 w-4" />}
-            loading={saving}
-            onClick={handleSave}
-            size="lg"
-          >
-            {saving ? "Menyimpan..." : "Simpan Semua Banner"}
-          </Button>
         </div>
       )}
 

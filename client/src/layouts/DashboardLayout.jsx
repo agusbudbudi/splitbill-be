@@ -7,7 +7,7 @@ import {
   LogOut,
   Menu,
   X,
-  Receipt,
+  ReceiptText,
   Clock,
   Package,
   BarChart2,
@@ -30,7 +30,7 @@ const navGroups = [
     items: [
       { name: "Insight", href: "/insights", icon: BarChart2 },
       { name: "Orders", href: "/orders", icon: ShoppingBag },
-      { name: "Split Bill", href: "/split-bills", icon: Receipt },
+      { name: "Split Bill", href: "/split-bills", icon: ReceiptText },
       { name: "Split Later", href: "/split-later", icon: Clock },
     ],
   },
@@ -184,16 +184,16 @@ export default function DashboardLayout() {
             }`}
         >
           {/* Logo */}
-          <div className="flex items-center justify-center h-16 px-4 flex-shrink-0 border-b border-border relative">
+          <div className="flex items-center justify-center h-12 px-4 flex-shrink-0 border-b border-border relative">
             <div className="flex items-center justify-center gap-2">
               <img
-                src="/img/logoSummary.png"
+                src="/img/split-bill-logo-basic.png"
                 alt="Split Bill"
-                className="h-8 w-auto"
+                className="w-28 h-auto"
               />
             </div>
             <button
-              className="absolute right-4 lg:hidden p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              className="absolute right-4 lg:hidden p-1.5 rounded-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
               onClick={() => setSidebarOpen(false)}
             >
               <X size={18} />
@@ -201,13 +201,13 @@ export default function DashboardLayout() {
           </div>
 
           {/* Nav */}
-          <nav className="flex-1 px-3 py-4 space-y-6 overflow-y-auto">
+          <nav className="flex-1 px-3 py-3 space-y-4 overflow-y-auto">
             {navGroups.map((group) => (
               <div key={group.title}>
-                <p className="px-3 text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
+                <p className="px-3 text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
                   {group.title}
                 </p>
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   {group.items.map((item) => {
                     const isActive =
                       item.href === "/"
@@ -218,7 +218,7 @@ export default function DashboardLayout() {
                         key={item.name}
                         to={item.href}
                         onClick={() => setSidebarOpen(false)}
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xs text-sm font-semibold transition-all duration-150 group ${isActive
+                        className={`flex items-center gap-3 px-3 py-2 rounded-xs text-sm font-semibold transition-all duration-150 group ${isActive
                           ? "bg-primary/10 text-primary"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground"
                           }`}
@@ -244,10 +244,10 @@ export default function DashboardLayout() {
           </nav>
 
           {/* Logout */}
-          <div className="p-4 flex-shrink-0 border-t border-border">
+          <div className="p-3 flex-shrink-0 border-t border-border">
             <button
               onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-destructive hover:bg-destructive/10 transition-all duration-150"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-sm text-sm font-semibold text-destructive hover:bg-destructive/10 transition-all duration-150"
             >
               <LogOut className="h-4.5 w-4.5 flex-shrink-0" />
               Logout
@@ -259,15 +259,14 @@ export default function DashboardLayout() {
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
           {/* Header */}
           <header
-            className="flex items-center justify-between h-16 px-6 flex-shrink-0 bg-white"
+            className="flex items-center justify-between h-12 px-6 flex-shrink-0 bg-white"
             style={{
               borderBottom: "1px solid var(--border)",
-              boxShadow: "0 1px 3px 0 rgba(0,0,0,0.04)",
             }}
           >
             <div className="flex items-center gap-3">
               <button
-                className="lg:hidden p-2 rounded-lg text-foreground hover:bg-muted transition-colors"
+                className="lg:hidden p-2 rounded-sm text-foreground hover:bg-muted transition-colors"
                 onClick={() => setSidebarOpen(true)}
               >
                 <Menu size={20} />
@@ -307,7 +306,7 @@ export default function DashboardLayout() {
                 </button>
 
                 {notifOpen && (
-                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg border border-border shadow-lg py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-sm border border-border shadow-lg py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                     <div className="px-4 py-2 border-b border-border">
                       <h4 className="font-semibold text-sm text-foreground">Notifikasi & Alert</h4>
                     </div>
@@ -352,7 +351,7 @@ export default function DashboardLayout() {
                 <Avatar
                   name={user.name || "Admin"}
                   src={user.image || user.avatar}
-                  size="md"
+                  size="sm"
                 />
               </div>
             </div>

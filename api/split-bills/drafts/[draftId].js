@@ -12,6 +12,7 @@ import { parseJsonBody } from "../../../lib/parsers.js";
 import { HttpError, toHttpError } from "../../../lib/errors.js";
 import { mapDraft } from "./utils.js";
 import { mapRecord, notifySplitBillSaved } from "../index.js";
+import { checkAndGrantAchievements } from "../../../lib/userLevel.js";
 
 // ─── Sanitizers (reused from index.js pattern) ───────────────────────────────
 
@@ -209,6 +210,13 @@ export async function handleDraftById(event, draftId, action, context) {
       await draft.populate("user", "name email");
 
       await notifySplitBillSaved(draft, user);
+
+      // Level achievement check — non-blocking, jangan gagalin finalize kalau ini error
+      try {
+        await checkAndGrantAchievements(user._id);
+      } catch (achievementError) {
+        console.error("checkAndGrantAchievements error:", achievementError);
+      }
 
       return jsonResponse(
         200,

@@ -148,6 +148,7 @@ export async function handleAuthRegister(event) {
           email: user.email,
           image: user.image,
           freeScanCount: user.freeScanCount,
+          freeSplitBillCount: user.freeSplitBillCount,
           createdAt: user.createdAt,
           isVerified: user.isVerified,
         },

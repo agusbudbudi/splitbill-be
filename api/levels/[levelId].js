@@ -3,6 +3,7 @@ import UserLevel from "../../lib/models/UserLevel.js";
 import {
   sanitizeLevelRules,
   sanitizeLevelBenefits,
+  sanitizeLevelRewards,
   assertLevelOrderAvailable,
 } from "../../lib/userLevel.js";
 import { validateBase64ImageSize } from "../../lib/middleware/requestValidator.js";
@@ -45,7 +46,7 @@ export async function handleLevelById(event, levelId) {
 
     if (method === "PUT") {
       const body = await parseJsonBody(event);
-      const { name, icon, order, rules, isActive, description, benefits } = body;
+      const { name, icon, order, rules, isActive, description, benefits, rewards } = body;
 
       const level = await UserLevel.findById(levelId);
       if (!level) {
@@ -83,6 +84,9 @@ export async function handleLevelById(event, levelId) {
       }
       if (benefits !== undefined) {
         level.benefits = sanitizeLevelBenefits(benefits);
+      }
+      if (rewards !== undefined) {
+        level.rewards = sanitizeLevelRewards(rewards);
       }
       if (isActive !== undefined) {
         level.isActive = Boolean(isActive);

@@ -114,6 +114,7 @@ export async function handleAuthGoogle(event) {
           isVerified: true, // Google emails are always verified
           lastLoginAt: new Date(),
           freeScanCount: 5,
+          freeSplitBillCount: 5,
         });
         await user.save();
 
@@ -180,6 +181,7 @@ export async function handleAuthGoogle(event) {
           provider: user.provider,
           isAdmin: user.isAdmin,
           freeScanCount: user.freeScanCount,
+          freeSplitBillCount: user.freeSplitBillCount,
           subscriptionStatus: user.subscriptionStatus,
           createdAt: user.createdAt,
         },

@@ -53,6 +53,7 @@ export async function handleAuthMe(event) {
           image: user.image,
           isAdmin: user.isAdmin,
           freeScanCount: user.freeScanCount,
+          freeSplitBillCount: user.freeSplitBillCount,
           createdAt: user.createdAt,
           subscriptionStatus: user.subscriptionStatus,
           subscriptionPlan: user.subscriptionPlan,

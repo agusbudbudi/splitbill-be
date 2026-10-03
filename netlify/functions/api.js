@@ -351,6 +351,10 @@ export async function handler(event, context) {
         const { handleUserLevelMe } = await import("../../api/levels/me.js");
         return handleUserLevelMe(event, context);
       }
+      if (subresource && rest[0] === "claim" && rest.length === 1) {
+        const { handleLevelClaim } = await import("../../api/levels/claim.js");
+        return handleLevelClaim(event, subresource, context);
+      }
       if (subresource && rest.length === 0) {
         const { handleLevelById } = await import("../../api/levels/[levelId].js");
         return handleLevelById(event, subresource, context);

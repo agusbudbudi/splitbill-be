@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { usePageMeta } from "../lib/usePageMeta";
-import { Save, ArrowLeft, RefreshCw, ArrowRight } from "lucide-react";
+import { Save, RefreshCw, ArrowRight } from "lucide-react";
 import { apiFetch } from "../lib/api";
-import { Card, CardBody, CardFooter, Button, useToast } from "../components/ui";
+import { Card, CardBody, Button, BackButton, useToast } from "../components/ui";
 
 function slugify(text) {
   return text
@@ -44,9 +44,11 @@ export default function EntryPointDetail() {
   );
 
   const [form, setForm] = useState(EMPTY_FORM);
+  const [savedForm, setSavedForm] = useState(EMPTY_FORM);
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [slugLocked, setSlugLocked] = useState(isEdit);
+  const isDirty = JSON.stringify(form) !== JSON.stringify(savedForm);
 
   useEffect(() => {
     if (!isEdit) return;
@@ -56,7 +58,7 @@ export default function EntryPointDetail() {
         const data = await res.json();
         if (data.success) {
           const card = data.data;
-          setForm({
+          const loadedForm = {
             slug: card.slug || "",
             imageUrl: card.imageUrl || "",
             imageAlt: card.imageAlt || "",
@@ -70,7 +72,9 @@ export default function EntryPointDetail() {
             placement: card.placement || "homepage-member",
             isActive: card.isActive !== undefined ? card.isActive : true,
             order: card.order ?? 0,
-          });
+          };
+          setForm(loadedForm);
+          setSavedForm(loadedForm);
         } else {
           toast({ message: "Entry point card tidak ditemukan", type: "error" });
           navigate("/entry-points");
@@ -165,31 +169,30 @@ export default function EntryPointDetail() {
   }
 
   const inputClass =
-    "block w-full px-3 py-2 text-sm rounded-sm border border-border bg-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-all";
+    "block w-full px-3 py-2 text-sm rounded-xs border border-border bg-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-all";
   const labelClass = "block text-sm font-medium text-foreground mb-1";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate("/entry-points")}
-            className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
+          <BackButton to="/entry-points" />
           <div>
             <h1 className="text-xl font-bold text-foreground">
               {isEdit ? "Edit Entry Point Card" : "Tambah Entry Point Card"}
             </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {isEdit
-                ? `Mengedit: ${form.title || form.slug}`
-                : "Buat entry point card baru untuk homepage member"}
-            </p>
           </div>
         </div>
+        <Button
+          icon={<Save className="h-4 w-4" />}
+          loading={saving}
+          disabled={saving || !isDirty}
+          onClick={handleSave}
+          className="flex-shrink-0"
+        >
+          {saving ? "Menyimpan..." : isEdit ? "Simpan Perubahan" : "Buat Entry Point Card"}
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
@@ -232,7 +235,7 @@ export default function EntryPointDetail() {
                 <button
                   type="button"
                   onClick={() => setSlugLocked((v) => !v)}
-                  className="flex-shrink-0 p-2 rounded border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  className="flex-shrink-0 p-2 rounded-xs border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                   title={slugLocked ? "Unlock slug" : "Auto-generate dari title"}
                 >
                   <RefreshCw className="h-4 w-4" />
@@ -420,23 +423,6 @@ export default function EntryPointDetail() {
               </button>
             </div>
           </CardBody>
-
-          <CardFooter className="py-3 flex justify-between">
-            <Button
-              variant="ghost"
-              onClick={() => navigate("/entry-points")}
-              disabled={saving}
-            >
-              Batal
-            </Button>
-            <Button
-              icon={<Save className="h-4 w-4" />}
-              loading={saving}
-              onClick={handleSave}
-            >
-              {saving ? "Menyimpan..." : isEdit ? "Simpan Perubahan" : "Buat Entry Point Card"}
-            </Button>
-          </CardFooter>
         </Card>
 
         {/* ── Live Preview Panel ─────────────────────────────────── */}
@@ -452,7 +438,7 @@ export default function EntryPointDetail() {
               </p>
             </div>
             <CardBody className="flex justify-center">
-              <div className="w-[200px] flex flex-col overflow-hidden rounded-md bg-white border border-border shadow-sm">
+              <div className="w-[200px] flex flex-col overflow-hidden rounded-xs bg-white border border-border shadow-sm">
                 <div className="relative aspect-square w-full overflow-hidden bg-muted">
                   {form.imageUrl && (
                     <img
@@ -465,7 +451,7 @@ export default function EntryPointDetail() {
                     />
                   )}
                   {form.ribbonText && (
-                    <span className="absolute bottom-0 left-0 rounded-tr-sm bg-gradient-to-r from-violet-400 via-pink-400 to-primary/70 px-3 py-2 text-[11px] font-black uppercase leading-none tracking-wide text-white shadow-sm">
+                    <span className="absolute bottom-0 left-0 rounded-tr-xs bg-gradient-to-r from-violet-400 via-pink-400 to-primary/70 px-3 py-2 text-[11px] font-black uppercase leading-none tracking-wide text-white shadow-sm">
                       {form.ribbonText}
                     </span>
                   )}

@@ -3,7 +3,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import { usePageMeta } from "../lib/usePageMeta";
 import {
   Save,
-  ArrowLeft,
   RefreshCw,
   Youtube,
   Video,
@@ -17,6 +16,7 @@ import {
   CardBody,
   CardFooter,
   Button,
+  BackButton,
   useToast,
 } from "../components/ui";
 
@@ -214,7 +214,7 @@ export default function AdCampaignDetail() {
         return (
           <iframe
             src={embedUrl}
-            className="w-full aspect-video rounded"
+            className="w-full aspect-video rounded-xs"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
             title="YouTube preview"
@@ -228,7 +228,7 @@ export default function AdCampaignDetail() {
         <video
           src={form.mediaUrl}
           controls
-          className="w-full rounded max-h-80"
+          className="w-full rounded-xs max-h-80"
           preload="metadata"
         />
       );
@@ -238,7 +238,7 @@ export default function AdCampaignDetail() {
       <img
         src={form.mediaUrl}
         alt="Preview"
-        className="w-full rounded max-h-80 object-contain"
+        className="w-full rounded-xs max-h-80 object-contain"
         onError={(e) => {
           e.target.style.display = "none";
         }}
@@ -255,29 +255,19 @@ export default function AdCampaignDetail() {
   }
 
   const inputClass =
-    "block w-full px-3 py-2 text-sm rounded-sm border border-border bg-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-all";
+    "block w-full px-3 py-2 text-sm rounded-xs border border-border bg-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-all";
   const labelClass = "block text-sm font-medium text-foreground mb-1";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate("/ad-campaigns")}
-            className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
+          <BackButton to="/ad-campaigns" />
           <div>
             <h1 className="text-xl font-bold text-foreground">
               {isEdit ? "Edit Ad Campaign" : "Tambah Ad Campaign"}
             </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {isEdit
-                ? `Mengedit: ${form.title || form.id}`
-                : "Buat iklan baru untuk pengguna non-VIP"}
-            </p>
           </div>
         </div>
       </div>
@@ -333,7 +323,7 @@ export default function AdCampaignDetail() {
                 <button
                   type="button"
                   onClick={() => setSlugLocked((v) => !v)}
-                  className="flex-shrink-0 p-2 rounded border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  className="flex-shrink-0 p-2 rounded-xs border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                   title={slugLocked ? "Unlock slug" : "Auto-generate dari title"}
                 >
                   <RefreshCw className="h-4 w-4" />
@@ -368,7 +358,7 @@ export default function AdCampaignDetail() {
                     type="button"
                     onClick={() => handleField("mediaType", type)}
                     disabled={isYouTubeUrl(form.mediaUrl)}
-                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-sm border transition-all ${form.mediaType === type
+                    className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xs border transition-all ${form.mediaType === type
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border text-muted-foreground hover:bg-muted"
                       } disabled:opacity-50 disabled:cursor-not-allowed`}
@@ -382,7 +372,7 @@ export default function AdCampaignDetail() {
                   </button>
                 ))}
                 {isYouTubeUrl(form.mediaUrl) && (
-                  <span className="flex items-center gap-1.5 px-3 py-2 text-sm text-red-600 font-medium border border-red-200 bg-red-50 rounded-sm">
+                  <span className="flex items-center gap-1.5 px-3 py-2 text-sm text-red-600 font-medium border border-red-200 bg-red-50 rounded-xs">
                     <Youtube className="h-4 w-4" /> YouTube (auto)
                   </span>
                 )}

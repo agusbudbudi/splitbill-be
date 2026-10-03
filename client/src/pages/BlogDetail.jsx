@@ -6,7 +6,6 @@ import Link from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
 import {
-  ArrowLeft,
   Save,
   Globe,
   FileText,
@@ -28,7 +27,7 @@ import {
   Unlink,
   ExternalLink,
 } from "lucide-react";
-import { Button, Spinner, useToast, Badge } from "../components/ui";
+import { Button, BackButton, Spinner, useToast, Badge } from "../components/ui";
 import { apiFetch } from "../lib/api";
 
 // ─── Slug Generator ───────────────────────────────────────────────────────────
@@ -61,7 +60,7 @@ function SerpPreview({ title, slug, description }) {
   const displayDesc = description || "Deskripsi artikel akan muncul di sini untuk preview Google...";
 
   return (
-    <div className="rounded-lg border border-border bg-white p-4 space-y-1 font-sans">
+    <div className="rounded-sm border border-border bg-white p-4 space-y-1 font-sans">
       <p className="text-[11px] text-muted-foreground mb-2 font-semibold uppercase tracking-wider flex items-center gap-1">
         <Search size={10} /> Google SERP Preview
       </p>
@@ -169,7 +168,7 @@ function EditorToolbar({ editor }) {
             title={tool.title}
             disabled={tool.disabled}
             onClick={tool.action}
-            className={`p-1.5 rounded text-sm transition-colors ${
+            className={`p-1.5 rounded-xs text-sm transition-colors ${
               tool.active
                 ? "bg-primary text-white"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -187,7 +186,7 @@ function EditorToolbar({ editor }) {
 function SectionLabel({ icon: Icon, label }) {
   return (
     <div className="flex items-center gap-2 mb-3">
-      <div className="w-6 h-6 rounded bg-primary/10 flex items-center justify-center">
+      <div className="w-6 h-6 rounded-xs bg-primary/10 flex items-center justify-center">
         <Icon size={12} className="text-primary" />
       </div>
       <span className="text-xs font-bold text-foreground uppercase tracking-wider">{label}</span>
@@ -221,7 +220,7 @@ export default function BlogDetail() {
   const [slugEdited, setSlugEdited] = useState(false);
   const contentLoaded = useRef(false);
 
-  const [form, setForm] = useState({
+  const emptyForm = {
     title: "",
     slug: "",
     excerpt: "",
@@ -235,7 +234,11 @@ export default function BlogDetail() {
     metaDescription: "",
     canonicalUrl: "",
     status: "draft",
-  });
+  };
+
+  const [form, setForm] = useState(emptyForm);
+  const [savedForm, setSavedForm] = useState(emptyForm);
+  const isDirty = JSON.stringify(form) !== JSON.stringify(savedForm);
 
   // ─── TipTap Editor ──────────────────────────────────────────────────────────
   const editor = useEditor({
@@ -289,6 +292,7 @@ export default function BlogDetail() {
             updatedBy: b.updatedBy || "",
           };
           setForm(loadedForm);
+          setSavedForm(loadedForm);
           setSlugEdited(true);
           
           // If editor is already initialized, set content immediately
@@ -370,7 +374,11 @@ export default function BlogDetail() {
           type: "success",
         });
         if (isNew) navigate(`/blogs/${json.data._id}`);
-        else setForm((prev) => ({ ...prev, status: json.data.status }));
+        else {
+          const updated = { ...form, status: json.data.status };
+          setForm(updated);
+          setSavedForm(updated);
+        }
       } else {
         toast({ title: "Gagal", message: json.error || "Gagal menyimpan", type: "error" });
       }
@@ -399,12 +407,7 @@ export default function BlogDetail() {
       {/* Top bar */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate("/blogs")}
-            className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft size={18} />
-          </button>
+          <BackButton to="/blogs" />
           <div>
             <h1 className="text-lg font-bold text-foreground">
               {isNew ? "Buat Artikel Baru" : "Edit Artikel"}
@@ -429,14 +432,14 @@ export default function BlogDetail() {
           <Button
             variant="outline"
             onClick={() => handleSave("draft")}
-            disabled={saving}
+            disabled={saving || !isDirty}
             leftIcon={saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
           >
             Simpan Draft
           </Button>
           <Button
             onClick={() => handleSave("published")}
-            disabled={saving}
+            disabled={saving || !isDirty}
             leftIcon={<Globe size={16} />}
           >
             Publish
@@ -449,7 +452,7 @@ export default function BlogDetail() {
         {/* ── Left Column: Content ─────────────────────────────────────────── */}
         <div className="space-y-4">
           {/* Title & Slug */}
-          <div className="bg-white border border-border rounded-lg p-5 space-y-4">
+          <div className="bg-white border border-border rounded-sm p-5 space-y-4">
             <SectionLabel icon={FileText} label="Konten Artikel" />
 
             <Field label="Judul Artikel *">
@@ -458,7 +461,7 @@ export default function BlogDetail() {
                 value={form.title}
                 onChange={handleTitleChange}
                 placeholder="Masukkan judul artikel..."
-                className="w-full rounded-md border border-border px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                className="w-full rounded-xs border border-border px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
               />
             </Field>
 
@@ -475,7 +478,7 @@ export default function BlogDetail() {
                   value={form.slug}
                   onChange={handleSlugChange}
                   placeholder="url-artikel-anda"
-                  className="flex-1 rounded-md border border-border px-3 py-2 text-sm font-mono text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                  className="flex-1 rounded-xs border border-border px-3 py-2 text-sm font-mono text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
                 />
               </div>
             </Field>
@@ -491,13 +494,13 @@ export default function BlogDetail() {
                 onChange={set("excerpt")}
                 maxLength={160}
                 placeholder="Tuliskan ringkasan singkat artikel ini..."
-                className="w-full rounded-md border border-border px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors resize-none"
+                className="w-full rounded-xs border border-border px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors resize-none"
               />
             </Field>
           </div>
 
           {/* Rich Text Editor */}
-          <div className="bg-white border border-border rounded-lg overflow-hidden">
+          <div className="bg-white border border-border rounded-sm overflow-hidden">
             <div className="px-5 pt-4 pb-2">
               <SectionLabel icon={FileText} label="Isi Artikel" />
             </div>
@@ -517,8 +520,12 @@ export default function BlogDetail() {
             </div>
           </div>
 
+        </div>
+
+        {/* ── Right Column: SEO & Metadata ─────────────────────────────────── */}
+        <div className="space-y-4">
           {/* Thumbnail */}
-          <div className="bg-white border border-border rounded-lg p-5 space-y-4">
+          <div className="bg-white border border-border rounded-sm p-5 space-y-4">
             <SectionLabel icon={ImageIcon} label="Thumbnail" />
 
             <Field label="URL Thumbnail">
@@ -527,12 +534,12 @@ export default function BlogDetail() {
                 value={form.thumbnail}
                 onChange={set("thumbnail")}
                 placeholder="https://example.com/gambar.jpg"
-                className="w-full rounded-md border border-border px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                className="w-full rounded-xs border border-border px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
               />
             </Field>
 
             {form.thumbnail && (
-              <div className="rounded-lg overflow-hidden border border-border bg-muted aspect-[16/9] max-h-56">
+              <div className="rounded-sm overflow-hidden border border-border bg-muted aspect-[16/9] max-h-56">
                 <img
                   src={form.thumbnail}
                   alt={form.thumbnailAlt || "Thumbnail preview"}
@@ -553,39 +560,13 @@ export default function BlogDetail() {
                 value={form.thumbnailAlt}
                 onChange={set("thumbnailAlt")}
                 placeholder="Deskripsi gambar thumbnail..."
-                className="w-full rounded-md border border-border px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                className="w-full rounded-xs border border-border px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
               />
             </Field>
           </div>
-        </div>
-
-        {/* ── Right Column: SEO & Metadata ─────────────────────────────────── */}
-        <div className="space-y-4">
-          {/* Publish settings */}
-          <div className="bg-white border border-border rounded-lg p-5 space-y-4">
-            <SectionLabel icon={Globe} label="Status Publish" />
-            <div className="flex rounded-md border border-border overflow-hidden">
-              {["draft", "published"].map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setForm((prev) => ({ ...prev, status: s }))}
-                  className={`flex-1 py-2 text-xs font-semibold transition-colors capitalize ${
-                    form.status === s
-                      ? s === "published"
-                        ? "bg-emerald-500 text-white"
-                        : "bg-amber-500 text-white"
-                      : "text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                  {s === "published" ? "📢 Published" : "📝 Draft"}
-                </button>
-              ))}
-            </div>
-          </div>
 
           {/* Author & Category */}
-          <div className="bg-white border border-border rounded-lg p-5 space-y-4">
+          <div className="bg-white border border-border rounded-sm p-5 space-y-4">
             <SectionLabel icon={User} label="Penulis & Kategori" />
 
             <Field label="Penulis">
@@ -594,7 +575,7 @@ export default function BlogDetail() {
                 value={form.author}
                 onChange={set("author")}
                 placeholder="Nama penulis..."
-                className="w-full rounded-md border border-border px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                className="w-full rounded-xs border border-border px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
               />
             </Field>
 
@@ -604,7 +585,7 @@ export default function BlogDetail() {
                 value={form.category}
                 onChange={set("category")}
                 placeholder="Tips, Tutorial, Promo, ..."
-                className="w-full rounded-md border border-border px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                className="w-full rounded-xs border border-border px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
               />
             </Field>
 
@@ -614,18 +595,15 @@ export default function BlogDetail() {
                 value={form.tags}
                 onChange={set("tags")}
                 placeholder="tag1, tag2, tag3"
-                className="w-full rounded-md border border-border px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                className="w-full rounded-xs border border-border px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
               />
               {form.tags && (
                 <div className="flex flex-wrap gap-1 mt-2">
                   {form.tags.split(",").filter((t) => t.trim()).map((t, i) => (
-                    <span
-                      key={i}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-semibold"
-                    >
+                    <Badge key={i} variant="info" className="items-center gap-1 text-[10px]">
                       <Tag size={9} />
                       {t.trim()}
-                    </span>
+                    </Badge>
                   ))}
                 </div>
               )}
@@ -633,7 +611,7 @@ export default function BlogDetail() {
           </div>
 
           {/* SEO Meta */}
-          <div className="bg-white border border-border rounded-lg p-5 space-y-4">
+          <div className="bg-white border border-border rounded-sm p-5 space-y-4">
             <SectionLabel icon={Search} label="SEO Optimization" />
 
             <Field
@@ -647,7 +625,7 @@ export default function BlogDetail() {
                 onChange={set("metaTitle")}
                 maxLength={60}
                 placeholder={form.title || "Meta title untuk Google..."}
-                className={`w-full rounded-md border px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors ${
+                className={`w-full rounded-xs border px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors ${
                   form.metaTitle.length > 60 ? "border-red-400" : "border-border focus:border-primary"
                 }`}
               />
@@ -664,7 +642,7 @@ export default function BlogDetail() {
                 onChange={set("metaDescription")}
                 maxLength={160}
                 placeholder={form.excerpt || "Meta description untuk Google..."}
-                className={`w-full rounded-md border px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors resize-none ${
+                className={`w-full rounded-xs border px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors resize-none ${
                   form.metaDescription.length > 160 ? "border-red-400" : "border-border focus:border-primary"
                 }`}
               />
@@ -678,7 +656,7 @@ export default function BlogDetail() {
                   value={form.canonicalUrl}
                   onChange={set("canonicalUrl")}
                   placeholder="https://sumber-asli.com/artikel"
-                  className="w-full rounded-md border border-border pl-8 pr-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+                  className="w-full rounded-xs border border-border pl-8 pr-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
                 />
               </div>
             </Field>
@@ -693,7 +671,7 @@ export default function BlogDetail() {
 
           {/* Audit Trail */}
           {!isNew && (
-            <div className="bg-white border border-border rounded-lg p-5 space-y-3 text-xs text-muted-foreground">
+            <div className="bg-white border border-border rounded-sm p-5 space-y-3 text-xs text-muted-foreground">
               <SectionLabel icon={FileText} label="Audit Trail" />
               <div className="space-y-1 font-mono text-[11px]">
                 <div>Dibuat: {form.createdAt ? new Date(form.createdAt).toLocaleString("id-ID") : "—"}</div>

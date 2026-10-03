@@ -10,7 +10,6 @@ import {
   MoreHorizontal,
   X,
   Zap,
-  ArrowLeft,
   Copy,
   CheckCircle2,
   AlertTriangle,
@@ -23,6 +22,7 @@ import {
   CardBody,
   Spinner,
   Button,
+  BackButton,
   Input,
   useToast,
   Modal,
@@ -35,6 +35,7 @@ import {
   Td,
   SearchInput,
   Select,
+  Badge,
 } from "../components/ui";
 import { apiFetch } from "../lib/api";
 import DynamicSegmentBuilder from "../components/DynamicSegmentBuilder";
@@ -361,16 +362,10 @@ export default function CampaignDetail() {
   const isDraft = campaign?.status === "draft";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            onClick={() => navigate("/campaigns")}
-            className="px-2"
-          >
-            <ArrowLeft size={18} />
-          </Button>
+          <BackButton to="/campaigns" />
           <div>
             <h1 className="text-xl font-bold text-foreground">
               {isDraft ? "Edit Draft Kampanye" : "Detail Kampanye"}
@@ -415,9 +410,9 @@ export default function CampaignDetail() {
               }`}
           >
             Daftar Penerima
-            <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold">
+            <Badge variant="info" className="text-[10px]">
               {recipients.length}
-            </span>
+            </Badge>
           </button>
         </div>
 
@@ -426,7 +421,7 @@ export default function CampaignDetail() {
             <form className="space-y-6">
               {/* Failure Alert Banner (Temuan #48) */}
               {campaign?.status === "failed" && campaign.failureReason && (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+                <div className="p-4 bg-red-50 border border-red-200 rounded-md flex items-start gap-3">
                   <AlertTriangle className="text-red-500 shrink-0 mt-0.5" size={18} />
                   <div className="space-y-1">
                     <h4 className="text-sm font-bold text-red-800">Kampanye Gagal Dikirim</h4>
@@ -440,7 +435,7 @@ export default function CampaignDetail() {
               {/* Delivery Stats Preview (Temuan #45) */}
               {(campaign?.status === "sent" || campaign?.status === "failed") && (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                  <div className="p-4 bg-white border border-border rounded-md flex items-center gap-3">
+                  <div className="p-4 bg-white border border-border rounded-xs flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-green-50 border border-green-200 flex items-center justify-center text-green-600">
                       <CheckCircle2 size={20} />
                     </div>
@@ -453,7 +448,7 @@ export default function CampaignDetail() {
                     </div>
                   </div>
 
-                  <div className="p-4 bg-white border border-border rounded-md flex items-center gap-3">
+                  <div className="p-4 bg-white border border-border rounded-xs flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600">
                       <Percent size={20} />
                     </div>
@@ -466,7 +461,7 @@ export default function CampaignDetail() {
                     </div>
                   </div>
 
-                  <div className="p-4 bg-white border border-border rounded-md flex items-center gap-3">
+                  <div className="p-4 bg-white border border-border rounded-xs flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600">
                       <BarChart2 size={20} />
                     </div>
@@ -507,7 +502,7 @@ export default function CampaignDetail() {
                   </Select>
 
                   {isDraft && (
-                    <div className="flex items-center gap-2 mt-2 text-xs text-green-800 bg-green-50 p-2.5 rounded-[8px] border border-green-300">
+                    <div className="flex items-center gap-2 mt-2 text-xs text-green-800 bg-green-50 p-2.5 rounded-sm border border-green-300">
                       <Users size={14} className="text-green-600" />
                       {previewLoading ? (
                         <span className="animate-pulse">
@@ -541,9 +536,12 @@ export default function CampaignDetail() {
                           Daftar Email Target
                         </label>
                         {parsedSpecificEmails.length > 0 && (
-                          <span className="text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">
+                          <Badge
+                            variant="neutral"
+                            className="text-[11px] text-indigo-700 bg-indigo-50 border-indigo-200"
+                          >
                             ✓ {parsedSpecificEmails.length} email valid
-                          </span>
+                          </Badge>
                         )}
                       </div>
                       <textarea
@@ -552,7 +550,7 @@ export default function CampaignDetail() {
                         value={formData.specificEmailsRaw}
                         onChange={handleInputChange}
                         disabled={!isDraft}
-                        className="w-full px-3 py-2 bg-input border border-border rounded-md text-sm focus:outline-none focus:border-primary resize-none"
+                        className="w-full px-3 py-2 bg-input border border-border rounded-xs text-sm focus:outline-none focus:border-primary resize-none"
                         placeholder="user1@example.com, user2@example.com, user3@example.com"
                       />
                       <p className="text-[11px] text-muted-foreground">
@@ -609,14 +607,14 @@ export default function CampaignDetail() {
                               content: prev.content + "{{name}}",
                             }));
                           }}
-                          className="text-[10px] bg-primary/10 text-primary hover:bg-primary/20 px-2 py-1 rounded border border-primary/20 font-medium transition-colors flex items-center gap-1"
+                          className="text-[10px] bg-primary/10 text-primary hover:bg-primary/20 px-2 py-1 rounded-xs border border-primary/20 font-medium transition-colors flex items-center gap-1"
                         >
                           + Insert {"{{name}}"}
                         </button>
                       )}
                     </div>
                     <p className="text-[11px] text-muted-foreground mb-1">
-                      Gunakan variabel <code className="bg-muted px-1 py-0.5 rounded text-primary font-mono text-[10px]">{"{{name}}"}</code> untuk menyisipkan nama pengguna.
+                      Gunakan variabel <code className="bg-muted px-1 py-0.5 rounded-xs text-primary font-mono text-[10px]">{"{{name}}"}</code> untuk menyisipkan nama pengguna.
                     </p>
                     <textarea
                       name="content"
@@ -624,13 +622,13 @@ export default function CampaignDetail() {
                       value={formData.content}
                       onChange={handleInputChange}
                       disabled={!isDraft}
-                      className="w-full px-3 py-2 bg-input border border-border rounded-md text-sm font-mono focus:outline-none focus:border-primary resize-none mt-1"
+                      className="w-full px-3 py-2 bg-input border border-border rounded-xs text-sm font-mono focus:outline-none focus:border-primary resize-none mt-1"
                       placeholder="<h1>Halo {{name}}</h1>..."
                     />
                   </div>
 
                   {isDraft && (
-                    <div className="p-4 border border-yellow-200 rounded-sm bg-yellow-50 space-y-3 w-full">
+                    <div className="p-4 border border-yellow-200 rounded-xs bg-yellow-50 space-y-3 w-full">
                       <p className="text-[10px] font-bold uppercase tracking-wider text-yellow-800 flex items-center gap-2">
                         <Zap
                           size={12}
@@ -669,7 +667,7 @@ export default function CampaignDetail() {
                         Email Client Preview
                       </label>
                     </div>
-                    <Card className="overflow-hidden border-border shadow-soft flex flex-col min-h-[600px] rounded-2xl">
+                    <Card className="overflow-hidden border-border shadow-soft flex flex-col min-h-[600px] rounded-lg">
                       <CardHeader className="bg-muted/30 px-6 py-4 border-b border-border">
                         <h3 className="text-lg font-bold text-foreground truncate mb-1">
                           {formData.subject || "(Tanpa Subjek)"}
@@ -692,7 +690,7 @@ export default function CampaignDetail() {
                             </div>
                             <div className="text-[11px] text-muted-foreground mt-0.5">
                               Kepada:{" "}
-                              <span className="bg-muted px-1.5 py-0.5 rounded text-foreground">
+                              <span className="bg-muted px-1.5 py-0.5 rounded-xs text-foreground">
                                 user@example.com
                               </span>
                             </div>
@@ -702,7 +700,7 @@ export default function CampaignDetail() {
 
                       <div className="flex-1 overflow-y-auto bg-muted/20 p-4 md:p-6">
                         <div
-                          className="max-w-[560px] mx-auto bg-white rounded-sm overflow-hidden"
+                          className="max-w-[560px] mx-auto bg-white rounded-xs overflow-hidden"
                           style={{ border: "1px solid #e2e8f0" }}
                         >
                           <div
@@ -837,7 +835,7 @@ export default function CampaignDetail() {
                   <p className="text-xs text-muted-foreground">Memuat data penerima...</p>
                 </div>
               ) : filteredRecipients.length === 0 ? (
-                <div className="text-center py-12 border border-dashed border-border rounded-lg bg-muted/10">
+                <div className="text-center py-12 border border-dashed border-border rounded-sm bg-muted/10">
                   <Users size={32} className="text-muted-foreground/60 mx-auto mb-2" />
                   <p className="text-sm font-bold text-foreground">Tidak ada penerima ditemukan</p>
                   <p className="text-xs text-muted-foreground mt-1">
@@ -845,7 +843,7 @@ export default function CampaignDetail() {
                   </p>
                 </div>
               ) : (
-                <div className="overflow-hidden rounded-lg border border-border">
+                <div className="overflow-hidden rounded-sm border border-border">
                   <Table>
                     <Thead>
                       <Tr className="hover:bg-transparent">

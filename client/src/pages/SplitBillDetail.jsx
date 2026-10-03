@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   Calendar,
   Users,
-  Receipt,
+  ReceiptText,
   CreditCard,
   ArrowRight,
   Info,
@@ -69,7 +69,6 @@ export default function SplitBillDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [expandedParticipants, setExpandedParticipants] = useState({});
-  const [adjacent, setAdjacent] = useState({ prev: null, next: null });
   const [showStepTooltip, setShowStepTooltip] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(null);
   const [brokenImages, setBrokenImages] = useState({});
@@ -132,22 +131,9 @@ export default function SplitBillDetail() {
     }
   }, [id]);
 
-  const fetchAdjacent = useCallback(async () => {
-    try {
-      const res = await apiFetch(`/api/split-bills/${id}/adjacent`);
-      const data = await res.json();
-      if (data.success) {
-        setAdjacent({ prev: data.prev, next: data.next });
-      }
-    } catch {
-      // silently ignore — navigation is non-critical
-    }
-  }, [id]);
-
   useEffect(() => {
     fetchDetail();
-    fetchAdjacent();
-  }, [id, fetchDetail, fetchAdjacent]);
+  }, [id, fetchDetail]);
 
   if (loading) {
     return (
@@ -164,7 +150,7 @@ export default function SplitBillDetail() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <div className="p-4 rounded-full bg-destructive/10 text-destructive">
-          <Receipt className="h-10 w-10" />
+          <ReceiptText className="h-10 w-10" />
         </div>
         <p className="text-destructive font-semibold">
           {error || "Data tidak ditemukan"}
@@ -181,55 +167,30 @@ export default function SplitBillDetail() {
 
   return (
     <div className="space-y-6">
-      {/* Prev / Next navigation bar */}
-      {(adjacent.prev || adjacent.next) && (
-        <div className="flex items-center justify-between gap-3 px-1">
-          <button
-            onClick={() => navigate(`/split-bills/${adjacent.prev.id}`)}
-            disabled={!adjacent.prev}
-            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors group"
-          >
-            <ChevronLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
-            <span className="max-w-[160px] truncate">
-              {adjacent.prev?.activityName || "Sebelumnya"}
-            </span>
-          </button>
-          <button
-            onClick={() => navigate(`/split-bills/${adjacent.next.id}`)}
-            disabled={!adjacent.next}
-            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-colors group"
-          >
-            <span className="max-w-[160px] truncate">
-              {adjacent.next?.activityName || "Berikutnya"}
-            </span>
-            <ChevronRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
-          </button>
-        </div>
-      )}
-
       <PageHero
         onBack={() => navigate(-1)}
         backLabel="Back"
         badges={
           <div className="flex items-center gap-2">
-            {record.status === "editable" ? (
-              <span className="px-2.5 py-1 rounded-full bg-amber-500 text-white text-xs font-bold border border-amber-600">
-                DRAFT
-              </span>
-            ) : (
-              <span className="px-2.5 py-1 rounded-full bg-emerald-500 text-white text-xs font-bold border border-emerald-600">
-                FINALIZE
-              </span>
-            )}
             <a
               href={`${import.meta.env.VITE_PUBLIC_APP_URL || "https://splitbill.my.id"}/history/split-bill/${id}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/20 hover:bg-white/30 text-white text-xs font-bold transition-colors border border-white/10"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xs bg-white/20 hover:bg-white/30 text-white text-xs font-bold transition-colors border border-white/10"
             >
               <ExternalLink className="h-3 w-3" />
               Lihat Halaman Publik
             </a>
+            <Badge
+              variant={record.status === "editable" ? "warning" : "success"}
+              className={
+                record.status === "editable"
+                  ? "bg-amber-500 text-white border-amber-600"
+                  : "bg-emerald-500 text-white border-emerald-600"
+              }
+            >
+              {record.status === "editable" ? "DRAFT" : "FINALIZE"}
+            </Badge>
           </div>
         }
         title={record.activityName || "Aktivitas Tanpa Nama"}
@@ -274,13 +235,13 @@ export default function SplitBillDetail() {
           {/* Registered Friends / Participants */}
           <section className="space-y-3">
             <SectionTitle accent="bg-primary">Peserta Terdaftar</SectionTitle>
-            <div className="bg-white rounded-lg border border-border shadow-soft p-4">
+            <div className="bg-white rounded-sm border border-border shadow-soft p-4">
               <div className="flex flex-wrap gap-2">
                 {(record.participants || []).map((p) => {
                   return (
                     <div
                       key={p.id}
-                      className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border border-border bg-muted/20 hover:bg-muted/40 transition-colors"
+                      className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-xs border border-border bg-muted/20 hover:bg-muted/40 transition-colors"
                     >
                       <Avatar
                         name={p.name}
@@ -302,13 +263,13 @@ export default function SplitBillDetail() {
           {receiptImages.length > 0 && (
             <section className="space-y-3">
               <SectionTitle accent="bg-primary">Foto Struk</SectionTitle>
-              <div className="bg-white rounded-lg border border-border shadow-soft p-4">
+              <div className="bg-white rounded-sm border border-border shadow-soft p-4">
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                   {receiptImages.map((img, idx) =>
                     brokenImages[img.id] ? (
                       <div
                         key={img.id}
-                        className="aspect-square rounded-lg border border-dashed border-border flex flex-col items-center justify-center gap-1 bg-muted/40 text-muted-foreground"
+                        className="aspect-square rounded-sm border border-dashed border-border flex flex-col items-center justify-center gap-1 bg-muted/40 text-muted-foreground"
                       >
                         <ImageOff className="h-4 w-4" />
                         <span className="text-[10px] text-center px-1">Gagal memuat</span>
@@ -317,7 +278,7 @@ export default function SplitBillDetail() {
                       <button
                         key={img.id}
                         onClick={() => setLightboxIndex(idx)}
-                        className="group relative aspect-square rounded-lg border border-border overflow-hidden bg-muted"
+                        className="group relative aspect-square rounded-sm border border-border overflow-hidden bg-muted"
                       >
                         <img
                           src={img.url}
@@ -343,13 +304,13 @@ export default function SplitBillDetail() {
           <section className="space-y-3">
             <SectionTitle accent="bg-primary">Rincian Pengeluaran</SectionTitle>
             {record.expenses.length === 0 && record.additionalExpenses.length === 0 ? (
-              <div className="bg-white px-4 py-5 rounded-lg border border-border shadow-soft text-center">
+              <div className="bg-white px-4 py-5 rounded-sm border border-border shadow-soft text-center">
                 <p className="text-sm text-muted-foreground italic">
                   Belum ada rincian pengeluaran dicatat.
                 </p>
               </div>
             ) : (
-              <div className="bg-white rounded-lg border border-border shadow-soft overflow-hidden">
+              <div className="bg-white rounded-sm border border-border shadow-soft overflow-hidden">
                 <div className="divide-y divide-border">
                   {record.expenses.map((item, idx) => (
                     <div
@@ -357,8 +318,8 @@ export default function SplitBillDetail() {
                       className="flex items-center justify-between gap-4 px-4 py-3 hover:bg-primary/[0.02] transition-colors"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="h-8 w-8 flex items-center justify-center rounded-lg bg-muted flex-shrink-0">
-                          <Receipt className="h-4 w-4 text-muted-foreground" />
+                        <div className="h-8 w-8 flex items-center justify-center rounded-sm bg-muted flex-shrink-0">
+                          <ReceiptText className="h-4 w-4 text-muted-foreground" />
                         </div>
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-foreground truncate">
@@ -380,7 +341,7 @@ export default function SplitBillDetail() {
                           {item.participants.map((pId) => (
                             <span
                               key={pId}
-                              className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-medium text-muted-foreground"
+                              className="px-1.5 py-0.5 rounded-xs bg-muted text-[10px] font-medium text-muted-foreground"
                             >
                               {participantName(pId)}
                             </span>
@@ -396,7 +357,7 @@ export default function SplitBillDetail() {
                       className="flex items-center justify-between gap-4 px-4 py-3 bg-muted/30"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 flex items-center justify-center rounded-lg bg-border/60 flex-shrink-0">
+                        <div className="h-8 w-8 flex items-center justify-center rounded-sm bg-border/60 flex-shrink-0">
                           <Info className="h-4 w-4 text-muted-foreground" />
                         </div>
                         <div>
@@ -426,7 +387,7 @@ export default function SplitBillDetail() {
               Pelunasan (Settlement)
             </SectionTitle>
             {!record.summary || !record.summary.settlements || record.summary.settlements.length === 0 ? (
-              <div className="bg-white px-4 py-5 rounded-lg border border-border shadow-soft text-center">
+              <div className="bg-white px-4 py-5 rounded-sm border border-border shadow-soft text-center">
                 <p className="text-sm text-muted-foreground italic">
                   {!record.summary ? "Pelunasan belum dihitung (Draft)." : "Tidak ada pelunasan yang diperlukan."}
                 </p>
@@ -436,7 +397,7 @@ export default function SplitBillDetail() {
                 {record.summary.settlements.map((s, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center gap-3 px-4 py-3 rounded-lg border border-border"
+                    className="flex items-center gap-3 px-4 py-3 rounded-sm border border-border"
                     style={{ background: "rgba(245,158,11,0.04)" }}
                   >
                     <div className="flex-1 min-w-0">
@@ -477,7 +438,7 @@ export default function SplitBillDetail() {
             <SectionTitle accent="bg-success">Ringkasan Peserta</SectionTitle>
             <div className="space-y-1.5">
               {!record.summary || !record.summary.perParticipant || record.summary.perParticipant.length === 0 ? (
-                <div className="bg-white px-4 py-5 rounded-lg border border-border shadow-soft text-center">
+                <div className="bg-white px-4 py-5 rounded-sm border border-border shadow-soft text-center">
                   <p className="text-sm text-muted-foreground italic">
                     Ringkasan per peserta belum tersedia (Draft).
                   </p>
@@ -513,7 +474,7 @@ export default function SplitBillDetail() {
                     return (
                       <div
                         key={idx}
-                        className="bg-white rounded-lg border border-border shadow-soft overflow-hidden"
+                        className="bg-white rounded-sm border border-border shadow-soft overflow-hidden"
                       >
                         <div className="flex items-center justify-between gap-3 px-4 py-3">
                           <div className="flex items-center gap-2 min-w-0">
@@ -523,7 +484,7 @@ export default function SplitBillDetail() {
                             {!notInvolved && (
                               <button
                                 onClick={() => toggleParticipant(idx)}
-                                className="p-0.5 rounded hover:bg-muted text-muted-foreground transition-colors flex-shrink-0"
+                                className="p-0.5 rounded-xs hover:bg-muted text-muted-foreground transition-colors flex-shrink-0"
                               >
                                 {expandedParticipants[idx] ? (
                                   <ChevronUp size={13} />
@@ -630,13 +591,13 @@ export default function SplitBillDetail() {
               Metode Pembayaran
             </SectionTitle>
             {record.paymentMethodSnapshots.length === 0 ? (
-              <div className="bg-white px-4 py-5 rounded-lg border border-border shadow-soft text-center">
+              <div className="bg-white px-4 py-5 rounded-sm border border-border shadow-soft text-center">
                 <p className="text-sm text-muted-foreground italic">
                   Tidak ada metode pembayaran dilampirkan.
                 </p>
               </div>
             ) : (
-              <div className="bg-white rounded-lg border border-border shadow-soft overflow-hidden divide-y divide-border">
+              <div className="bg-white rounded-sm border border-border shadow-soft overflow-hidden divide-y divide-border">
                 {record.paymentMethodSnapshots.map((method, idx) => (
                   <div key={idx} className="px-4 py-3 space-y-1.5">
                     <div className="flex items-center gap-1.5">
@@ -664,7 +625,7 @@ export default function SplitBillDetail() {
                               method.accountNumber || method.phoneNumber,
                             )
                           }
-                          className="p-1 rounded border border-border hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                          className="p-1 rounded-xs border border-border hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
                           title="Salin"
                         >
                           <Copy className="h-3 w-3" />
@@ -682,7 +643,7 @@ export default function SplitBillDetail() {
       {/* Tracking Info Section */}
       <section className="space-y-3 border-t border-border pt-6">
         <SectionTitle accent="bg-slate-400">Informasi Tracking</SectionTitle>
-        <div className="bg-white rounded-lg border border-border shadow-soft p-4">
+        <div className="bg-white rounded-sm border border-border shadow-soft p-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-1">
               <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
@@ -694,7 +655,7 @@ export default function SplitBillDetail() {
                 </span>
                 <button
                   onClick={() => copyToClipboard(record.id)}
-                  className="p-1 rounded border border-border hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                  className="p-1 rounded-xs border border-border hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
                   title="Salin ID"
                 >
                   <Copy className="h-3 w-3" />
@@ -719,7 +680,7 @@ export default function SplitBillDetail() {
                     <HelpCircle className="h-3 w-3" />
                   </button>
                   {showStepTooltip && (
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-56 rounded-lg border border-border bg-white shadow-lg p-3 text-left">
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-56 rounded-sm border border-border bg-white shadow-lg p-3 text-left">
                       <p className="text-xs font-bold text-foreground mb-1.5">Panduan Last Step</p>
                       <ul className="space-y-1">
                         {Object.entries(LAST_STEP_LABELS).map(([key, label]) => (
@@ -735,9 +696,9 @@ export default function SplitBillDetail() {
                 </div>
               </div>
               <div>
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-primary/10 text-primary">
+                <Badge variant="info">
                   {LAST_STEP_LABELS[record.last_step] || record.last_step || "N/A"}
-                </span>
+                </Badge>
                 {record.last_step && LAST_STEP_DESCRIPTIONS[record.last_step] && (
                   <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">
                     {LAST_STEP_DESCRIPTIONS[record.last_step]}
@@ -826,12 +787,12 @@ export default function SplitBillDetail() {
                   [receiptImages[lightboxIndex].id]: true,
                 }))
               }
-              className="max-h-[85vh] max-w-full object-contain rounded-lg animate-in fade-in zoom-in-95 duration-200"
+              className="max-h-[85vh] max-w-full object-contain rounded-sm animate-in fade-in zoom-in-95 duration-200"
             />
           )}
 
           {receiptImages.length > 1 && (
-            <span className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-white/10 text-white text-xs font-semibold">
+            <span className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1 rounded-xs bg-white/10 text-white text-xs font-semibold">
               {lightboxIndex + 1} / {receiptImages.length}
             </span>
           )}

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   Calendar,
   Users,
-  Receipt,
+  ReceiptText,
   User,
   Copy,
   X,
@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { formatDate, formatDateTime } from "../lib/utils";
 import { apiFetch } from "../lib/api";
-import { Button, Spinner, useToast } from "../components/ui";
+import { Button, Spinner, Badge, useToast } from "../components/ui";
 import PageHero from "../components/PageHero";
 import { useAuth } from "../context/AuthContext";
 
@@ -132,7 +132,7 @@ export default function SplitLaterDetail() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <div className="p-4 rounded-full bg-destructive/10 text-destructive">
-          <Receipt className="h-10 w-10" />
+          <ReceiptText className="h-10 w-10" />
         </div>
         <p className="text-destructive font-semibold">
           {error || "Data tidak ditemukan"}
@@ -151,16 +151,17 @@ export default function SplitLaterDetail() {
         backLabel="Back"
         badges={
           <div className="flex items-center gap-2">
-            {bucket.status === "active" ? (
-              <span className="px-2.5 py-1 rounded-full bg-amber-500 text-white text-xs font-bold border border-amber-600">
-                AKTIF
-              </span>
-            ) : (
-              <span className="px-2.5 py-1 rounded-full bg-emerald-500 text-white text-xs font-bold border border-emerald-600">
-                SELESAI
-              </span>
-            )}
-            <span className="px-2.5 py-1 rounded-full bg-white/20 text-white text-xs font-bold border border-white/10">
+            <Badge
+              variant={bucket.status === "active" ? "warning" : "success"}
+              className={
+                bucket.status === "active"
+                  ? "bg-amber-500 text-white border-amber-600"
+                  : "bg-emerald-500 text-white border-emerald-600"
+              }
+            >
+              {bucket.status === "active" ? "AKTIF" : "SELESAI"}
+            </Badge>
+            <span className="px-2.5 py-1 rounded-xs bg-white/20 text-white text-xs font-bold border border-white/10">
               {BUCKET_TYPE_LABELS[bucket.bucketType] || bucket.bucketType}
             </span>
           </div>
@@ -207,13 +208,13 @@ export default function SplitLaterDetail() {
           <section className="space-y-3">
             <SectionTitle accent="bg-primary">Daftar Struk</SectionTitle>
             {receipts.length === 0 ? (
-              <div className="bg-white px-4 py-5 rounded-lg border border-border shadow-soft text-center">
+              <div className="bg-white px-4 py-5 rounded-sm border border-border shadow-soft text-center">
                 <p className="text-sm text-muted-foreground italic">
                   Belum ada struk yang diunggah ke bucket ini.
                 </p>
               </div>
             ) : (
-              <div className="bg-white rounded-lg border border-border shadow-soft overflow-hidden divide-y divide-border">
+              <div className="bg-white rounded-sm border border-border shadow-soft overflow-hidden divide-y divide-border">
                 {receipts.map((r, idx) => (
                   <div
                     key={r.id}
@@ -221,7 +222,7 @@ export default function SplitLaterDetail() {
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       {brokenImages[r.id] ? (
-                        <div className="h-10 w-10 rounded-lg border border-dashed border-border flex items-center justify-center bg-muted/40 text-muted-foreground flex-shrink-0">
+                        <div className="h-10 w-10 rounded-sm border border-dashed border-border flex items-center justify-center bg-muted/40 text-muted-foreground flex-shrink-0">
                           <ImageOff className="h-4 w-4" />
                         </div>
                       ) : (
@@ -273,14 +274,12 @@ export default function SplitLaterDetail() {
                       <p className="text-sm font-bold text-foreground">
                         {r.totalAmount != null ? formatCurrency(r.totalAmount) : "-"}
                       </p>
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${r.status === "completed"
-                          ? "bg-emerald-50 text-emerald-600 border-emerald-200"
-                          : "bg-amber-50 text-amber-600 border-amber-200"
-                          }`}
+                      <Badge
+                        variant={r.status === "completed" ? "success" : "warning"}
+                        className="text-[10px]"
                       >
                         {RECEIPT_STATUS_LABELS[r.status] || r.status}
-                      </span>
+                      </Badge>
                     </div>
                   </div>
                 ))}
@@ -293,7 +292,7 @@ export default function SplitLaterDetail() {
         <div className="xl:col-span-2 space-y-6">
           <section className="space-y-3">
             <SectionTitle accent="bg-success">Peserta</SectionTitle>
-            <div className="bg-white rounded-lg border border-border shadow-soft p-4">
+            <div className="bg-white rounded-sm border border-border shadow-soft p-4">
               {(bucket.participants || []).length === 0 ? (
                 <p className="text-sm text-muted-foreground italic">
                   Belum ada peserta ditambahkan.
@@ -301,12 +300,13 @@ export default function SplitLaterDetail() {
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {bucket.participants.map((name, idx) => (
-                    <span
+                    <Badge
                       key={idx}
-                      className="px-3 py-1 rounded-full border border-border bg-muted/20 text-xs font-semibold text-foreground"
+                      variant="neutral"
+                      className="bg-muted/20 text-foreground"
                     >
                       {name}
-                    </span>
+                    </Badge>
                   ))}
                 </div>
               )}
@@ -315,7 +315,7 @@ export default function SplitLaterDetail() {
 
           <section className="space-y-3 border-t border-border pt-6">
             <SectionTitle accent="bg-slate-400">Informasi Tracking</SectionTitle>
-            <div className="bg-white rounded-lg border border-border shadow-soft p-4 space-y-4">
+            <div className="bg-white rounded-sm border border-border shadow-soft p-4 space-y-4">
               <div className="space-y-1">
                 <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
                   Bucket ID
@@ -326,7 +326,7 @@ export default function SplitLaterDetail() {
                   </span>
                   <button
                     onClick={() => copyToClipboard(bucket.id)}
-                    className="p-1 rounded border border-border hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                    className="p-1 rounded-xs border border-border hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
                     title="Salin ID"
                   >
                     <Copy className="h-3 w-3" />
@@ -416,12 +416,12 @@ export default function SplitLaterDetail() {
                   [receipts[lightboxIndex].id]: true,
                 }))
               }
-              className="max-h-[85vh] max-w-full object-contain rounded-lg animate-in fade-in zoom-in-95 duration-200"
+              className="max-h-[85vh] max-w-full object-contain rounded-sm animate-in fade-in zoom-in-95 duration-200"
             />
           )}
 
           {receipts.length > 1 && (
-            <span className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-white/10 text-white text-xs font-semibold">
+            <span className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1 rounded-xs bg-white/10 text-white text-xs font-semibold">
               {lightboxIndex + 1} / {receipts.length}
             </span>
           )}

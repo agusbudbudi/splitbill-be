@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { usePageMeta } from "../lib/usePageMeta";
-import { Save, ArrowLeft, Upload, Plus, Trash2, Award } from "lucide-react";
+import { Save, Upload, Plus, Trash2, Award } from "lucide-react";
 import { apiFetch } from "../lib/api";
 import { compressImage } from "../lib/imageUtils";
-import { Card, CardBody, CardFooter, Button, useToast } from "../components/ui";
+import { Card, CardBody, Button, BackButton, useToast } from "../components/ui";
 
 const METRIC_OPTIONS = [
   { value: "splitCount", label: "Jumlah split (finalize)" },
@@ -21,6 +21,21 @@ const BENEFIT_TYPE_OPTIONS = [
   { value: "free_scan_ai", label: "Free Scan AI" },
   { value: "max_split_bill", label: "Maksimal Split Bill Created" },
 ];
+
+// Palet warna per level (urutan order asc: Newbie → Rajin → Jago → Sultan).
+// Harus sinkron dengan LEVEL_THEMES di splitbill-web/src/lib/utils/level.ts
+// biar preview di admin sama persis dengan tampilan di sisi user.
+const LEVEL_THEMES = [
+  { accent: "bg-[#72B9F5]", badge: "bg-[#489FEA]" }, // Newbie — Soft Blue
+  { accent: "bg-[#489FEA]", badge: "bg-[#2F8FE5]" }, // Rajin Patungan — Vibrant Blue
+  { accent: "bg-[#7C6FF2]", badge: "bg-[#6758E8]" }, // Jago Patungan — Purple
+  { accent: "bg-[#F5B93D]", badge: "bg-[#E5A51C]" }, // Sultan Patungan — Gold
+];
+
+function getLevelThemeIndex(order) {
+  const idx = order - 1;
+  return idx >= 0 && idx < LEVEL_THEMES.length ? idx : 0;
+}
 
 const EMPTY_RULE = { metric: "splitCount", operator: "<", value: 0 };
 const EMPTY_REWARD = { benefitType: "free_scan_ai", amount: 1 };
@@ -50,8 +65,10 @@ export default function UserLevelDetail() {
   );
 
   const [form, setForm] = useState(EMPTY_FORM);
+  const [savedForm, setSavedForm] = useState(EMPTY_FORM);
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
+  const isDirty = JSON.stringify(form) !== JSON.stringify(savedForm);
 
   useEffect(() => {
     if (!isEdit) return;
@@ -61,7 +78,7 @@ export default function UserLevelDetail() {
         const data = await res.json();
         if (data.success) {
           const level = data.data;
-          setForm({
+          const loadedForm = {
             name: level.name || "",
             icon: level.icon || "",
             description: level.description || "",
@@ -74,7 +91,9 @@ export default function UserLevelDetail() {
                 ? level.rules
                 : [{ ...EMPTY_RULE }],
             rewards: level.rewards && level.rewards.length > 0 ? level.rewards : [],
-          });
+          };
+          setForm(loadedForm);
+          setSavedForm(loadedForm);
         } else {
           toast({ message: "User level tidak ditemukan", type: "error" });
           navigate("/user-levels");
@@ -229,29 +248,30 @@ export default function UserLevelDetail() {
   }
 
   const inputClass =
-    "block w-full px-3 py-2 text-sm rounded-sm border border-border bg-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-all";
+    "block w-full px-3 py-2 text-sm rounded-xs border border-border bg-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-all";
   const labelClass = "block text-sm font-medium text-foreground mb-1";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate("/user-levels")}
-            className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
+          <BackButton to="/user-levels" />
           <div>
             <h1 className="text-xl font-bold text-foreground">
               {isEdit ? "Edit User Level" : "Tambah User Level"}
             </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {isEdit ? `Mengedit: ${form.name}` : "Buat user level baru"}
-            </p>
           </div>
         </div>
+        <Button
+          icon={<Save className="h-4 w-4" />}
+          loading={saving}
+          disabled={saving || !isDirty}
+          onClick={handleSave}
+          className="flex-shrink-0"
+        >
+          {saving ? "Menyimpan..." : isEdit ? "Simpan Perubahan" : "Buat Level"}
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
@@ -300,7 +320,7 @@ export default function UserLevelDetail() {
               </label>
               <div className="flex items-center gap-3">
                 <label className="cursor-pointer">
-                  <span className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-sm border border-border bg-white text-foreground hover:bg-muted transition-colors">
+                  <span className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-xs border border-border bg-white text-foreground hover:bg-muted transition-colors">
                     <Upload className="h-4 w-4" />
                     {form.icon ? "Ganti Icon" : "Pilih Icon"}
                   </span>
@@ -351,7 +371,7 @@ export default function UserLevelDetail() {
                       type="button"
                       onClick={() => handleRemoveBenefit(index)}
                       disabled={form.benefits.length === 1}
-                      className="flex-shrink-0 p-2 rounded text-muted-foreground hover:text-destructive hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                      className="flex-shrink-0 p-2 rounded-xs text-muted-foreground hover:text-destructive hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                       title="Hapus benefit"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -453,7 +473,7 @@ export default function UserLevelDetail() {
                       type="button"
                       onClick={() => handleRemoveRule(index)}
                       disabled={form.rules.length === 1}
-                      className="flex-shrink-0 p-2 rounded text-muted-foreground hover:text-destructive hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                      className="flex-shrink-0 p-2 rounded-xs text-muted-foreground hover:text-destructive hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                       title="Hapus rule"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -513,7 +533,7 @@ export default function UserLevelDetail() {
                     <button
                       type="button"
                       onClick={() => handleRemoveReward(index)}
-                      className="flex-shrink-0 p-2 rounded text-muted-foreground hover:text-destructive hover:bg-muted transition-colors"
+                      className="flex-shrink-0 p-2 rounded-xs text-muted-foreground hover:text-destructive hover:bg-muted transition-colors"
                       title="Hapus reward"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -523,15 +543,6 @@ export default function UserLevelDetail() {
               </div>
             </div>
           </CardBody>
-
-          <CardFooter className="py-3 flex justify-between">
-            <Button variant="ghost" onClick={() => navigate("/user-levels")} disabled={saving}>
-              Batal
-            </Button>
-            <Button icon={<Save className="h-4 w-4" />} loading={saving} onClick={handleSave}>
-              {saving ? "Menyimpan..." : isEdit ? "Simpan Perubahan" : "Buat Level"}
-            </Button>
-          </CardFooter>
         </Card>
 
         {/* Live Preview */}
@@ -539,21 +550,55 @@ export default function UserLevelDetail() {
           <Card>
             <div className="px-4 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
               <p className="text-sm font-semibold text-foreground">Preview Level</p>
+              <p className="text-xs text-muted-foreground">Tampilan seperti di sisi user</p>
             </div>
-            <CardBody className="flex flex-col items-center gap-3 py-8">
-              <div className="w-20 h-20 rounded-full bg-muted overflow-hidden flex items-center justify-center border border-border">
-                {form.icon ? (
-                  <img src={form.icon} alt={form.name} className="w-full h-full object-cover" />
-                ) : (
-                  <Award className="h-8 w-8 text-muted-foreground" />
-                )}
+            <CardBody>
+              <div
+                className={`relative overflow-hidden rounded-xl px-6 py-6 text-white ${
+                  LEVEL_THEMES[getLevelThemeIndex(form.order)].accent
+                }`}
+              >
+                {/* Content */}
+                <div className="flex items-center gap-6">
+                  <div className="w-28 h-28 flex-shrink-0 flex items-center justify-center">
+                    {form.icon ? (
+                      <img
+                        src={form.icon}
+                        alt={form.name}
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <Award className="h-16 w-16 text-white/60" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <span
+                      className={`inline-block rounded-full px-4 py-1.5 text-sm font-bold mb-3 ${
+                        LEVEL_THEMES[getLevelThemeIndex(form.order)].badge
+                      }`}
+                    >
+                      Level {form.order}
+                    </span>
+                    <p className="text-2xl font-extrabold leading-tight truncate">
+                      {form.name || "Nama Level"}
+                    </p>
+                    {form.description && (
+                      <p className="text-sm text-white/80 mt-1 line-clamp-2">
+                        {form.description}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-1.5 mt-4">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white/50" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-white/50" />
+                      <span className="w-5 h-1.5 rounded-full bg-white" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-white/50" />
+                    </div>
+                  </div>
+                </div>
               </div>
-              <p className="text-base font-bold text-foreground">{form.name || "Nama Level"}</p>
-              {form.description && (
-                <p className="text-xs text-muted-foreground text-center">{form.description}</p>
-              )}
+
               {form.benefits.filter(Boolean).length > 0 && (
-                <ul className="w-full text-xs text-foreground space-y-1 pt-2">
+                <ul className="w-full text-xs text-foreground space-y-1 pt-4">
                   {form.benefits.filter(Boolean).map((benefit, idx) => (
                     <li key={idx} className="flex items-start gap-1.5">
                       <span className="text-primary">•</span>

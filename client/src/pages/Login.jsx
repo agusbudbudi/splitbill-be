@@ -62,7 +62,7 @@ export default function Login() {
           {/* Logo/Brand */}
           <div className="flex justify-center mb-4">
             <img
-              src="/img/logoSummary.png"
+              src="/img/split-bill-logo-basic.png"
               alt="Split Bill"
               className="h-10 w-auto"
             />
@@ -147,7 +147,7 @@ export default function Login() {
 
             {error && (
               <div
-                className="px-4 py-2 text-sm rounded-[8px]"
+                className="px-4 py-2 text-sm rounded-sm"
                 style={{
                   background: "rgba(239, 68, 68, 0.1)",
                   color: "var(--destructive)",

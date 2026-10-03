@@ -180,12 +180,12 @@ export default function DashboardLayout() {
 
         {/* Sidebar */}
         <aside
-          className={`fixed inset-y-0 left-0 z-30 w-48 flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 bg-white border-r border-border ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          className={`fixed inset-y-0 left-0 z-30 w-56 flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 bg-white border-r border-border ${sidebarOpen ? "translate-x-0" : "-translate-x-full"
             }`}
         >
           {/* Logo */}
-          <div className="flex items-center justify-center h-12 px-4 flex-shrink-0 border-b border-border relative">
-            <div className="flex items-center justify-center gap-2">
+          <div className="flex items-center justify-start h-12 px-6 flex-shrink-0 border-b border-border relative">
+            <div className="flex items-center gap-2">
               <img
                 src="/img/split-bill-logo-basic.png"
                 alt="Split Bill"
@@ -201,10 +201,10 @@ export default function DashboardLayout() {
           </div>
 
           {/* Nav */}
-          <nav className="flex-1 px-3 py-3 space-y-4 overflow-y-auto">
+          <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
             {navGroups.map((group) => (
               <div key={group.title}>
-                <p className="px-3 text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
+                <p className="px-3 text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wider mb-1.5">
                   {group.title}
                 </p>
                 <div className="space-y-0.5">
@@ -218,11 +218,14 @@ export default function DashboardLayout() {
                         key={item.name}
                         to={item.href}
                         onClick={() => setSidebarOpen(false)}
-                        className={`flex items-center gap-3 px-3 py-2 rounded-xs text-sm font-semibold transition-all duration-150 group ${isActive
-                          ? "bg-primary/10 text-primary"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        className={`relative flex items-center gap-3 px-3 py-2 rounded-xs text-sm transition-colors duration-150 group ${isActive
+                          ? "bg-primary/10 text-primary font-semibold"
+                          : "text-muted-foreground font-medium hover:bg-muted hover:text-foreground"
                           }`}
                       >
+                        {isActive && (
+                          <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-primary" />
+                        )}
                         <item.icon
                           className={`h-4.5 w-4.5 flex-shrink-0 transition-colors ${isActive
                             ? "text-primary"
@@ -231,7 +234,7 @@ export default function DashboardLayout() {
                         />
                         <span className="flex-1">{item.name}</span>
                         {item.name === "Orders" && kpis?.pendingOrders > 0 && (
-                          <span className="bg-destructive/10 text-destructive text-[11px] font-bold px-2 py-0.5 rounded-full">
+                          <span className="bg-destructive/10 text-destructive text-[11px] font-bold px-1.5 py-0.5 rounded-xs">
                             {kpis.pendingOrders}
                           </span>
                         )}
@@ -244,10 +247,21 @@ export default function DashboardLayout() {
           </nav>
 
           {/* Logout */}
-          <div className="p-3 flex-shrink-0 border-t border-border">
+          <div className="p-3 flex-shrink-0 border-t border-border space-y-2">
+            <div className="flex items-center gap-2.5 px-2 py-1.5">
+              <Avatar name={user?.name || "Admin"} src={user?.image || user?.avatar} size="sm" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground truncate">
+                  {user?.name || "Admin"}
+                </p>
+                <p className="text-[11px] text-muted-foreground truncate">
+                  {user?.email}
+                </p>
+              </div>
+            </div>
             <button
               onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-sm text-sm font-semibold text-destructive hover:bg-destructive/10 transition-all duration-150"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-xs text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors duration-150"
             >
               <LogOut className="h-4.5 w-4.5 flex-shrink-0" />
               Logout
@@ -336,23 +350,6 @@ export default function DashboardLayout() {
                     </div>
                   </div>
                 )}
-              </div>
-
-              {/* User Profile */}
-              <div className="flex items-center gap-3">
-                <div className="text-right hidden sm:block">
-                  <p className="text-sm font-semibold text-foreground leading-tight">
-                    {user.name || "Admin"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {user.email || ""}
-                  </p>
-                </div>
-                <Avatar
-                  name={user.name || "Admin"}
-                  src={user.image || user.avatar}
-                  size="sm"
-                />
               </div>
             </div>
           </header>

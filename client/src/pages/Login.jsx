@@ -1,13 +1,22 @@
 import { useState } from "react";
 import { usePageMeta } from "../lib/usePageMeta";
 import { useNavigate } from "react-router-dom";
-import { Lock, Mail, Loader2 } from "lucide-react";
+import {
+  Lock,
+  Mail,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  AlertCircle,
+} from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { Button, Input } from "../components/ui";
 
 export default function Login() {
   usePageMeta("Login", "Masuk ke dashboard admin Split Bill.");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
@@ -44,144 +53,125 @@ export default function Login() {
   };
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-8"
-      style={{ background: "var(--background)" }}
-    >
-      <div className="w-full max-w-md">
-        {/* Card */}
-        <div
-          className="p-8 space-y-6"
-          style={{
-            background: "rgba(255, 255, 255, 0.9)",
-            backdropFilter: "blur(10px)",
-            borderRadius: "1.2rem",
-            boxShadow: "var(--shadow-soft)",
-          }}
-        >
-          {/* Logo/Brand */}
-          <div className="flex justify-center mb-4">
+    <div className="min-h-screen grid lg:grid-cols-2 bg-background">
+      {/* Brand panel */}
+      <aside className="hidden lg:flex flex-col gap-16 p-12 bg-primary text-primary-foreground">
+        <img
+          src="/split-bill-logo-white.png"
+          alt="Split Bill"
+          className="h-12 w-auto self-start"
+        />
+
+        <div className="max-w-md space-y-3">
+          <h1 className="text-5xl font-bold leading-tight tracking-tight">
+            Dashboard admin Split Bill
+          </h1>
+          <p className="text-base text-white/80">
+            Kelola pengguna, pesanan, dan konten aplikasi.
+          </p>
+        </div>
+
+        <p className="mt-auto text-xs text-white/70">
+          © {new Date().getFullYear()} Split Bill
+        </p>
+      </aside>
+
+      {/* Form panel */}
+      <main className="flex items-center justify-center px-4 py-10 sm:px-6 lg:px-12">
+        <div className="w-full max-w-md space-y-6">
+          {/* Mobile logo (brand panel is hidden below lg) */}
+          <div className="flex justify-center lg:hidden">
             <img
               src="/img/split-bill-logo-basic.png"
               alt="Split Bill"
               className="h-10 w-auto"
             />
           </div>
-          <div className="text-center">
-            <p
-              className="text-sm mt-1"
-              style={{ color: "var(--muted-foreground)" }}
-            >
-              Selamat Datang di Dashboard Split Bill
-            </p>
-          </div>
 
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <div className="space-y-2">
-              <label
-                className="text-sm font-medium"
-                style={{ color: "var(--foreground)" }}
-              >
-                Email
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail
-                    className="h-5 w-5"
-                    style={{ color: "var(--muted-foreground)" }}
-                  />
-                </div>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  className="w-full pl-10 pr-4 py-3 text-base transition-all"
-                  style={{
-                    background: "var(--input)",
-                    border: "1px solid var(--border)",
-                    borderRadius: "calc(var(--radius) - 4px)",
-                    color: "var(--foreground)",
-                  }}
-                  placeholder="admin@splitbill.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
+          <div className="bg-white rounded-sm shadow-soft border border-border p-8 space-y-6">
+            <div className="space-y-1">
+              <h2 className="text-xl font-bold text-foreground">
+                Selamat datang kembali
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Masuk dengan akun admin untuk mengakses dashboard.
+              </p>
             </div>
 
-            <div className="space-y-2">
-              <label
-                className="text-sm font-medium"
-                style={{ color: "var(--foreground)" }}
-              >
-                Password
-              </label>
+            <form className="space-y-4" onSubmit={handleSubmit}>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                label="Email"
+                autoComplete="email"
+                required
+                placeholder="admin@splitbill.com"
+                leftIcon={<Mail className="h-4 w-4" />}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock
-                    className="h-5 w-5"
-                    style={{ color: "var(--muted-foreground)" }}
-                  />
-                </div>
-                <input
+                <Input
                   id="password"
                   name="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
+                  label="Password"
                   autoComplete="current-password"
                   required
-                  className="w-full pl-10 pr-4 py-3 text-base transition-all"
-                  style={{
-                    background: "var(--input)",
-                    border: "1px solid var(--border)",
-                    borderRadius: "calc(var(--radius) - 4px)",
-                    color: "var(--foreground)",
-                  }}
-                  placeholder="••••••••"
+                  placeholder="Masukkan password"
+                  leftIcon={<Lock className="h-4 w-4" />}
+                  rightIcon={<span className="h-4 w-4" />}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={
+                    showPassword ? "Sembunyikan password" : "Tampilkan password"
+                  }
+                  className="absolute bottom-0 right-0 h-[38px] w-10 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
               </div>
-            </div>
 
-            {error && (
-              <div
-                className="px-4 py-2 text-sm rounded-sm"
-                style={{
-                  background: "rgba(239, 68, 68, 0.1)",
-                  color: "var(--destructive)",
-                  border: "1px solid rgba(239, 68, 68, 0.2)",
-                }}
-              >
-                {error}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 px-4 font-semibold text-sm transition-all disabled:opacity-50 active:scale-[0.98]"
-              style={{
-                background: "var(--primary)",
-                color: "var(--primary-foreground)",
-                borderRadius: "calc(var(--radius) - 2px)",
-                border: "none",
-                cursor: loading ? "not-allowed" : "pointer",
-              }}
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Processing...
-                </span>
-              ) : (
-                "Sign In"
+              {error && (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2 px-3 py-2 text-sm rounded-xs border border-destructive/20 bg-destructive/10 text-destructive"
+                >
+                  <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <span>{error}</span>
+                </div>
               )}
-            </button>
-          </form>
+
+              <Button
+                type="submit"
+                size="lg"
+                loading={loading}
+                className="w-full"
+              >
+                {loading ? "Memproses..." : "Masuk"}
+              </Button>
+            </form>
+
+            <div className="flex items-start gap-2 rounded-xs bg-muted px-3 py-2.5 text-xs text-muted-foreground">
+              <ShieldCheck className="h-4 w-4 mt-0.5 flex-shrink-0 text-primary" />
+              <p>
+                Halaman ini khusus admin. Akun pengguna biasa tidak dapat masuk
+                ke dashboard.
+              </p>
+            </div>
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

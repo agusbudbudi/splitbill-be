@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { usePageMeta } from "../lib/usePageMeta";
 import { useNavigate } from "react-router-dom";
-import { Clock, Calendar, Users, Receipt, ChevronRight, X } from "lucide-react";
+import { Clock, Calendar, Users, ReceiptText } from "lucide-react";
 import {
   Card, CardHeader,
   SearchInput, Select,
   Table, Thead, Tbody, Tr, Th, Td, TableSkeleton,
-  Button, EmptyState, Pagination,
+  EmptyState, Pagination, Badge, DateInput, ResetFiltersButton,
 } from "../components/ui";
 import { formatDate } from "../lib/utils";
 import { apiFetch } from "../lib/api";
@@ -91,7 +91,7 @@ export default function SplitLater() {
     fetchBuckets(currentPage, debouncedSearch, statusFilter, startDate, endDate);
   }, [currentPage, debouncedSearch, statusFilter, startDate, endDate, fetchBuckets]);
 
-  const colSpan = user.isAdmin ? 8 : 7;
+  const colSpan = user.isAdmin ? 7 : 6;
   const hasActiveFilters = statusFilter !== "all" || startDate || endDate;
 
   const clearFilters = () => {
@@ -102,7 +102,7 @@ export default function SplitLater() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Page header */}
       <div>
         <h1 className="text-xl font-bold text-foreground">Riwayat Split Later</h1>
@@ -113,58 +113,45 @@ export default function SplitLater() {
 
       {/* Table card */}
       <Card className="overflow-hidden">
-        <CardHeader className="py-3">
-          <div className="flex items-center gap-3 overflow-x-auto scrollbar-none min-w-0">
-            <SearchInput
-              value={searchQuery}
-              onChange={setSearchQuery}
-              placeholder="Cari judul bucket, peserta, pemilik..."
-              className="w-56 shrink-0"
-            />
+        <CardHeader className="py-4 flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+          <SearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Cari judul bucket, peserta, pemilik..."
+            className="max-w-xs w-full"
+          />
 
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
             {/* Status filter */}
             <Select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="shrink-0"
             >
               {STATUS_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </Select>
 
-            {/* Divider */}
-            <div className="h-5 w-px bg-border shrink-0" />
-
             {/* Date range filter */}
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Tanggal:</span>
-              <input
-                type="date"
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <DateInput
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="text-sm py-2 px-3 border border-border rounded-sm bg-input text-foreground focus:outline-none focus:border-primary transition-all w-36"
+                className="w-full sm:w-36"
                 title="Dari tanggal"
               />
-              <span className="text-xs text-muted-foreground">—</span>
-              <input
-                type="date"
+              <span className="text-xs text-muted-foreground shrink-0">—</span>
+              <DateInput
                 value={endDate}
                 min={startDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="text-sm py-2 px-3 border border-border rounded-sm bg-input text-foreground focus:outline-none focus:border-primary transition-all w-36"
+                className="w-full sm:w-36"
                 title="Sampai tanggal"
               />
             </div>
 
             {hasActiveFilters && (
-              <button
-                onClick={clearFilters}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors shrink-0 ml-auto"
-              >
-                <X className="h-3.5 w-3.5" />
-                Reset
-              </button>
+              <ResetFiltersButton onClick={clearFilters} />
             )}
           </div>
         </CardHeader>
@@ -179,7 +166,6 @@ export default function SplitLater() {
               {user.isAdmin && <Th>Pemilik</Th>}
               <Th>Status</Th>
               <Th>Dibuat</Th>
-              <Th className="text-right">Aksi</Th>
             </Tr>
           </Thead>
 
@@ -219,7 +205,7 @@ export default function SplitLater() {
                       <div className="min-w-0">
                         <button
                           onClick={() => navigate(`/split-later/${bucket.id}`)}
-                          className="text-sm font-semibold text-foreground hover:text-primary hover:underline underline-offset-2 transition-colors truncate text-left"
+                          className="text-sm font-semibold text-primary hover:underline underline-offset-2 transition-colors truncate text-left"
                         >
                           {bucket.title || "Bucket Tanpa Nama"}
                         </button>
@@ -230,9 +216,9 @@ export default function SplitLater() {
                     </div>
                   </Td>
                   <Td>
-                    <span className="text-xs font-mono bg-muted px-2 py-0.5 rounded text-muted-foreground font-semibold">
+                    <Badge variant="neutral" className="font-mono">
                       {BUCKET_TYPE_LABELS[bucket.bucketType] || bucket.bucketType}
-                    </span>
+                    </Badge>
                   </Td>
                   <Td>
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -242,7 +228,7 @@ export default function SplitLater() {
                   </Td>
                   <Td>
                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Receipt className="h-3.5 w-3.5 flex-shrink-0" />
+                      <ReceiptText className="h-3.5 w-3.5 flex-shrink-0" />
                       {(bucket.receipts || []).length}
                     </div>
                   </Td>
@@ -253,31 +239,18 @@ export default function SplitLater() {
                     </Td>
                   )}
                   <Td>
-                    {bucket.status === "active" ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-600 border border-amber-200">
-                        AKTIF
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200">
-                        SELESAI
-                      </span>
-                    )}
+                    <Badge
+                      variant={bucket.status === "active" ? "warning" : "success"}
+                      className="text-xs font-semibold"
+                    >
+                      {bucket.status === "active" ? "AKTIF" : "SELESAI"}
+                    </Badge>
                   </Td>
                   <Td className="text-muted-foreground">
                     <div className="flex items-center gap-1.5 text-xs">
                       <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
                       {bucket.createdAt ? formatDate(bucket.createdAt) : "-"}
                     </div>
-                  </Td>
-                  <Td className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => navigate(`/split-later/${bucket.id}`)}
-                    >
-                      Detail
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    </Button>
                   </Td>
                 </Tr>
               ))}

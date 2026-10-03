@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { usePageMeta } from "../lib/usePageMeta";
-import { Receipt, Users, ChevronRight, ChevronLeft, X, ImageOff } from "lucide-react";
+import { ReceiptText, Users, ChevronRight, ChevronLeft, X, ImageOff, Wallet } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   Card, CardHeader,
   SearchInput, Select,
   Table, Thead, Tbody, Tr, Th, Td, TableSkeleton,
-  EmptyState, Pagination,
+  EmptyState, Pagination, Badge, DateInput, ResetFiltersButton, StatCard,
 } from "../components/ui";
 import { formatDateShort, formatLastStep } from "../lib/utils";
 import { apiFetch } from "../lib/api";
@@ -106,7 +106,12 @@ export default function SplitBills() {
         setCurrentPage(data.data.pagination.currentPage);
         setTotalPages(data.data.pagination.totalPages);
         setTotalItems(data.data.pagination.totalItems);
-        setTotalAmount(data.data.aggregate?.totalAmount ?? 0);
+        // totalAmount is only recomputed by the backend on page 1 (it's a sum
+        // over the whole filtered set, unchanged across pages) — keep the
+        // existing value on later pages instead of resetting it to 0.
+        if (data.data.aggregate?.totalAmount !== null) {
+          setTotalAmount(data.data.aggregate?.totalAmount ?? 0);
+        }
       } else {
         setError(data.message || "Gagal memuat data split bill");
       }
@@ -121,7 +126,7 @@ export default function SplitBills() {
     fetchSplitBills(currentPage, debouncedSearch, statusFilter, lastStepFilter, startDate, endDate);
   }, [currentPage, debouncedSearch, statusFilter, lastStepFilter, startDate, endDate, fetchSplitBills]);
 
-  const colSpan = user.isAdmin ? 8 : 7;
+  const colSpan = user.isAdmin ? 7 : 6;
   const hasActiveFilters = statusFilter !== "all" || lastStepFilter !== "all" || startDate || endDate;
 
   const clearFilters = () => {
@@ -133,31 +138,41 @@ export default function SplitBills() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Page header */}
-      <div>
-        <h1 className="text-xl font-bold text-foreground">Riwayat Split Bill</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Lihat dan kelola semua rekaman split bill yang telah disimpan.
-        </p>
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold text-foreground">Riwayat Split Bill</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Lihat dan kelola semua rekaman split bill yang telah disimpan.
+          </p>
+        </div>
+
+        <StatCard
+          compact
+          title={`Total Keseluruhan (${totalItems} split bill)`}
+          value={formatCurrency(totalAmount)}
+          icon={Wallet}
+          iconColor="text-primary"
+          iconBg="bg-primary/10"
+        />
       </div>
 
       {/* Table card */}
       <Card className="overflow-hidden">
-        <CardHeader className="py-3">
-          <div className="flex items-center gap-3 overflow-x-auto scrollbar-none min-w-0">
-            <SearchInput
-              value={searchQuery}
-              onChange={setSearchQuery}
-              placeholder="Cari aktivitas, peserta, pemilik, atau ID..."
-              className="w-56 shrink-0"
-            />
+        <CardHeader className="py-4 flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+          <SearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Cari aktivitas, peserta, pemilik, atau ID..."
+            className="max-w-xs w-full"
+          />
 
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
             {/* Status filter */}
             <Select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="shrink-0"
             >
               {STATUS_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -168,50 +183,35 @@ export default function SplitBills() {
             <Select
               value={lastStepFilter}
               onChange={(e) => setLastStepFilter(e.target.value)}
-              className="shrink-0"
             >
               {LAST_STEP_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </Select>
 
-            {/* Divider */}
-            <div className="h-5 w-px bg-border shrink-0" />
-
             {/* Date range filter */}
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Tanggal:</span>
-              <input
-                type="date"
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <DateInput
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="text-sm py-2 px-3 border border-border rounded-sm bg-input text-foreground focus:outline-none focus:border-primary transition-all w-36"
+                className="w-full sm:w-36"
                 title="Dari tanggal"
               />
-              <span className="text-xs text-muted-foreground">—</span>
-              <input
-                type="date"
+              <span className="text-xs text-muted-foreground shrink-0">—</span>
+              <DateInput
                 value={endDate}
                 min={startDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="text-sm py-2 px-3 border border-border rounded-sm bg-input text-foreground focus:outline-none focus:border-primary transition-all w-36"
+                className="w-full sm:w-36"
                 title="Sampai tanggal"
               />
             </div>
 
             {hasActiveFilters && (
-              <button
-                onClick={clearFilters}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors shrink-0 ml-auto"
-              >
-                <X className="h-3.5 w-3.5" />
-                Reset
-              </button>
+              <ResetFiltersButton onClick={clearFilters} />
             )}
           </div>
         </CardHeader>
-
-
 
         <Table>
           <Thead>
@@ -220,7 +220,6 @@ export default function SplitBills() {
               <Th>Tanggal</Th>
               {user.isAdmin && <Th>Pemilik</Th>}
               <Th>Peserta</Th>
-              <Th>Struk</Th>
               <Th>Total Tagihan</Th>
               <Th>Status</Th>
               <Th>Last Step</Th>
@@ -228,7 +227,7 @@ export default function SplitBills() {
           </Thead>
 
           {loading ? (
-            <TableSkeleton cols={colSpan} rows={8} squareCols={user.isAdmin ? [4] : [3]} />
+            <TableSkeleton cols={colSpan} rows={8} />
           ) : error ? (
             <Tbody>
               <Tr className="hover:bg-transparent">
@@ -240,7 +239,7 @@ export default function SplitBills() {
               <Tr className="hover:bg-transparent">
                 <Td colSpan={colSpan} className="p-0">
                   <EmptyState
-                    icon={Receipt}
+                    icon={ReceiptText}
                     title="Tidak ada data split bill"
                     description={
                       debouncedSearch || hasActiveFilters
@@ -256,16 +255,53 @@ export default function SplitBills() {
               {records.map((record) => (
                 <Tr key={record.id} className="group">
                   <Td>
-                    <div className="min-w-0">
-                      <button
-                        onClick={() => navigate(`/split-bills/${record.id}`)}
-                        className="text-sm font-semibold text-primary hover:underline underline-offset-2 transition-colors truncate text-left"
-                      >
-                        {record.activityName || "Aktivitas Tanpa Nama"}
-                      </button>
-                      <p className="text-xs text-muted-foreground font-mono">
-                        #{record.id.slice(-6)}
-                      </p>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {(record.receiptImages || []).length === 0 ? (
+                        <div className="h-8 w-8 flex-shrink-0 rounded-xs border border-dashed border-border flex items-center justify-center bg-muted/40 text-muted-foreground">
+                          <ReceiptText className="h-3.5 w-3.5" />
+                        </div>
+                      ) : brokenImages[record.receiptImages[0].id] ? (
+                        <div className="h-8 w-8 flex-shrink-0 rounded-xs border border-dashed border-border flex items-center justify-center bg-muted/40 text-muted-foreground">
+                          <ImageOff className="h-3 w-3" />
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() =>
+                            setLightbox({ images: record.receiptImages, index: 0 })
+                          }
+                          className="group relative h-8 w-8 flex-shrink-0 rounded-xs border border-border overflow-hidden bg-muted"
+                          title="Lihat foto struk"
+                        >
+                          <img
+                            src={record.receiptImages[0].url}
+                            alt="Struk"
+                            loading="lazy"
+                            onError={() =>
+                              setBrokenImages((prev) => ({
+                                ...prev,
+                                [record.receiptImages[0].id]: true,
+                              }))
+                            }
+                            className="h-full w-full object-cover"
+                          />
+                          {record.receiptImages.length > 1 && (
+                            <span className="absolute bottom-0 right-0 px-1 rounded-tl-xs bg-black/70 text-white text-[9px] font-bold leading-tight">
+                              +{record.receiptImages.length - 1}
+                            </span>
+                          )}
+                        </button>
+                      )}
+                      <div className="min-w-0">
+                        <button
+                          onClick={() => navigate(`/split-bills/${record.id}`)}
+                          className="text-sm font-semibold text-primary hover:underline underline-offset-2 transition-colors truncate text-left"
+                        >
+                          {record.activityName || "Aktivitas Tanpa Nama"}
+                        </button>
+                        <p className="text-xs text-muted-foreground font-mono">
+                          #{record.id.slice(-6)}
+                        </p>
+                      </div>
                     </div>
                   </Td>
                   <Td className="text-muted-foreground">
@@ -286,79 +322,25 @@ export default function SplitBills() {
                     </div>
                   </Td>
                   <Td>
-                    {(record.receiptImages || []).length === 0 ? (
-                      <span className="text-xs text-muted-foreground">-</span>
-                    ) : brokenImages[record.receiptImages[0].id] ? (
-                      <div className="h-7 w-7 rounded-xs border border-dashed border-border flex items-center justify-center bg-muted/40 text-muted-foreground">
-                        <ImageOff className="h-3 w-3" />
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() =>
-                          setLightbox({ images: record.receiptImages, index: 0 })
-                        }
-                        className="group relative h-7 w-7 rounded-xs border border-border overflow-hidden bg-muted"
-                        title="Lihat foto struk"
-                      >
-                        <img
-                          src={record.receiptImages[0].url}
-                          alt="Struk"
-                          loading="lazy"
-                          onError={() =>
-                            setBrokenImages((prev) => ({
-                              ...prev,
-                              [record.receiptImages[0].id]: true,
-                            }))
-                          }
-                          className="h-full w-full object-cover"
-                        />
-                        {record.receiptImages.length > 1 && (
-                          <span className="absolute bottom-0 right-0 px-1 rounded-tl bg-black/70 text-white text-[9px] font-bold leading-tight">
-                            +{record.receiptImages.length - 1}
-                          </span>
-                        )}
-                      </button>
-                    )}
-                  </Td>
-                  <Td>
                     <span className="text-sm font-bold text-foreground">
                       {formatCurrency(record.summary?.total || 0)}
                     </span>
                   </Td>
                   <Td>
-                    {record.status === "editable" ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-600 border border-amber-200">
-                        DRAFT
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200">
-                        FINALIZED
-                      </span>
-                    )}
+                    <Badge
+                      variant={record.status === "editable" ? "warning" : "success"}
+                      className="text-xs font-semibold"
+                    >
+                      {record.status === "editable" ? "DRAFT" : "FINALIZED"}
+                    </Badge>
                   </Td>
                   <Td>
-                    <span className="text-xs font-mono bg-muted px-2 py-0.5 rounded text-muted-foreground">
+                    <Badge variant="neutral" className="font-mono font-normal">
                       {formatLastStep(record.last_step, record.status)}
-                    </span>
+                    </Badge>
                   </Td>
                 </Tr>
               ))}
-
-              {/* Aggregate total row */}
-              <Tr className="hover:bg-muted/20 bg-muted/10 border-t-2 border-border">
-                <Td colSpan={user.isAdmin ? 5 : 4} className="py-3">
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Total keseluruhan ({totalItems} split bill
-                    {hasActiveFilters || debouncedSearch ? ", filter aktif" : ""})
-                  </span>
-                </Td>
-                <Td className="py-3">
-                  <span className="text-sm font-bold text-primary">
-                    {formatCurrency(totalAmount)}
-                  </span>
-                </Td>
-                <Td colSpan={2} />
-              </Tr>
             </Tbody>
           )}
         </Table>
@@ -439,12 +421,12 @@ export default function SplitBills() {
                   [lightbox.images[lightbox.index].id]: true,
                 }))
               }
-              className="max-h-[85vh] max-w-full object-contain rounded-lg animate-in fade-in zoom-in-95 duration-200"
+              className="max-h-[85vh] max-w-full object-contain rounded-sm animate-in fade-in zoom-in-95 duration-200"
             />
           )}
 
           {lightbox.images.length > 1 && (
-            <span className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-white/10 text-white text-xs font-semibold">
+            <span className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1 rounded-xs bg-white/10 text-white text-xs font-semibold">
               {lightbox.index + 1} / {lightbox.images.length}
             </span>
           )}

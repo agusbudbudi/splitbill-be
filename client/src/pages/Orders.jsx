@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { usePageMeta } from "../lib/usePageMeta";
-import { ShoppingBag, Calendar, User, ChevronRight, Clock, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { ShoppingBag, Calendar, User, Clock, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   Card, CardHeader,
   SearchInput, Select,
   Table, Thead, Tbody, Tr, Th, Td, TableSkeleton,
-  Avatar, Button, EmptyState, Pagination, Badge,
-  StatCard
+  EmptyState, Pagination, Badge,
+  StatCard, DateInput, ResetFiltersButton
 } from "../components/ui";
 import { formatDate } from "../lib/utils";
 import { apiFetch } from "../lib/api";
@@ -67,6 +67,14 @@ export default function Orders() {
     setCurrentPage(1);
   }, [statusFilter, startDate, endDate]);
 
+  const hasActiveFilters = statusFilter || startDate || endDate || searchQuery;
+  const clearFilters = () => {
+    setStatusFilter("");
+    setStartDate("");
+    setEndDate("");
+    setSearchQuery("");
+  };
+
   const fetchOrders = useCallback(async (page, search, status, start, end) => {
     setLoading(true);
     setError("");
@@ -102,31 +110,35 @@ export default function Orders() {
   const colSpan = user.isAdmin ? 6 : 5;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Page header */}
-      <div>
-        <h1 className="text-xl font-bold text-foreground">Daftar Orders</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Kelola pesanan paket langganan dan status pembayarannya.
-        </p>
-      </div>
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold text-foreground">Daftar Orders</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Kelola pesanan paket langganan dan status pembayarannya.
+          </p>
+        </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <StatCard
-          title="Total Pendapatan (Terfilter)"
-          value={formatCurrency(totalRevenue)}
-          icon={ShoppingBag}
-          iconColor="text-emerald-600"
-          iconBg="bg-emerald-500/10"
-        />
-        <StatCard
-          title="Total Transaksi"
-          value={totalItems}
-          icon={Calendar}
-          iconColor="text-blue-600"
-          iconBg="bg-blue-500/10"
-        />
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full lg:w-auto">
+          <StatCard
+            compact
+            title="Total Pendapatan (Terfilter)"
+            value={formatCurrency(totalRevenue)}
+            icon={ShoppingBag}
+            iconColor="text-emerald-600"
+            iconBg="bg-emerald-500/10"
+          />
+          <StatCard
+            compact
+            title="Total Transaksi"
+            value={totalItems}
+            icon={Calendar}
+            iconColor="text-blue-600"
+            iconBg="bg-blue-500/10"
+          />
+        </div>
       </div>
 
       {/* Table card */}
@@ -136,7 +148,7 @@ export default function Orders() {
             value={searchQuery}
             onChange={setSearchQuery}
             placeholder="Cari Order ID, Nama, atau Email..."
-            className="max-w-xs w-full"
+            className="max-w-[240px] w-full"
           />
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
@@ -154,35 +166,24 @@ export default function Orders() {
 
             {/* Date Range Inputs */}
             <div className="flex items-center gap-1.5 w-full sm:w-auto">
-              <input
-                type="date"
+              <DateInput
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="text-sm py-2 px-3 border border-border rounded-sm bg-input text-foreground focus:outline-none focus:border-primary transition-all w-full sm:w-auto"
+                className="w-full sm:w-auto"
                 title="Tanggal Mulai"
               />
               <span className="text-muted-foreground text-xs font-bold shrink-0">s/d</span>
-              <input
-                type="date"
+              <DateInput
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="text-sm py-2 px-3 border border-border rounded-sm bg-input text-foreground focus:outline-none focus:border-primary transition-all w-full sm:w-auto"
+                className="w-full sm:w-auto"
                 title="Tanggal Akhir"
               />
-              {(startDate || endDate) && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setStartDate("");
-                    setEndDate("");
-                  }}
-                  className="px-2 py-1 text-xs text-destructive hover:bg-destructive/10 shrink-0"
-                >
-                  Reset
-                </Button>
-              )}
             </div>
+
+            {hasActiveFilters && (
+              <ResetFiltersButton onClick={clearFilters} />
+            )}
           </div>
         </CardHeader>
 
@@ -195,22 +196,21 @@ export default function Orders() {
               {user.isAdmin && <Th>Pengguna</Th>}
               <Th>Total</Th>
               <Th>Status</Th>
-              <Th className="text-right">Aksi</Th>
             </Tr>
           </Thead>
 
           {loading ? (
-            <TableSkeleton cols={colSpan + 1} rows={8} />
+            <TableSkeleton cols={colSpan} rows={8} />
           ) : error ? (
             <Tbody>
               <Tr className="hover:bg-transparent">
-                <Td colSpan={colSpan + 1} className="text-center py-12 text-destructive">{error}</Td>
+                <Td colSpan={colSpan} className="text-center py-12 text-destructive">{error}</Td>
               </Tr>
             </Tbody>
           ) : orders.length === 0 ? (
             <Tbody>
               <Tr className="hover:bg-transparent">
-                <Td colSpan={colSpan + 1} className="p-0">
+                <Td colSpan={colSpan} className="p-0">
                   <EmptyState
                     icon={ShoppingBag}
                     title="Tidak ada data orders"
@@ -224,19 +224,16 @@ export default function Orders() {
               {orders.map((order) => (
                 <Tr key={order.id} className="group">
                   <Td>
-                    <div className="flex items-center gap-3">
-                      <Avatar name={order.user?.name || order.orderId} src={order.user?.image || order.user?.avatar} size="sm" />
-                      <div className="min-w-0">
-                        <button
-                          onClick={() => navigate(`/orders/${order.orderId}`)}
-                          className="text-sm font-semibold text-foreground hover:text-primary hover:underline underline-offset-2 transition-colors truncate text-left"
-                        >
-                          {order.orderId}
-                        </button>
-                        <p className="text-xs text-muted-foreground uppercase">
-                          {order.snapshot?.name || "Subscription"}
-                        </p>
-                      </div>
+                    <div className="min-w-0">
+                      <button
+                        onClick={() => navigate(`/orders/${order.orderId}`)}
+                        className="text-sm font-semibold text-primary hover:underline underline-offset-2 transition-colors truncate text-left"
+                      >
+                        {order.orderId}
+                      </button>
+                      <p className="text-xs text-muted-foreground uppercase">
+                        {order.snapshot?.name || "Subscription"}
+                      </p>
                     </div>
                   </Td>
                   <Td className="text-muted-foreground">
@@ -268,16 +265,6 @@ export default function Orders() {
                   </Td>
                   <Td>
                     {getStatusBadge(order.status)}
-                  </Td>
-                  <Td className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => navigate(`/orders/${order.orderId}`)}
-                    >
-                      Detail
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    </Button>
                   </Td>
                 </Tr>
               ))}

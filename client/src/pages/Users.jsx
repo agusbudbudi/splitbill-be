@@ -35,6 +35,8 @@ import {
   ModalBody,
   ModalFooter,
   Tooltip,
+  DateInput,
+  ResetFiltersButton,
   useToast,
 } from "../components/ui";
 import { formatDateTime } from "../lib/utils";
@@ -275,7 +277,7 @@ export default function Users() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Page header */}
       <div>
         <h1 className="text-xl font-bold text-foreground">Daftar Akun Pengguna</h1>
@@ -287,90 +289,68 @@ export default function Users() {
       {/* Table card */}
       <Card className="overflow-hidden">
         {/* ── Toolbar ── */}
-        <CardHeader className="flex flex-col gap-3 py-4">
-          {/* Row 1: search + filters */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <SearchInput
-              value={searchQuery}
-              onChange={setSearchQuery}
-              placeholder="Cari nama atau email..."
-              className="max-w-xs w-full"
-            />
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Verifikasi */}
-              <Select
-                value={isVerified}
-                onChange={(e) => { setIsVerified(e.target.value); setCurrentPage(1); }}
-              >
-                <option value="">Semua Verifikasi</option>
-                <option value="true">Verified</option>
-                <option value="false">Unverified</option>
-              </Select>
+        <CardHeader className="py-4 flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+          <SearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Cari nama atau email..."
+            className="max-w-xs w-full"
+          />
 
-              {/* Langganan */}
-              <Select
-                value={subscriptionStatus}
-                onChange={(e) => { setSubscriptionStatus(e.target.value); setCurrentPage(1); }}
-              >
-                <option value="">Semua Langganan</option>
-                <option value="active">Active</option>
-                <option value="none">Belum Langganan</option>
-                <option value="expired">Expired</option>
-              </Select>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto flex-wrap">
+            {/* Verifikasi */}
+            <Select
+              value={isVerified}
+              onChange={(e) => { setIsVerified(e.target.value); setCurrentPage(1); }}
+            >
+              <option value="">Semua Verifikasi</option>
+              <option value="true">Verified</option>
+              <option value="false">Unverified</option>
+            </Select>
 
-              {/* Provider */}
-              <Select
-                value={provider}
-                onChange={(e) => { setProvider(e.target.value); setCurrentPage(1); }}
-              >
-                <option value="">Semua Provider</option>
-                <option value="google">Google</option>
-                <option value="credentials">Email/Password</option>
-              </Select>
+            {/* Langganan */}
+            <Select
+              value={subscriptionStatus}
+              onChange={(e) => { setSubscriptionStatus(e.target.value); setCurrentPage(1); }}
+            >
+              <option value="">Semua Langganan</option>
+              <option value="active">Active</option>
+              <option value="none">Belum Langganan</option>
+              <option value="expired">Expired</option>
+            </Select>
 
-              {/* Reset filter badge */}
-              {activeFilterCount > 0 && (
-                <button
-                  onClick={resetFilters}
-                  className="inline-flex items-center gap-1 px-2.5 py-2 rounded-sm text-xs font-semibold bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
-                >
-                  <X className="h-3.5 w-3.5" />
-                  Reset ({activeFilterCount})
-                </button>
-              )}
-            </div>
-          </div>
+            {/* Provider */}
+            <Select
+              value={provider}
+              onChange={(e) => { setProvider(e.target.value); setCurrentPage(1); }}
+            >
+              <option value="">Semua Provider</option>
+              <option value="google">Google</option>
+              <option value="credentials">Email/Password</option>
+            </Select>
 
-          {/* Row 2: date range filter */}
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span className="font-medium">Tanggal Daftar:</span>
-            <div className="flex items-center gap-1.5">
-              <label className="text-xs text-muted-foreground">Dari</label>
-              <input
-                type="date"
-                className="text-sm py-2 px-3 border border-border rounded-sm bg-input text-foreground focus:outline-none focus:border-primary transition-all"
+            {/* Date range filter */}
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <DateInput
                 value={dateFrom}
                 max={dateTo || undefined}
                 onChange={(e) => { setDateFrom(e.target.value); setCurrentPage(1); }}
+                className="w-full sm:w-36"
+                title="Tanggal daftar dari"
               />
-            </div>
-            <div className="flex items-center gap-1.5">
-              <label className="text-xs text-muted-foreground">s/d</label>
-              <input
-                type="date"
-                className="text-sm py-2 px-3 border border-border rounded-sm bg-input text-foreground focus:outline-none focus:border-primary transition-all"
+              <span className="text-xs text-muted-foreground shrink-0">—</span>
+              <DateInput
                 value={dateTo}
                 min={dateFrom || undefined}
                 onChange={(e) => { setDateTo(e.target.value); setCurrentPage(1); }}
+                className="w-full sm:w-36"
+                title="Tanggal daftar s/d"
               />
             </div>
-            {(dateFrom || dateTo) && (
-              <button
-                onClick={() => { setDateFrom(""); setDateTo(""); setCurrentPage(1); }}
-                className="text-xs text-muted-foreground hover:text-destructive transition-colors underline"
-              >
-                Hapus
-              </button>
+
+            {/* Reset filter badge */}
+            {activeFilterCount > 0 && (
+              <ResetFiltersButton onClick={resetFilters} count={activeFilterCount} />
             )}
           </div>
         </CardHeader>
@@ -384,7 +364,7 @@ export default function Users() {
             <button
               onClick={handleBulkCampaignRedirect}
               disabled={creatingCampaign}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold bg-primary text-white hover:bg-primary/90 transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xs text-xs font-semibold bg-primary text-white hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
               {creatingCampaign ? (
                 <>
@@ -400,7 +380,7 @@ export default function Users() {
             </button>
             <button
               onClick={clearSelection}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold text-muted-foreground hover:bg-muted transition-colors ml-auto"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xs text-xs font-semibold text-muted-foreground hover:bg-muted transition-colors ml-auto"
             >
               <X className="h-3.5 w-3.5" />
               Batalkan
@@ -416,7 +396,7 @@ export default function Users() {
               <Th className="w-10 text-center">
                 <input
                   type="checkbox"
-                  className="rounded border-border accent-primary cursor-pointer"
+                  className="rounded-xs border-border accent-primary cursor-pointer"
                   checked={isAllSelected}
                   ref={(el) => { if (el) el.indeterminate = isIndeterminate; }}
                   onChange={toggleAll}
@@ -483,7 +463,7 @@ export default function Users() {
                     <Td className="text-center w-10">
                       <input
                         type="checkbox"
-                        className="rounded border-border accent-primary cursor-pointer"
+                        className="rounded-xs border-border accent-primary cursor-pointer"
                         checked={isSelected}
                         onChange={() => toggleOne(user._id)}
                       />
@@ -556,7 +536,7 @@ export default function Users() {
                     <Td>
                       <button
                         onClick={() => navigate(`/users/${user._id}`)}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 transition-colors"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xs text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 transition-colors"
                       >
                         <Eye className="h-3.5 w-3.5" />
                         View

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { usePageMeta } from "../lib/usePageMeta";
 import {
-  Star, MessageSquare, Phone, Globe, X, TrendingUp, UserCheck,
+  Star, MessageSquare, Phone, Globe, TrendingUp, UserCheck,
   AlertTriangle, ClipboardList, Tag, Pencil,
 } from "lucide-react";
 import {
@@ -12,7 +12,7 @@ import {
   Card, CardHeader, CardBody,
   StatCard, SearchInput, Select, Badge, Button,
   Table, Thead, Tbody, Tr, Th, Td, TableSkeleton,
-  EmptyState, Pagination, Modal, ModalBody, ModalFooter, useToast,
+  EmptyState, Pagination, Modal, ModalBody, ModalFooter, useToast, ResetFiltersButton,
 } from "../components/ui";
 import { formatDateTime } from "../lib/utils";
 import { apiFetch } from "../lib/api";
@@ -40,7 +40,7 @@ function periodLabel(period) {
 function ChartTooltip({ active, payload, label, valueFormatter }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white border border-border rounded-lg shadow-lg px-3 py-2 text-xs">
+    <div className="bg-white border border-border rounded-sm shadow-lg px-3 py-2 text-xs">
       <p className="font-semibold text-foreground mb-1">{periodLabel(label) || label}</p>
       {payload.map((p) => (
         <p key={p.dataKey} style={{ color: p.color }}>
@@ -82,9 +82,9 @@ function PercentBar({ label, value, sublabel, color }) {
         <span className="font-medium text-foreground">{label}</span>
         <span className="text-muted-foreground">{sublabel}</span>
       </div>
-      <div className="h-7 bg-muted rounded-lg overflow-hidden">
+      <div className="h-7 bg-muted rounded-sm overflow-hidden">
         <div
-          className="h-full rounded-lg flex items-center px-3 transition-all duration-700"
+          className="h-full rounded-sm flex items-center px-3 transition-all duration-700"
           style={{ width: `${width}%`, background: color }}
         >
           <span className="text-white text-[10px] font-bold whitespace-nowrap">{value}%</span>
@@ -104,17 +104,16 @@ function KeywordCloud({ items, tone }) {
       {items.map((kw) => {
         const scale = 0.7 + (kw.count / max) * 0.55;
         return (
-          <span
+          <Badge
             key={kw.word}
             title={`${kw.count} ulasan menyebut kata ini`}
-            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-semibold ${
-              tone === "negative" ? "bg-destructive/10 text-destructive" : "bg-success/10 text-success"
-            }`}
+            variant={tone === "negative" ? "danger" : "success"}
+            className="items-center gap-1"
             style={{ fontSize: `${scale * 0.8}rem` }}
           >
             {kw.word}
             <span className="opacity-60 text-[10px]">{kw.count}</span>
-          </span>
+          </Badge>
         );
       })}
     </div>
@@ -402,7 +401,7 @@ export default function Reviews() {
   }, [insights]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Page header */}
       <div>
         <h1 className="text-xl font-bold text-foreground">Ulasan &amp; Feedback</h1>
@@ -711,7 +710,7 @@ export default function Reviews() {
           {/* Action queue banner */}
           <button
             onClick={() => setQueueOnly((v) => !v)}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg border text-left transition-colors ${
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-sm border text-left transition-colors ${
               queueOnly
                 ? "border-destructive bg-destructive/10"
                 : "border-border bg-destructive/5 hover:bg-destructive/10"
@@ -724,34 +723,27 @@ export default function Reviews() {
             <span className="text-xs text-muted-foreground">
               Rating ≤3 bintang · belum ditindak
             </span>
-            <span className="ml-auto text-xs font-bold px-2 py-0.5 rounded-full bg-destructive text-white">
+            <Badge variant="danger" className="ml-auto border-transparent bg-destructive text-white">
               {queueCount}
-            </span>
+            </Badge>
           </button>
 
           {/* Table card */}
           <Card className="overflow-hidden">
-            <CardHeader className="py-3">
-              <div className="flex items-center gap-3 overflow-x-auto scrollbar-none min-w-0">
-                {/* Search */}
-                <SearchInput
-                  value={searchQuery}
-                  onChange={setSearchQuery}
-                  placeholder="Cari nama atau isi review..."
-                  className="w-52 shrink-0"
-                />
+            <CardHeader className="py-4 flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+              <SearchInput
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder="Cari nama atau isi review..."
+                className="max-w-xs w-full"
+              />
 
-                {/* Divider */}
-                <div className="h-5 w-px bg-border shrink-0" />
-
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
                 {/* Rating filter — interactive stars */}
                 <div className={`flex items-center gap-2 shrink-0 ${queueOnly ? "opacity-50 pointer-events-none" : ""}`}>
                   <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Rating:</span>
                   <StarFilter value={ratingFilter} onChange={setRatingFilter} />
                 </div>
-
-                {/* Divider */}
-                <div className="h-5 w-px bg-border shrink-0" />
 
                 {/* Landing Page filter */}
                 <div className={`flex items-center gap-2 shrink-0 ${queueOnly ? "opacity-50 pointer-events-none" : ""}`}>
@@ -781,13 +773,7 @@ export default function Reviews() {
 
                 {/* Reset filter */}
                 {(hasActiveFilters || queueOnly) && (
-                  <button
-                    onClick={clearFilters}
-                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors shrink-0 ml-auto"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                    Reset
-                  </button>
+                  <ResetFiltersButton onClick={clearFilters} />
                 )}
               </div>
             </CardHeader>
@@ -868,7 +854,7 @@ export default function Reviews() {
                       <Td className="text-center">
                         <button
                           onClick={() => handleToggleLanding(review._id, review.showOnLanding)}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xs text-xs font-semibold transition-all ${
                             review.showOnLanding
                               ? "bg-primary text-white hover:bg-primary/90"
                               : "bg-muted text-muted-foreground hover:bg-muted/80"
@@ -902,7 +888,7 @@ export default function Reviews() {
       <Modal isOpen={noteModal.open} onClose={closeNoteModal} title="Tindak Lanjut Review" size="md">
         <ModalBody className="space-y-4">
           {noteModal.review && (
-            <div className="bg-muted/50 rounded-lg p-3 text-sm">
+            <div className="bg-muted/50 rounded-sm p-3 text-sm">
               <div className="flex items-center gap-2 mb-1">
                 <span className="font-semibold text-foreground">{noteModal.review.name}</span>
                 <StarRating rating={noteModal.review.rating} />
@@ -930,7 +916,7 @@ export default function Reviews() {
               rows={3}
               maxLength={500}
               placeholder="Contoh: sudah dihubungi via WhatsApp, menunggu balasan..."
-              className="block w-full py-2 px-3 text-sm rounded-md border border-border bg-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-all resize-none"
+              className="block w-full py-2 px-3 text-sm rounded-xs border border-border bg-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-all resize-none"
             />
           </div>
         </ModalBody>

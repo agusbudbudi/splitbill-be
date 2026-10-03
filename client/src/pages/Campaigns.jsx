@@ -228,7 +228,7 @@ export default function Campaigns() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-foreground">Email Campaigns</h1>
@@ -329,7 +329,7 @@ export default function Campaigns() {
                   </Td>
                   <Td>
                     <Badge
-                      variant="outline"
+                      variant="neutral"
                       className="capitalize text-[10px] font-medium flex items-center gap-1.5 w-fit"
                     >
                       <div

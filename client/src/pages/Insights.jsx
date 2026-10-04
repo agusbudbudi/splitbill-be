@@ -521,6 +521,7 @@ export default function Insights() {
   const {
     kpis: scanKpis = {},
     providerStats: scanProviderStats = [],
+    providerAttempts = { attemptedRequests: 0, providers: [] },
     trend: scanTrend = [],
     modelTrend = [],
     errorBreakdown: scanErrorBreakdown = [],
@@ -1959,53 +1960,75 @@ export default function Insights() {
             {/* Provider Health */}
             <Card>
               <CardHeader>
-                <SectionTitle>Kesehatan Provider</SectionTitle>
+                <SectionTitle>Provider AI Paling Sering Digunakan</SectionTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   OpenRouter & Groq (race, utama) → Gemini (fallback)
                 </p>
               </CardHeader>
               <CardBody className="space-y-4">
-                {scanProviderStats.every((p) => p.total === 0) ? (
-                  <p className="text-xs text-muted-foreground italic text-center py-8">
-                    Belum ada data
-                  </p>
-                ) : (() => {
-                  const grand = scanProviderStats.reduce((a, b) => a + b.total, 0);
-                  const used = scanProviderStats.filter((p) => p.total > 0);
-                  const best = used.reduce((a, b) =>
-                    pctOf(b.success, b.total) > pctOf(a.success, a.total) ? b : a
-                  );
-                  const worst = used.reduce((a, b) =>
-                    pctOf(b.success, b.total) < pctOf(a.success, a.total) ? b : a
-                  );
+                {(() => {
+                  const hasAttempts = providerAttempts.attemptedRequests > 0;
+                  // Per-attempt outcomes when available, otherwise the legacy
+                  // per-request outcome (provider that ended the request).
+                  const source = hasAttempts
+                    ? providerAttempts.providers
+                    : scanProviderStats.map((p) => ({
+                        provider: p.provider,
+                        success: p.success,
+                        failed: p.failed,
+                        attempts: p.total,
+                      }));
+                  const rows = [...source].sort((a, b) => b.success - a.success);
+                  const totalServed = rows.reduce((a, b) => a + b.success, 0);
+                  if (totalServed === 0 && rows.every((r) => r.attempts === 0)) {
+                    return (
+                      <p className="text-xs text-muted-foreground italic text-center py-8">
+                        Belum ada data
+                      </p>
+                    );
+                  }
+                  const top = rows[0];
+                  const max = top.success || 1;
                   return (
                     <>
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="text-xs text-muted-foreground">Paling andal</p>
+                          <p className="text-xs text-muted-foreground">Paling sering digunakan</p>
                           <p className="text-lg font-black text-foreground mt-0.5 truncate">
-                            {SCAN_PROVIDER_LABELS[best.provider]}
-                            <span className="ml-1.5 text-xs font-medium text-success">
-                              {formatPct(pctOf(best.success, best.total))}
+                            {SCAN_PROVIDER_LABELS[top.provider]}
+                            <span className="ml-1.5 text-xs font-medium text-muted-foreground">
+                              {formatPct(pctOf(top.success, totalServed))} dari scan berhasil
                             </span>
                           </p>
                         </div>
                         <div className="text-right flex-shrink-0">
-                          <p className="text-xs text-muted-foreground">Total panggilan</p>
+                          <p className="text-xs text-muted-foreground flex items-center justify-end gap-1">
+                            Scan berhasil
+                            <UiTooltip
+                              content={
+                                hasAttempts
+                                  ? "Berhasil/gagal dihitung per percobaan provider (30 hari terakhir). Provider yang kalah race tidak dihitung gagal."
+                                  : "Berhasil/gagal di sini adalah hasil akhir permintaan; kegagalan provider yang kalah race belum tercatat. Data per percobaan muncul setelah scan baru tercatat."
+                              }
+                            />
+                          </p>
                           <p className="text-sm font-bold text-foreground">
-                            {grand.toLocaleString("id-ID")}
+                            {totalServed.toLocaleString("id-ID")}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {hasAttempts ? "30 hari terakhir" : "sepanjang waktu"}
                           </p>
                         </div>
                       </div>
 
-                      <div className="space-y-3">
-                        {scanProviderStats.map((p) => {
-                          const rate = pctOf(p.success, p.total);
-                          const isWorst = used.length > 1 && p.provider === worst.provider && p.total > 0;
+                      <ul className="space-y-3">
+                        {rows.map((p, i) => {
+                          const rate = pctOf(p.success, p.attempts);
                           return (
-                            <div key={p.provider} className="space-y-1">
+                            <li key={p.provider} className="space-y-1">
                               <div className="flex items-center justify-between gap-2 text-xs">
                                 <span className="flex items-center gap-2 min-w-0">
+                                  <span className="w-4 text-muted-foreground font-semibold">{i + 1}</span>
                                   <span
                                     className="h-2 w-2 rounded-full flex-shrink-0"
                                     style={{ background: SCAN_PROVIDER_COLORS[p.provider] }}
@@ -2013,39 +2036,39 @@ export default function Insights() {
                                   <span className="font-semibold text-foreground truncate">
                                     {SCAN_PROVIDER_LABELS[p.provider]}
                                   </span>
-                                  {isWorst && (
-                                    <Badge variant="warning" className="text-[10px] px-1.5 py-0">
-                                      Terendah
-                                    </Badge>
-                                  )}
                                 </span>
-                                <span className="font-bold text-foreground flex-shrink-0">
-                                  {formatPct(rate)}
+                                <span className="text-muted-foreground flex-shrink-0">
+                                  <span className="font-bold text-foreground">
+                                    {p.success.toLocaleString("id-ID")}
+                                  </span>{" "}
+                                  scan ({formatPct(pctOf(p.success, totalServed))})
                                 </span>
                               </div>
-                              <div className="h-2 bg-muted rounded-xs overflow-hidden flex">
+                              <div className="h-2 bg-muted rounded-xs overflow-hidden">
                                 <div
-                                  className="h-full transition-all duration-700"
+                                  className="h-full rounded-xs transition-all duration-700"
                                   style={{
-                                    width: `${p.total > 0 ? (p.success / p.total) * 100 : 0}%`,
+                                    width: `${p.success > 0 ? Math.max(2, (p.success / max) * 100) : 0}%`,
                                     background: SCAN_PROVIDER_COLORS[p.provider],
-                                  }}
-                                />
-                                <div
-                                  className="h-full bg-destructive/40 transition-all duration-700"
-                                  style={{
-                                    width: `${p.total > 0 ? (p.failed / p.total) * 100 : 0}%`,
+                                    opacity: i === 0 ? 1 : 0.6,
                                   }}
                                 />
                               </div>
                               <p className="text-[11px] text-muted-foreground">
-                                {p.success.toLocaleString("id-ID")} berhasil · {p.failed.toLocaleString("id-ID")} gagal ·{" "}
-                                {formatPct(pctOf(p.total, grand))} dari total panggilan
+                                <span className="font-semibold text-success">
+                                  {p.success.toLocaleString("id-ID")} berhasil
+                                </span>{" "}
+                                ·{" "}
+                                <span className="font-semibold text-destructive">
+                                  {p.failed.toLocaleString("id-ID")} gagal
+                                </span>
+                                {p.attempts > 0 && <> · success rate {formatPct(rate)}</>}
                               </p>
-                            </div>
+                            </li>
                           );
                         })}
-                      </div>
+                      </ul>
+
                     </>
                   );
                 })()}

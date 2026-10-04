@@ -239,6 +239,18 @@ export async function handleGeminiScan(event) {
     // to the HttpError thrown to the client (HttpError.details bypasses the
     // production message-sanitization in toHttpError()).
     let internalFailureDetail = null;
+    // Per-provider outcome of THIS request, persisted on the ScanLog so the
+    // admin "provider health" can measure real attempt reliability. ScanLog.provider
+    // alone can't: it only names the provider that ended the request (the race
+    // winner, or "gemini" when everything failed), so a provider that keeps
+    // failing/losing the race never shows up as failed.
+    // success | failed | skipped (no key / cooling down) | cancelled (aborted
+    // after the other provider won) | not_attempted (never reached).
+    const attempts = {
+      openrouter: "skipped",
+      groq: "skipped",
+      gemini: "not_attempted",
+    };
 
     try {
       // ── Step 1+2: Race OpenRouter and Groq in parallel (both free-tier) ──
@@ -255,6 +267,7 @@ export async function handleGeminiScan(event) {
         const openRouterTimeoutId = setTimeout(() => openRouterController.abort(), OPENROUTER_TIMEOUT_MS);
         outerController.signal.addEventListener("abort", () => openRouterController.abort(), { once: true });
 
+        attempts.openrouter = "pending";
         raceCandidates.push({
           provider: "openrouter",
           controller: openRouterController,
@@ -274,6 +287,7 @@ export async function handleGeminiScan(event) {
         const groqTimeoutId = setTimeout(() => groqController.abort(), GROQ_TIMEOUT_MS);
         outerController.signal.addEventListener("abort", () => groqController.abort(), { once: true });
 
+        attempts.groq = "pending";
         raceCandidates.push({
           provider: "groq",
           controller: groqController,
@@ -288,10 +302,16 @@ export async function handleGeminiScan(event) {
             raceCandidates.map(async (c) => {
               try {
                 const result = await c.promise;
+                if (!c.cancelled) attempts[c.provider] = "success";
                 return { provider: c.provider, result };
               } catch (err) {
-                if (c.provider === "openrouter") openRouterFailureReason = err.message;
-                else groqFailureReason = err.message;
+                // A loser we aborted ourselves is not a provider failure
+                // (already marked "cancelled" below).
+                if (!c.cancelled) {
+                  attempts[c.provider] = "failed";
+                  if (c.provider === "openrouter") openRouterFailureReason = err.message;
+                  else groqFailureReason = err.message;
+                }
                 throw err;
               }
             })
@@ -304,13 +324,24 @@ export async function handleGeminiScan(event) {
           // Loser is still in flight — abort it, we don't need its result.
           raceCandidates
             .filter((c) => c.provider !== winner.provider)
-            .forEach((c) => c.controller.abort());
+            .forEach((c) => {
+              // Only still-pending losers are "cancelled"; one that already
+              // failed on its own keeps its "failed" outcome.
+              if (attempts[c.provider] === "pending") {
+                c.cancelled = true;
+                attempts[c.provider] = "cancelled";
+              }
+              c.controller.abort();
+            });
         } catch {
           // AggregateError — both providers failed. Reasons already captured
           // above; fall through to the Gemini fallback below.
           console.warn("[Race] OpenRouter and Groq both failed — falling back to Gemini");
         } finally {
           raceCandidates.forEach((c) => clearTimeout(c.timeoutId));
+          for (const c of raceCandidates) {
+            if (attempts[c.provider] === "pending") attempts[c.provider] = "failed";
+          }
         }
       }
 
@@ -319,6 +350,8 @@ export async function handleGeminiScan(event) {
         // Set eagerly (not just on success) so a failed log entry correctly
         // attributes the failure to Gemini instead of defaulting to "groq".
         providerUsed = "gemini";
+        // Pessimistic until the response is parsed successfully below.
+        attempts.gemini = "failed";
         console.info("[Fallback] Attempting Gemini 2.5 Flash-Lite...");
 
         const geminiController = new AbortController();
@@ -387,6 +420,7 @@ export async function handleGeminiScan(event) {
           }
         }
         providerUsed = "gemini";
+        attempts.gemini = "success";
       }
 
       clearTimeout(outerTimeoutId);
@@ -422,6 +456,7 @@ export async function handleGeminiScan(event) {
           user: user ? user._id : null,
           ipAddress: getClientIp(event),
           provider: providerUsed,
+          attempts,
           status: "success"
         }).catch((dbLogErr) => {
           console.error("Failed to save success scan log to database:", dbLogErr);
@@ -452,6 +487,7 @@ export async function handleGeminiScan(event) {
           user: user ? user._id : null,
           ipAddress: getClientIp(event),
           provider: providerUsed,
+          attempts,
           status: "failed",
           errorMessage: [
             finalError.message,

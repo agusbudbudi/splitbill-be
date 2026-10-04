@@ -231,6 +231,7 @@ export async function handleInsights(event) {
       scanLogs30dRaw,
       newScannerTrendRaw,
       scanModelTrendRaw,
+      scanAttemptStatsRaw,
     ] = await Promise.all([
       // 1. total users
       User.countDocuments({}),
@@ -710,6 +711,33 @@ export async function handleInsights(event) {
           },
         },
       ]),
+
+      // 28.12 AI Scan: per-provider ATTEMPT outcomes (last 30 days). Unlike 28.2
+      // (ScanLog.provider = whoever ended the request), this counts every provider
+      // that actually ran in a request, so a flaky provider that keeps failing or
+      // losing the race is visible. Only rows logged after `attempts` was added.
+      ScanLog.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: thirtyDaysAgo },
+            "attempts.openrouter": { $exists: true },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            requests: { $sum: 1 },
+            ...Object.fromEntries(
+              ["openrouter", "groq", "gemini"].flatMap((prov) =>
+                ["success", "failed"].map((st) => [
+                  `${prov}_${st}`,
+                  { $sum: { $cond: [{ $eq: [`$attempts.${prov}`, st] }, 1, 0] } },
+                ])
+              )
+            ),
+          },
+        },
+      ]),
     ]);
 
     // Normalize trend data — fill missing periods with 0
@@ -808,6 +836,18 @@ export async function handleInsights(event) {
         (scanProviderMap[provider]?.success ?? 0) +
         (scanProviderMap[provider]?.failed ?? 0),
     }));
+
+    // Per-provider attempt health (30d). attemptedRequests === 0 means no row has
+    // been logged with per-attempt data yet — the UI falls back to the legacy view.
+    const attemptRow = scanAttemptStatsRaw[0] ?? {};
+    const scanProviderAttempts = {
+      attemptedRequests: attemptRow.requests ?? 0,
+      providers: ["openrouter", "groq", "gemini"].map((provider) => {
+        const success = attemptRow[`${provider}_success`] ?? 0;
+        const failed = attemptRow[`${provider}_failed`] ?? 0;
+        return { provider, success, failed, attempts: success + failed };
+      }),
+    };
 
     // Normalize AI scan trend (success/failed per period, per scanGranularity)
     const scanTrendMap = {};
@@ -1074,6 +1114,7 @@ export async function handleInsights(event) {
               retryEligibleCount: retryStats.totalFailed,
             },
             providerStats: scanProviderStats,
+            providerAttempts: scanProviderAttempts,
             trend: scanTrend,
             modelTrend,
             errorBreakdown: scanErrorBreakdown,

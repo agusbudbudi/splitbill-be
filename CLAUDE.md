@@ -92,6 +92,8 @@ Account lockout: 5 failed login attempts → 15-minute lock (`User.incLoginAttem
 | `FRONTEND_URL` | Frontend origin (default: `https://splitbill.my.id`) |
 | `ALLOWED_ORIGINS` | Comma-separated CORS allowed origins |
 | `NODE_ENV` | `production` enables HSTS, generic 5xx errors, JSON log format |
+| `WEB_REVALIDATE_URL` | splitbill-web revalidate endpoint (e.g. `https://www.splitbill.my.id/api/revalidate`), called after a landing page save |
+| `REVALIDATE_SECRET` | Shared secret sent as `x-revalidate-secret`; must match the same var on splitbill-web |
 
 ## API Route Map
 
@@ -123,6 +125,13 @@ Account lockout: 5 failed login attempts → 15-minute lock (`User.incLoginAttem
 | GET/PUT/DELETE | `/api/ad-campaigns/:id` | admin | `api/ad-campaign-by-id.js` |
 | GET/POST | `/api/entry-points` | mixed | `api/entry-points.js` |
 | GET/PUT/DELETE | `/api/entry-points/:id` | admin | `api/entry-point-by-id.js` |
+| GET | `/api/landing-page` | — | `api/landing-page.js` |
+| PUT | `/api/landing-page` | admin | `api/landing-page.js` |
+| POST | `/api/landing-assets` | admin | `api/landing-assets.js` |
+| GET | `/api/landing-assets/:key` | — | `api/landing-assets.js` |
+| GET | `/api/faqs` | — (admin with `?admin=true`) | `api/faqs.js` |
+| POST | `/api/faqs`, `/api/faqs/import-defaults`, `/api/faqs/reorder` | admin | `api/faqs.js` |
+| PUT/DELETE | `/api/faqs/:id` | admin | `api/faq-by-id.js` |
 
 ## Data Models Summary
 
@@ -133,6 +142,8 @@ Account lockout: 5 failed login attempts → 15-minute lock (`User.incLoginAttem
 - **Review**: rating (1-5), name, review, contactPermission, email?, phone?
 - **Banner**: image (URL), route
 - **EntryPointCard**: slug (unique), imageUrl, imageAlt, title, subtitle?, ctaText?, url?, footerText?, footerIconUrl?, ribbonText?, placement (default "homepage-member"), isActive, order — configurable multipurpose entry-point tiles (ads/review/save-friend/etc), consumed by `EntryPointSection` on splitbill-web homepage
+- **LandingPage**: slug (unique, `"homepage"`), content (Mixed — shape enforced by `normalizeLandingContent()` in `lib/landingPage.js`: seo (meta + social title/description, OG image, Organization `sameAs`), hero, socialProof, howItWorks, features, featureShowcase (pinned scroll-through cards; header only — cards come from `features.items`, whose `image`/`tone` feed the showcase and `imageUrl` icon the bento grid; legacy `featureShowcase.items` are folded in by `withFeatureShowcaseImages()`), useCases, comparison, testimonials/blog/faq headers, promoSlider, promoBanner, seoContent (markdown-lite article; its links are validated), layout, ctaBanner). `layout.sections` orders/hides every section below the hero (`LAYOUT_SECTIONS`); featureShowcase/howItWorks/testimonials can't be hidden (navbar `#fitur`/`#cara-pakai`/`#testimoni` targets; the bento `features` section can), and every `#anchor` href must point at a visible section, updatedAt, updatedBy. Saving goes live immediately: handlers call `revalidateWeb()` (`lib/revalidateWeb.js`) → `WEB_REVALIDATE_URL`; paths/tags must be on the web's allowlist. Icons are Lucide names from `LANDING_ICONS`, colors are `LANDING_TONES` presets (never raw Tailwind classes); both lists are mirrored in `client/src/lib/landingOptions.js` and splitbill-web `src/lib/landing/`. Uploaded images live in the `landing-assets` Netlify Blobs store and are referenced by API-relative URL (`/api/landing-assets/<uuid>.webp`; upload `variant: "og"` → 1200×630 `.jpg` for share previews)
+- **Faq**: key (unique; imported FAQs keep splitbill-web's `faqData` ids, which `featureSeoContent.ts` references), question, answer, category (enum `FAQ_CATEGORIES`), showOnLanding, isActive, order. Seed via `POST /api/faqs/import-defaults` (`lib/faqDefaults.js`, empty collection only). splitbill-web falls back to its static `faqData` when the public list is empty or unreachable
 
 ## Adding a New Endpoint
 

@@ -19,6 +19,8 @@ import {
   Megaphone,
   LayoutGrid,
   Award,
+  LayoutTemplate,
+  HelpCircle,
 } from "lucide-react";
 import { ToastProvider, Avatar } from "../components/ui";
 import { apiFetch } from "../lib/api";
@@ -44,6 +46,8 @@ const navGroups = [
   {
     title: "Operasional & Konten",
     items: [
+      { name: "Landing Page", href: "/landing-page", icon: LayoutTemplate },
+      { name: "FAQ", href: "/faqs", icon: HelpCircle },
       { name: "Campaigns", href: "/campaigns", icon: Mail },
       { name: "Ad Campaigns", href: "/ad-campaigns", icon: Megaphone },
       { name: "Entry Points", href: "/entry-points", icon: LayoutGrid },
@@ -65,6 +69,8 @@ const breadcrumbLabels = {
   "campaigns": "Campaigns",
   "ad-campaigns": "Ad Campaigns",
   "entry-points": "Entry Points",
+  "landing-page": "Landing Page",
+  "faqs": "FAQ",
   "user-levels": "User Level",
   "blogs": "Blog",
   "banners": "Banners",

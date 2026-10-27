@@ -1,0 +1,63 @@
+import mongoose from "mongoose";
+
+import { connectDatabase } from "../lib/db.js";
+import Faq from "../lib/models/Faq.js";
+import {
+  createCorsHeaders,
+  errorResponse,
+  jsonResponse,
+  noContentResponse,
+} from "../lib/http.js";
+import { parseJsonBody } from "../lib/parsers.js";
+import { HttpError, toHttpError } from "../lib/errors.js";
+import { normalizeFaqInput, revalidateFaqPages } from "./faqs.js";
+
+/**
+ * PUT    /api/faqs/:id — admin, partial update
+ * DELETE /api/faqs/:id — admin
+ */
+export async function handleFaqById(event, id) {
+  const headers = createCorsHeaders(event);
+  const method = event?.httpMethod || event?.method || "GET";
+
+  if (method === "OPTIONS") {
+    return noContentResponse(headers);
+  }
+
+  try {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new HttpError(400, "ID FAQ tidak valid");
+    }
+
+    await connectDatabase();
+    const { requireAdmin } = await import("../lib/middleware/auth.js");
+    const adminUser = await requireAdmin(event);
+
+    if (method === "PUT") {
+      const body = await parseJsonBody(event);
+      const fields = normalizeFaqInput(body, { partial: true });
+      const faq = await Faq.findByIdAndUpdate(
+        id,
+        { $set: { ...fields, updatedAt: new Date(), updatedBy: adminUser._id } },
+        { new: true },
+      ).lean();
+      if (!faq) throw new HttpError(404, "FAQ tidak ditemukan");
+      const revalidated = await revalidateFaqPages();
+      return jsonResponse(200, { success: true, data: faq, revalidated, message: "FAQ tersimpan" }, headers);
+    }
+
+    if (method === "DELETE") {
+      const faq = await Faq.findByIdAndDelete(id).lean();
+      if (!faq) throw new HttpError(404, "FAQ tidak ditemukan");
+      const revalidated = await revalidateFaqPages();
+      return jsonResponse(200, { success: true, revalidated, message: "FAQ dihapus" }, headers);
+    }
+
+    throw new HttpError(405, `Method ${method} not allowed`);
+  } catch (error) {
+    console.error("FAQ by id handler error:", error);
+    return errorResponse(toHttpError(error), headers);
+  }
+}
+
+export default handleFaqById;

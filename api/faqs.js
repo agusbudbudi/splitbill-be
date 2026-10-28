@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 
 import { connectDatabase } from "../lib/db.js";
 import Faq from "../lib/models/Faq.js";
+import AppFlag from "../lib/models/AppFlag.js";
 import {
   createCorsHeaders,
   errorResponse,
@@ -16,6 +17,25 @@ import { DEFAULT_FAQS, FAQ_CATEGORIES } from "../lib/faqDefaults.js";
 import { revalidateWeb } from "../lib/revalidateWeb.js";
 
 const ORDER_STEP = 10;
+const KEY_ATTEMPTS = 3;
+const CONFIGURED_FLAG = "faqsConfigured";
+
+/**
+ * Marks the FAQ CMS as in use. Persisted separately from the FAQs so that
+ * deleting every FAQ still reads as "intentionally empty" on the web instead
+ * of falling back to its static faqData.
+ */
+export async function markFaqsConfigured() {
+  await AppFlag.updateOne(
+    { key: CONFIGURED_FLAG },
+    { $set: { updatedAt: new Date() } },
+    { upsert: true },
+  );
+}
+
+async function isFaqsConfigured() {
+  return Boolean((await Faq.exists({})) || (await AppFlag.exists({ key: CONFIGURED_FLAG })));
+}
 
 // Every web FAQ fetch carries the "faqs" cache tag, and revalidating a tag also
 // refreshes the ISR pages built from it, so the backend doesn't need to know
@@ -95,7 +115,7 @@ export async function handleFaqs(event, action) {
       const faqs = await Faq.find({ isActive: true }).sort({ order: 1, createdAt: 1 }).lean();
       // `configured` tells the web an empty list is intentional (every FAQ
       // deactivated/deleted) rather than "CMS not set up, use static FAQs"
-      const configured = faqs.length > 0 || Boolean(await Faq.exists({}));
+      const configured = faqs.length > 0 || (await isFaqsConfigured());
       return jsonResponse(200, { success: true, data: faqs.map(toPublicFaq), configured }, headers);
     }
 
@@ -137,6 +157,7 @@ export async function handleFaqs(event, action) {
           },
         })),
       );
+      await markFaqsConfigured();
       const revalidated = await revalidateFaqPages();
       return jsonResponse(
         201,
@@ -180,13 +201,13 @@ export async function handleFaqs(event, action) {
     const body = await parseJsonBody(event);
     const fields = normalizeFaqInput(body);
     const last = await Faq.findOne({}).sort({ order: -1 }).select("order").lean();
-    const faq = await Faq.create({
+    const faq = await createWithUniqueKey({
       ...fields,
-      key: crypto.randomUUID().slice(0, 8),
       order: (last?.order || 0) + ORDER_STEP,
       createdBy: adminUser._id,
       updatedBy: adminUser._id,
     });
+    await markFaqsConfigured();
     const revalidated = await revalidateFaqPages();
     return jsonResponse(
       201,
@@ -196,6 +217,19 @@ export async function handleFaqs(event, action) {
   } catch (error) {
     console.error("FAQs handler error:", error);
     return errorResponse(toHttpError(error), headers);
+  }
+}
+
+// Random 12-hex keys; on the (unlikely) unique-index collision, retry with a
+// fresh key instead of surfacing a generic 500.
+async function createWithUniqueKey(fields) {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await Faq.create({ ...fields, key: crypto.randomUUID().replace(/-/g, "").slice(0, 12) });
+    } catch (error) {
+      const keyCollision = error?.code === 11000 && error?.keyPattern?.key;
+      if (!keyCollision || attempt >= KEY_ATTEMPTS) throw error;
+    }
   }
 }
 

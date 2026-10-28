@@ -1254,15 +1254,18 @@ export default function LandingPage() {
 
   const handleSave = async () => {
     setSaving(true);
+    // Snapshot what is being saved: edits typed while the request is in flight
+    // must survive the response (they stay unsaved/dirty instead of vanishing)
+    const sent = content;
     try {
       const res = await apiFetch("/api/landing-page", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content: sent, expectedUpdatedAt: meta.isDefault ? null : meta.updatedAt }),
       });
       const data = await res.json();
       if (data.success) {
-        setContent(data.data.content);
+        setContent((current) => (current === sent ? data.data.content : current));
         setSavedContent(data.data.content);
         setMeta({ updatedAt: data.data.updatedAt, isDefault: false });
         toast({ message: data.message, type: data.revalidated ? "success" : "warning" });

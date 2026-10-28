@@ -50,6 +50,9 @@ function withDefaults(content) {
  *   Not cached in memory: a per-instance cache could hand the post-save
  *   revalidate a stale copy, which the web would then hold for an hour.
  * PUT /api/landing-page — admin, replaces the whole content and goes live.
+ *   Body { content, expectedUpdatedAt }: the updatedAt the editor loaded (null
+ *   when it started from defaults). A mismatch means another admin saved in
+ *   between, so the request fails with 409 instead of overwriting their work.
  */
 export async function handleLandingPage(event) {
   const headers = createCorsHeaders(event);
@@ -84,12 +87,11 @@ export async function handleLandingPage(event) {
 
       const body = await parseJsonBody(event);
       const content = normalizeLandingContent(body?.content);
-
-      const doc = await LandingPage.findOneAndUpdate(
-        { slug: HOMEPAGE_SLUG },
-        { $set: { content, updatedAt: new Date(), updatedBy: adminUser._id } },
-        { new: true, upsert: true, setDefaultsOnInsert: true },
-      ).lean();
+      const doc = await saveIfUnchanged(body?.expectedUpdatedAt, {
+        content,
+        updatedAt: new Date(),
+        updatedBy: adminUser._id,
+      });
 
       const revalidated = await revalidateWeb({ paths: ["/"], tags: ["landing-page"] });
 
@@ -111,6 +113,34 @@ export async function handleLandingPage(event) {
   } catch (error) {
     console.error("Landing page handler error:", error);
     return errorResponse(toHttpError(error), headers);
+  }
+}
+
+const CONFLICT_MESSAGE =
+  "Landing page sudah diubah admin lain sejak kamu membukanya. Muat ulang halaman untuk melihat versi terbaru.";
+
+// Compare-and-swap on updatedAt. `expected` null/absent = the editor started
+// from defaults, so the document must not exist yet; the unique slug index
+// makes a concurrent first save fail instead of creating a duplicate.
+async function saveIfUnchanged(expected, fields) {
+  if (expected) {
+    const expectedDate = new Date(expected);
+    if (Number.isNaN(expectedDate.getTime())) {
+      throw new HttpError(400, "expectedUpdatedAt tidak valid");
+    }
+    const doc = await LandingPage.findOneAndUpdate(
+      { slug: HOMEPAGE_SLUG, updatedAt: expectedDate },
+      { $set: fields },
+      { new: true },
+    ).lean();
+    if (!doc) throw new HttpError(409, CONFLICT_MESSAGE);
+    return doc;
+  }
+  try {
+    return (await LandingPage.create({ slug: HOMEPAGE_SLUG, ...fields })).toObject();
+  } catch (error) {
+    if (error?.code === 11000) throw new HttpError(409, CONFLICT_MESSAGE);
+    throw error;
   }
 }
 

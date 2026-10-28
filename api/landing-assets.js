@@ -59,6 +59,7 @@ export async function handleUploadLandingAsset(event) {
     try {
       optimized = isOg ? await optimizeOgImage(input) : await optimizeLandingImage(input);
     } catch (sharpErr) {
+      if (sharpErr instanceof HttpError) throw sharpErr;
       // Corrupt/truncated files or non-image bytes behind an image MIME type
       console.error("Landing asset could not be decoded:", sharpErr);
       throw new HttpError(400, "File gambar rusak atau formatnya tidak didukung");
@@ -110,12 +111,9 @@ export async function handleGetLandingAsset(event, key) {
       throw new HttpError(404, "Gambar tidak ditemukan");
     }
 
-    let data = null;
-    try {
-      data = await getLandingAssetsStore().get(key, { type: "arrayBuffer" });
-    } catch (blobErr) {
-      console.error("Failed to read landing asset from blob store:", blobErr);
-    }
+    // A store error propagates as 5xx; only a missing key is a 404, so a Blobs
+    // outage doesn't make crawlers and the image optimizer drop live assets
+    const data = await getLandingAssetsStore().get(key, { type: "arrayBuffer" });
     if (!data) {
       throw new HttpError(404, "Gambar tidak ditemukan");
     }

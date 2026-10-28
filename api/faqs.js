@@ -11,28 +11,16 @@ import {
 } from "../lib/http.js";
 import { parseJsonBody, getQueryParams } from "../lib/parsers.js";
 import { HttpError, toHttpError } from "../lib/errors.js";
+import { text } from "../lib/validators.js";
 import { DEFAULT_FAQS, FAQ_CATEGORIES } from "../lib/faqDefaults.js";
 import { revalidateWeb } from "../lib/revalidateWeb.js";
 
 const ORDER_STEP = 10;
 
-// Every web page that renders FAQs. Must stay within the web's revalidate
-// allowlist (splitbill-web src/app/api/revalidate/route.ts).
-const FAQ_REVALIDATE = {
-  tags: ["faqs"],
-  paths: [
-    "/",
-    "/faq",
-    "/split-bill",
-    "/split-bill/cara-pakai",
-    "/split-later/cara-pakai",
-    "/split-bill-liburan",
-    "/shared-goals",
-    "/shared-goals/cara-pakai",
-    "/collect-money",
-    "/invoice",
-  ],
-};
+// Every web FAQ fetch carries the "faqs" cache tag, and revalidating a tag also
+// refreshes the ISR pages built from it, so the backend doesn't need to know
+// which web routes render FAQs.
+const FAQ_REVALIDATE = { tags: ["faqs"] };
 
 export function revalidateFaqPages() {
   return revalidateWeb(FAQ_REVALIDATE);
@@ -63,10 +51,7 @@ export function normalizeFaqInput(body, { partial = false } = {}) {
     ["answer", "Jawaban", 2000],
   ]) {
     if (!partial || has(field)) {
-      const value = typeof body?.[field] === "string" ? body[field].trim() : "";
-      if (!value) throw new HttpError(400, `${label} wajib diisi`);
-      if (value.length > max) throw new HttpError(400, `${label} maksimal ${max} karakter`);
-      out[field] = value;
+      out[field] = text(body?.[field], label, { required: true, max });
     }
   }
   if (!partial || has("category")) {
@@ -128,13 +113,28 @@ export async function handleFaqs(event, action) {
       if ((await Faq.countDocuments()) > 0) {
         throw new HttpError(409, "FAQ sudah ada, import default hanya untuk koleksi kosong");
       }
-      await Faq.insertMany(
+      // Upsert by key rather than insert: two concurrent imports (double
+      // click, two admins) can both pass the count check above, and the
+      // second must not duplicate FAQs or fail on the unique key.
+      const now = new Date();
+      await Faq.bulkWrite(
         DEFAULT_FAQS.map((faq, i) => ({
-          ...faq,
-          isActive: true,
-          order: (i + 1) * ORDER_STEP,
-          createdBy: adminUser._id,
-          updatedBy: adminUser._id,
+          updateOne: {
+            filter: { key: faq.key },
+            update: {
+              $setOnInsert: {
+                ...faq,
+                isActive: true,
+                order: (i + 1) * ORDER_STEP,
+                // Set explicitly: schema defaults aren't guaranteed on bulk upserts
+                createdAt: now,
+                updatedAt: now,
+                createdBy: adminUser._id,
+                updatedBy: adminUser._id,
+              },
+            },
+            upsert: true,
+          },
         })),
       );
       const revalidated = await revalidateFaqPages();

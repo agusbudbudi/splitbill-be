@@ -35,6 +35,12 @@ const MAX_TRUST_ITEMS = 3;
 // Files above this are re-encoded in the browser first so the base64 body
 // stays under the API's 4MB image limit.
 const COMPRESS_ABOVE_BYTES = 2.5 * 1024 * 1024;
+// Server limit for an upload (validateBase64ImageSize, MAX_IMAGE_SIZE_MB)
+const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+
+// Visible characters (graphemes), the same count the server's length limits use
+const graphemes = new Intl.Segmenter("id", { granularity: "grapheme" });
+const charCount = (value) => [...graphemes.segment(value || "")].length;
 
 // In page order. `sections` lists the content keys a tab edits (defaults to
 // [key]); `focus` is the section the phone preview scrolls to.
@@ -112,7 +118,7 @@ function readAsDataUrl(file) {
 // ── Field components ────────────────────────────────────────────────────────
 
 function Field({ label, hint, required, max, value, onChange, multiline, placeholder, rows = 3 }) {
-  const length = (value || "").length;
+  const length = charCount(value);
   const Tag = multiline ? "textarea" : "input";
   return (
     <div>
@@ -231,8 +237,17 @@ function ImageField({ label, hint, value, onChange, withAlt = true, required = t
     track(1);
     try {
       const dataUrl =
-        file.size > COMPRESS_ABOVE_BYTES ? await compressImage(file, 2000, 0.85) : await readAsDataUrl(file);
+        // WebP for transparent images: lossless PNG output can stay over the limit
+        file.size > COMPRESS_ABOVE_BYTES ? await compressImage(file, 2000, 0.85, "image/webp") : await readAsDataUrl(file);
       const [, mimeType, base64Image] = dataUrl.match(/^data:([^;]+);base64,(.*)$/) || [];
+      const sizeBytes = ((base64Image || "").length * 3) / 4;
+      if (sizeBytes > MAX_UPLOAD_BYTES) {
+        toast({
+          message: `Gambar masih ${(sizeBytes / 1024 / 1024).toFixed(1)}MB setelah dikompres (maks 4MB). Perkecil resolusinya dulu.`,
+          type: "warning",
+        });
+        return;
+      }
       const res = await apiFetch("/api/landing-assets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1311,7 +1326,8 @@ export default function LandingPage() {
           <Button
             icon={<Save className="h-4 w-4" />}
             loading={saving}
-            disabled={saving || !isDirty}
+            // An in-flight upload would publish the old image URL
+            disabled={saving || !isDirty || uploading > 0}
             onClick={handleSave}
           >
             {saving ? "Menyimpan..." : "Simpan & Live"}

@@ -149,5 +149,5 @@ Account lockout: 5 failed login attempts → 15-minute lock (`User.incLoginAttem
 
 1. Create `api/<resource>.js` with a default export `async function handle<Resource>(event, context)`
 2. Import and register it in `netlify/functions/api.js` with a routing condition
-3. Always: call `createCorsHeaders(event)`, handle OPTIONS early, call `connectDatabase()`, use `requireUser`/`requireAdmin` as needed
+3. Always: call `createCorsHeaders(event)`, handle OPTIONS early, call `connectDatabase()`, use `requireUser`/`requireAdmin` as needed (exception: public handlers that only read Netlify Blobs, e.g. `GET /api/landing-assets/:key`, skip `connectDatabase()`)
 4. Throw `HttpError` for validation/auth errors; wrap catch blocks with `toHttpError`

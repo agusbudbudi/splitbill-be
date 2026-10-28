@@ -342,6 +342,26 @@ export async function handler(event, context) {
       }
     }
 
+    if (resource === "landing-page" && !subresource && rest.length === 0) {
+      const { handleLandingPage } = await import("../../api/landing-page.js");
+      return handleLandingPage(event, context);
+    }
+
+    if (resource === "landing-assets" && rest.length === 0) {
+      const { default: handleLandingAssets } = await import("../../api/landing-assets.js");
+      return handleLandingAssets(event, subresource);
+    }
+
+    if (resource === "faqs" && rest.length === 0) {
+      // /api/faqs, /api/faqs/import-defaults, /api/faqs/reorder → collection actions
+      if (!subresource || subresource === "import-defaults" || subresource === "reorder") {
+        const { handleFaqs } = await import("../../api/faqs.js");
+        return handleFaqs(event, subresource || null, context);
+      }
+      const { handleFaqById } = await import("../../api/faq-by-id.js");
+      return handleFaqById(event, subresource, context);
+    }
+
     if (resource === "levels") {
       if (!subresource && rest.length === 0) {
         const { handleLevels } = await import("../../api/levels/index.js");

@@ -4,9 +4,12 @@
  * @param {File} file - The image file to compress.
  * @param {number} maxWidth - The maximum width of the output image. Defaults to 1200px.
  * @param {number} quality - The quality of the output image (0 to 1). Defaults to 0.8.
+ * @param {string} alphaType - Output type for images that use transparency. Defaults to
+ *   lossless "image/png"; "image/webp" keeps alpha at a fraction of the size (browsers
+ *   that can't encode WebP fall back to PNG).
  * @returns {Promise<string>} - A promise that resolves to the base64 string of the compressed image.
  */
-export const compressImage = (file, maxWidth = 1080, quality = 0.8) => {
+export const compressImage = (file, maxWidth = 1080, quality = 0.8, alphaType = "image/png") => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -41,7 +44,7 @@ export const compressImage = (file, maxWidth = 1080, quality = 0.8) => {
             break;
           }
         }
-        const outputType = hasTransparency ? "image/png" : "image/jpeg";
+        const outputType = hasTransparency ? alphaType : "image/jpeg";
 
         const dataUrl = canvas.toDataURL(outputType, quality);
         resolve(dataUrl);

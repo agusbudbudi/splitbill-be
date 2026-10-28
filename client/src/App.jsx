@@ -24,6 +24,8 @@ import EntryPoints from "./pages/EntryPoints";
 import EntryPointDetail from "./pages/EntryPointDetail";
 import UserLevels from "./pages/UserLevels";
 import UserLevelDetail from "./pages/UserLevelDetail";
+import LandingPage from "./pages/LandingPage";
+import Faqs from "./pages/Faqs";
 
 function App() {
   return (
@@ -59,6 +61,8 @@ function App() {
           <Route path="/user-levels" element={<UserLevels />} />
           <Route path="/user-levels/new" element={<UserLevelDetail />} />
           <Route path="/user-levels/:id" element={<UserLevelDetail />} />
+          <Route path="/landing-page" element={<LandingPage />} />
+          <Route path="/faqs" element={<Faqs />} />
         </Route>
       </Route>
 

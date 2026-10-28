@@ -210,7 +210,7 @@ function TonePicker({ label = "Warna", value, onChange }) {
 // ItemCard disables those buttons while this is non-zero.
 const UploadContext = createContext({ uploading: 0, track: () => {} });
 
-function ImageField({ label, hint, value, onChange, withAlt = true, variant }) {
+function ImageField({ label, hint, value, onChange, withAlt = true, required = true, variant }) {
   const toast = useToast();
   const fileRef = useRef(null);
   const [uploading, setUploading] = useState(false);
@@ -257,7 +257,7 @@ function ImageField({ label, hint, value, onChange, withAlt = true, variant }) {
   return (
     <div className="space-y-2">
       <label className={labelClass}>
-        {label} <span className="text-destructive">*</span>
+        {label} {required && <span className="text-destructive">*</span>}
         {hint && <span className="text-xs text-muted-foreground font-normal ml-1">— {hint}</span>}
       </label>
       <div className="flex gap-3">
@@ -493,14 +493,14 @@ function HeroForm({ value, set }) {
         required
         multiline
         rows={3}
-        hint="Enter = pindah baris (desktop). Taruh keyword utama di sini"
+        hint="judul mengalir otomatis (Enter diabaikan), maks ±2 baris di desktop. Taruh keyword utama di sini"
         max={100}
         value={value.title}
         onChange={(v) => set(["title"], v)}
       />
       <Field
         label="Title highlight"
-        hint="teks biru di baris terakhir"
+        hint="teks biru, menyambung di akhir judul"
         max={40}
         value={value.titleHighlight}
         onChange={(v) => set(["titleHighlight"], v)}
@@ -551,6 +551,14 @@ function HeroForm({ value, set }) {
         hint="gambar utama (LCP), WebP/PNG ±1440px, transparan oke"
         value={value.image}
         onChange={(v) => set(["image"], v)}
+      />
+      <ImageField
+        label="Hero image mobile"
+        hint="opsional, khusus layar HP. Kosongkan URL untuk pakai hero image di atas. Alt text ikut hero image"
+        required={false}
+        withAlt={false}
+        value={value.imageMobile}
+        onChange={(v) => set(["imageMobile"], v)}
       />
     </div>
   );

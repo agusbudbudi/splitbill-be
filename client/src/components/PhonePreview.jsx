@@ -19,6 +19,19 @@ const PREVIEW_SOURCE = "splitbill-preview";
 const SEND_DEBOUNCE_MS = 200;
 const READY_TIMEOUT_MS = 12000;
 
+// Origins the preview may legitimately announce itself from: the configured
+// src's origin, plus its www/apex twin (the web may redirect between them).
+// Anything else (the iframe navigated away) never receives unsaved drafts.
+function allowedPreviewOrigins(src) {
+  try {
+    const { protocol, host } = new URL(src, window.location.href);
+    const twin = host.startsWith("www.") ? host.slice(4) : `www.${host}`;
+    return new Set([`${protocol}//${host}`, `${protocol}//${twin}`]);
+  } catch {
+    return new Set();
+  }
+}
+
 /**
  * Renders splitbill-web's /preview/landing (the real homepage components) in an
  * iPhone-sized iframe and streams unsaved CMS content into it via postMessage.
@@ -63,13 +76,20 @@ export default function PhonePreview({ src, content, focusSection, topOffset = 9
     win.postMessage({ source: CMS_SOURCE, ...message }, targetOriginRef.current);
   };
 
-  // Handshake: the preview announces itself; its origin becomes the only
-  // target content is posted to (the page may have redirected, e.g. to www).
+  // Handshake: the preview announces itself; its origin — if it is one of the
+  // expected preview origins — becomes the only target content is posted to.
   useEffect(() => {
     targetOriginRef.current = null;
+    const allowedOrigins = allowedPreviewOrigins(src);
     const onMessage = (event) => {
       if (event.source !== iframeRef.current?.contentWindow) return;
       if (event.data?.source !== PREVIEW_SOURCE || event.data?.type !== "landing:ready") return;
+      if (!allowedOrigins.has(event.origin)) {
+        // Otherwise a preview URL that redirects elsewhere only shows up as a
+        // generic "failed" after the ready timeout
+        console.warn(`Landing preview: ignored ready message from unexpected origin ${event.origin}`);
+        return;
+      }
       targetOriginRef.current = event.origin;
       setStatus("ready");
     };

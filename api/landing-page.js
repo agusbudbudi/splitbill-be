@@ -86,7 +86,12 @@ export async function handleLandingPage(event) {
       const adminUser = await requireAdmin(event);
 
       const body = await parseJsonBody(event);
-      const content = normalizeLandingContent(body?.content);
+      // A CMS bundle predating compare-and-swap omits the field entirely; it
+      // would otherwise always read as a "first save" and get a misleading 409.
+      if (!body || !("expectedUpdatedAt" in body)) {
+        throw new HttpError(400, "Versi editor kedaluwarsa. Muat ulang halaman admin lalu simpan lagi.");
+      }
+      const content = normalizeLandingContent(body.content);
       const doc = await saveIfUnchanged(body?.expectedUpdatedAt, {
         content,
         updatedAt: new Date(),
@@ -119,9 +124,10 @@ export async function handleLandingPage(event) {
 const CONFLICT_MESSAGE =
   "Landing page sudah diubah admin lain sejak kamu membukanya. Muat ulang halaman untuk melihat versi terbaru.";
 
-// Compare-and-swap on updatedAt. `expected` null/absent = the editor started
-// from defaults, so the document must not exist yet; the unique slug index
-// makes a concurrent first save fail instead of creating a duplicate.
+// Compare-and-swap on updatedAt. `expected` null = the editor started from
+// defaults, so the document must not exist yet; the unique slug index makes a
+// concurrent first save fail instead of creating a duplicate. A stored doc
+// without updatedAt (GET reports null for it) is matched on that null instead.
 async function saveIfUnchanged(expected, fields) {
   if (expected) {
     const expectedDate = new Date(expected);
@@ -139,9 +145,15 @@ async function saveIfUnchanged(expected, fields) {
   try {
     return (await LandingPage.create({ slug: HOMEPAGE_SLUG, ...fields })).toObject();
   } catch (error) {
-    if (error?.code === 11000) throw new HttpError(409, CONFLICT_MESSAGE);
-    throw error;
+    if (error?.code !== 11000) throw error;
   }
+  const doc = await LandingPage.findOneAndUpdate(
+    { slug: HOMEPAGE_SLUG, updatedAt: null },
+    { $set: fields },
+    { new: true },
+  ).lean();
+  if (!doc) throw new HttpError(409, CONFLICT_MESSAGE);
+  return doc;
 }
 
 export default handleLandingPage;

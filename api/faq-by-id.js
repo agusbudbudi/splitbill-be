@@ -48,7 +48,9 @@ export async function handleFaqById(event, id) {
 
     if (method === "DELETE") {
       // Before deleting: once the last FAQ is gone the flag is what keeps the
-      // web from bringing back its static FAQs
+      // web from bringing back its static FAQs. Only for an existing FAQ, so a
+      // 404 delete can't hide the static FAQs on a never-configured setup.
+      if (!(await Faq.exists({ _id: id }))) throw new HttpError(404, "FAQ tidak ditemukan");
       await markFaqsConfigured();
       const faq = await Faq.findByIdAndDelete(id).lean();
       if (!faq) throw new HttpError(404, "FAQ tidak ditemukan");

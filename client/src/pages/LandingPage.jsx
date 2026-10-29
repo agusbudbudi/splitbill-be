@@ -1257,12 +1257,29 @@ export default function LandingPage() {
     // Snapshot what is being saved: edits typed while the request is in flight
     // must survive the response (they stay unsaved/dirty instead of vanishing)
     const sent = content;
-    try {
-      const res = await apiFetch("/api/landing-page", {
+    const put = (expectedUpdatedAt) =>
+      apiFetch("/api/landing-page", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: sent, expectedUpdatedAt: meta.isDefault ? null : meta.updatedAt }),
+        body: JSON.stringify({ content: sent, expectedUpdatedAt }),
       });
+    try {
+      let res = await put(meta.isDefault ? null : meta.updatedAt);
+      // Another admin saved since load: reloading would throw away these
+      // edits, so offer an explicit overwrite against their latest version.
+      if (
+        res.status === 409 &&
+        window.confirm(
+          "Landing page sudah diubah admin lain sejak kamu membukanya.\n\n" +
+            "OK = timpa dengan versi kamu (perubahan mereka hilang).\n" +
+            "Batal = jangan simpan; editanmu tetap ada di halaman ini.",
+        )
+      ) {
+        const latest = await (await apiFetch("/api/landing-page")).json();
+        if (latest.success) {
+          res = await put(latest.data.isDefault ? null : latest.data.updatedAt);
+        }
+      }
       const data = await res.json();
       if (data.success) {
         setContent((current) => (current === sent ? data.data.content : current));

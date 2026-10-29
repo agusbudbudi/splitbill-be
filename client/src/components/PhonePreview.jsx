@@ -83,8 +83,13 @@ export default function PhonePreview({ src, content, focusSection, topOffset = 9
     const allowedOrigins = allowedPreviewOrigins(src);
     const onMessage = (event) => {
       if (event.source !== iframeRef.current?.contentWindow) return;
-      if (!allowedOrigins.has(event.origin)) return;
       if (event.data?.source !== PREVIEW_SOURCE || event.data?.type !== "landing:ready") return;
+      if (!allowedOrigins.has(event.origin)) {
+        // Otherwise a preview URL that redirects elsewhere only shows up as a
+        // generic "failed" after the ready timeout
+        console.warn(`Landing preview: ignored ready message from unexpected origin ${event.origin}`);
+        return;
+      }
       targetOriginRef.current = event.origin;
       setStatus("ready");
     };

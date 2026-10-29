@@ -34,7 +34,8 @@ export async function markFaqsConfigured() {
 }
 
 async function isFaqsConfigured() {
-  return Boolean((await Faq.exists({})) || (await AppFlag.exists({ key: CONFIGURED_FLAG })));
+  const [faq, flag] = await Promise.all([Faq.exists({}), AppFlag.exists({ key: CONFIGURED_FLAG })]);
+  return Boolean(faq || flag);
 }
 
 // Every web FAQ fetch carries the "faqs" cache tag, and revalidating a tag also
@@ -207,7 +208,10 @@ export async function handleFaqs(event, action) {
       createdBy: adminUser._id,
       updatedBy: adminUser._id,
     });
-    await markFaqsConfigured();
+    // Best-effort: the FAQ just created already makes the list "configured",
+    // so a failed flag write must not turn this create into a 500 (and a
+    // duplicate on retry). DELETE sets the flag again before it is needed.
+    await markFaqsConfigured().catch((error) => console.error("markFaqsConfigured failed:", error));
     const revalidated = await revalidateFaqPages();
     return jsonResponse(
       201,

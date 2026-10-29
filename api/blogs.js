@@ -8,6 +8,13 @@ import {
 } from "../lib/http.js";
 import { getQueryParams, parseJsonBody } from "../lib/parsers.js";
 import { HttpError, toHttpError } from "../lib/errors.js";
+import { revalidateWeb } from "../lib/revalidateWeb.js";
+
+// Every web blog list (/blog, category, tag, related posts, sitemap) reads one
+// snapshot cached under this tag, so a save refreshes them all at once.
+export function revalidateBlogPages() {
+  return revalidateWeb({ tags: ["blogs"] });
+}
 
 /**
  * Converts a title string to a URL-friendly slug.
@@ -96,7 +103,9 @@ async function getBlogs(event, headers) {
 
   const [blogs, total] = await Promise.all([
     Blog.find(filter)
-      .sort({ publishedAt: -1, createdAt: -1 })
+      // _id tiebreaker: equal dates must not shuffle across pages, or the web's
+      // page-by-page walk would skip a post
+      .sort({ publishedAt: -1, createdAt: -1, _id: -1 })
       .skip(skip)
       .limit(limitNum)
       .select("-content"), // Exclude full content for list view (performance)
@@ -176,7 +185,8 @@ async function createBlog(event, headers) {
     updatedBy: adminUser?._id || null,
   });
 
-  return jsonResponse(201, { success: true, data: blog }, headers);
+  const revalidated = await revalidateBlogPages();
+  return jsonResponse(201, { success: true, data: blog, revalidated }, headers);
 }
 
 export default handleBlogs;

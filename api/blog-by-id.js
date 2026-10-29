@@ -9,7 +9,7 @@ import {
 } from "../lib/http.js";
 import { parseJsonBody } from "../lib/parsers.js";
 import { HttpError, toHttpError } from "../lib/errors.js";
-import { generateSlug, estimateReadTime } from "./blogs.js";
+import { generateSlug, estimateReadTime, revalidateBlogPages } from "./blogs.js";
 
 export async function handleBlogById(event, idOrSlug) {
   const headers = createCorsHeaders(event);
@@ -142,16 +142,18 @@ async function updateBlog(event, id, headers) {
 
   await blog.save();
 
-  return jsonResponse(200, { success: true, data: blog }, headers);
+  const revalidated = await revalidateBlogPages();
+  return jsonResponse(200, { success: true, data: blog, revalidated }, headers);
 }
 
 async function deleteBlog(event, id, headers) {
   const blog = await Blog.findByIdAndDelete(id);
   if (!blog) throw new HttpError(404, "Blog not found");
 
+  const revalidated = await revalidateBlogPages();
   return jsonResponse(
     200,
-    { success: true, message: "Artikel berhasil dihapus" },
+    { success: true, message: "Artikel berhasil dihapus", revalidated },
     headers,
   );
 }

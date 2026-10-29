@@ -92,7 +92,7 @@ Account lockout: 5 failed login attempts → 15-minute lock (`User.incLoginAttem
 | `FRONTEND_URL` | Frontend origin (default: `https://splitbill.my.id`) |
 | `ALLOWED_ORIGINS` | Comma-separated CORS allowed origins |
 | `NODE_ENV` | `production` enables HSTS, generic 5xx errors, JSON log format |
-| `WEB_REVALIDATE_URL` | splitbill-web revalidate endpoint (e.g. `https://www.splitbill.my.id/api/revalidate`), called after a landing page save |
+| `WEB_REVALIDATE_URL` | splitbill-web revalidate endpoint (e.g. `https://www.splitbill.my.id/api/revalidate`), called after a landing page, FAQ or blog save (blogs: `blogs` tag) |
 | `REVALIDATE_SECRET` | Shared secret sent as `x-revalidate-secret`; must match the same var on splitbill-web |
 
 ## API Route Map

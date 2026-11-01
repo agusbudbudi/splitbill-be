@@ -69,7 +69,7 @@ export async function handleOrderById(event, id, context) {
 
 async function createOrder(event, headers) {
   const body = await parseJsonBody(event);
-  const { referenceId, type } = body;
+  const { referenceId, type, gaClientId } = body;
   const user = event.user;
 
   if (!referenceId || !type) {
@@ -163,6 +163,7 @@ async function createOrder(event, headers) {
       amount,
       expiresAt,
       qrisData: resData.payment,
+      gaClientId: /^\d+\.\d+$/.test(gaClientId) ? gaClientId : undefined,
     });
 
     await order.save();

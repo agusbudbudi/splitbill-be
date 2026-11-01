@@ -92,6 +92,8 @@ Account lockout: 5 failed login attempts → 15-minute lock (`User.incLoginAttem
 | `FRONTEND_URL` | Frontend origin (default: `https://splitbill.my.id`) |
 | `ALLOWED_ORIGINS` | Comma-separated CORS allowed origins |
 | `NODE_ENV` | `production` enables HSTS, generic 5xx errors, JSON log format |
+| `GA_MEASUREMENT_ID` | GA4 measurement ID for the server-side `purchase` event sent from the Pakasir webhook |
+| `GA_API_SECRET` | GA4 Measurement Protocol API secret; the event is skipped when this or the ID is missing |
 | `WEB_REVALIDATE_URL` | splitbill-web revalidate endpoint (e.g. `https://www.splitbill.my.id/api/revalidate`), called after a landing page, FAQ or blog save (blogs: `blogs` tag) |
 | `REVALIDATE_SECRET` | Shared secret sent as `x-revalidate-secret`; must match the same var on splitbill-web |
 

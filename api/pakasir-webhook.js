@@ -10,6 +10,7 @@ import {
 } from "../lib/http.js";
 import { parseJsonBody } from "../lib/parsers.js";
 import { toHttpError } from "../lib/errors.js";
+import { sendPurchaseEvent } from "../lib/ga4.js";
 
 dotenv.config();
 
@@ -145,6 +146,14 @@ export default async function handlePakasirWebhook(event, context) {
 
         await session.commitTransaction();
         session.endSession();
+
+        if (!order.isSandbox) {
+          try {
+            await sendPurchaseEvent(order);
+          } catch (gaErr) {
+            console.error("Failed to send GA4 purchase event:", gaErr);
+          }
+        }
 
         // ✅ SHOULD DO: Send confirmation email
         if (order.type === "subscription") {
